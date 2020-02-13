@@ -1357,33 +1357,30 @@ class Redemption {
             }
         })
 
-        this.signedTransaction = this.unsignedTransaction.then(async (unsignedTransaction) => {
-            const {
-                r,
-                s,
-                recoveryID,
-                digest,
-            } = await getEvent(
-                    this.deposit.keepContract,
-                    'SignatureSubmitted',
-                    { digest: details.digest },
-                )
+        this.signedTransaction = this.unsignedTransactionDetails.then(async (unsignedTransactionDetails) => {
+            console.debug(
+                `Looking up latest redemption details for deposit ` +
+                `${this.deposit.address}...`
+            )
+            const redemptionDigest = (await this.redemptionDetails).digest
+
+            console.debug(
+                `Finding or waiting for transaction signature for deposit ` +
+                `${this.deposit.address}...`
+            )
+            const signatureEvent = await getEvent(
+                this.deposit.keepContract,
+                'SignatureSubmitted',
+                { digest: redemptionDigest },
+            )
+            const { r, s } = signatureEvent.args
             const publicKeyPoint = await this.deposit.publicKeyPoint
 
-            const hexToBytes = this.deposit.factory.config.web3.utils.hexToBytes
-            const toBN = this.deposit.factory.config.web3.utils.toBN
-            const signature = {
-                r: Buffer.from(hexToBytes(r)),
-                s: Buffer.from(hexToBytes(s)),
-                recoveryID: toBN(recoveryID),
-                digest: Buffer.from(hexToBytes(digest)),
-            }
-
             const signedTransaction = BitcoinHelpers.Transaction.addWitnessSignature(
-                unsignedTransaction,
+                unsignedTransactionDetails.hex,
                 0,
-                signature.r,
-                signature.s,
+                r.replace('0x', ''),
+                s.replace('0x', ''),
                 BitcoinHelpers.publicKeyPointToPublicKeyString(
                     publicKeyPoint.x,
                     publicKeyPoint.y,
