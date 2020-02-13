@@ -269,7 +269,10 @@ export default class Deposit {
                 `Submitting funding proof to deposit ${this.address} for ` +
                 `Bitcoin transaction ${tx.transactionID}...`
             )
-            this.submitFundingProof(tx, confirmations)
+
+            const proofArgs = await this.constructFundingProof(tx, confirmations)
+            proofArgs.push({ from: this.factory.config.web3.eth.defaultAccount })
+            this.contract.provideBTCFundingProof.apply(this.contract, proofArgs)
         })
     }
 
@@ -482,12 +485,29 @@ export default class Deposit {
         )
     }
 
-    async submitFundingProof(transaction, confirmations) {
-        const { transactionID, outputPosition } = transaction
+    // Given a Bitcoin transaction and the number of confirmations it has,
+    // constructs an SPV proof and returns the raw parameters that would be
+    // given to an on-chain contract.
+    //
+    // These are:
+    // - version
+    // - txInVector
+    // - txOutVector
+    // - locktime
+    // - outputPosition
+    // - merkleProof
+    // - txInBlockIndex
+    // - chainHeaders
+    //
+    // Constructed this way to serve both qualify + mint and simple
+    // qualification flows.
+    async constructFundingProof(bitcoinTransaction, confirmations, handlerFn) {
+        const { transactionID, outputPosition } = bitcoinTransaction
         const {
             tx,
             merkleProof,
             chainHeaders,
+            txInBlockIndex,
         } = await BitcoinHelpers.Transaction.getProof(transactionID, confirmations)
 
         const {
@@ -497,17 +517,16 @@ export default class Deposit {
             locktime,
         } = BitcoinTxParser.parse(tx)
 
-        console.log("Submitting proof........")
-        return await this.contract.provideBTCFundingProof(
+        return [
             Buffer.from(version, 'hex'),
             Buffer.from(txInVector, 'hex'),
             Buffer.from(txOutVector, 'hex'),
             Buffer.from(locktime, 'hex'),
             outputPosition,
             Buffer.from(merkleProof, 'hex'),
-            proof.txInBlockIndex,
+            txInBlockIndex,
             Buffer.from(chainHeaders, 'hex'),
-        )
+        ]
     }
 }
 
