@@ -10,6 +10,8 @@ const provider = new HDWalletProvider(
 )
 
 const depositAddress = "0xb35671830Ee9E6651D1486b32279FB144D449c94"
+// const depositAddress = "0x89A2FBB780BFEa3aC4bC4Fed2b6147dEeB66BD58"
+const redeemerAddress = "tb1qdajvg4waymq604gpfvjdvpxyd2hc4yd3u4lse5"
 
 async function runExample() {
     const web3 = new Web3(provider)
@@ -23,10 +25,18 @@ async function runExample() {
     const DepositFactory = await tbtc.DepositFactory
 
     const deposit = await DepositFactory.withAddress(depositAddress)
+    // deposit.autoSubmit()
+    // return await new Promise((resolve) => {
+    //     deposit.onActive(async () => {
+    //         await deposit.mintTBTC()
+    //         resolve()
+    //     })
+    // })
     // console.log("Minted!", await deposit.qualifyAndMintTBTC())
-    console.log("Minted!", await deposit.mintTBTC())
+    // console.log("Minted!", await deposit.mintTBTC())
     // console.log("Redemption!", (await deposit.getRedemptionCost()).toString())
     // console.log("Redemption!", (await deposit.getRedemptionCost()).toString())
+    // console.log("Redemption!", await (await deposit.requestRedemption(redeemerAddress)).signedTransaction)
     // const lotSizes = await DepositFactory.availableSatoshiLotSizes()
 
     // console.log("Initiating deposit...")
@@ -42,27 +52,20 @@ async function runExample() {
     //     // call cancelAutoMonitor to manage your own BTC lifecycle if preferred
     // })
 
-    // return await new Promise((resolve, reject) => {
-    //     console.log("Waiting for active deposit...")
-    //     try {
-    //         deposit.onActive(async () => {
-    //             console.log("Wrapped it, let's go...")
-    //             await deposit.mintTBTC()
-    //             resolve()
-    //             // or
-    //             // (await deposit.getTDT()).transfer(someLuckyContract)
+    return await new Promise(async (resolve) => {
+        console.log("Redemption!")
+        
+        const redemption = await deposit.getCurrentRedemption(redeemerAddress)
+        redemption.autoSubmit()
+        redemption.onWithdrawn((transactionID) => {
+            console.log(
+                `Redeemed deposit ${deposit.address} with Bitcoin transaction ` +
+                `${transactionID}.`
+            )
 
-    //             // later…
-
-    //             //   (await deposit.requestRedemption("tb....")).autoSubmit()
-    //             //     .onWithdrawn((txHash) => {
-    //             //       // all done!
-    //             //     })
-    //         })
-    //     } catch (error) {
-    //         reject(error)
-    //     }
-    // })
+            resolve()
+        })
+    })
 }
 
 runExample()
