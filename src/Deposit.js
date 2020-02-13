@@ -1,5 +1,6 @@
-import TruffleContract from "truffle-contract"
+import TruffleContract from "@truffle/contract"
 
+import TBTCConstantsJSON from "@keep-network/tbtc/artifacts/TBTCConstants.json"
 import TBTCSystemJSON from "@keep-network/tbtc/artifacts/TBTCSystem.json"
 import TBTCDepositTokenJSON from "@keep-network/tbtc/artifacts/TBTCDepositToken.json"
 import DepositJSON from "@keep-network/tbtc/artifacts/Deposit.json"
@@ -7,6 +8,7 @@ import DepositFactoryJSON from "@keep-network/tbtc/artifacts/DepositFactory.json
 import TBTCTokenJSON from "@keep-network/tbtc/artifacts/TBTCToken.json"
 import FeeRebateTokenJSON from "@keep-network/tbtc/artifacts/FeeRebateToken.json"
 import VendingMachineJSON from "@keep-network/tbtc/artifacts/VendingMachine.json"
+const TBTCConstants = TruffleContract(TBTCConstantsJSON)
 const TBTCSystemContract = TruffleContract(TBTCSystemJSON)
 const TBTCDepositTokenContract = TruffleContract(TBTCDepositTokenJSON)
 const DepositContract = TruffleContract(DepositJSON)
@@ -18,6 +20,7 @@ const VendingMachineContract = TruffleContract(VendingMachineJSON)
 export class DepositFactory {
     config/*: TBTCConfig*/;
 
+    constants/*: any */;
     systemContract/*: any*/;
     tokenContract/*: any */;
     depositTokenContract/*: any*/;
@@ -28,7 +31,7 @@ export class DepositFactory {
 
     static async withConfig(config/*: TBTCConfig)*/)/*: Promise<DepositFactory>*/ {
         const statics = new DepositFactory(config)
-        await statics.resolveContracts()
+        const result = await statics.resolveContracts()
 
         return statics
     }
@@ -73,6 +76,7 @@ export class DepositFactory {
         }
 
         const contracts = [
+            [TBTCConstants, 'constants'],
             [TBTCSystemContract, 'systemContract'],
             [TBTCTokenContract, 'tokenContract'],
             [TBTCDepositTokenContract, 'depositTokenContract'],
@@ -89,6 +93,13 @@ export class DepositFactory {
      * INTERNAL USE ONLY
      */
     async createNewDepositContract(lotSize/*: BN */) {
+        const funderBondAmount = await this.constants.getFunderBondAmount()
+        const accountBalance = await this.config.web3.eth.getBalance(this.config.web3.eth.defaultAccount)
+        if (funderBondAmount.lt(accountBalance)) {
+            throw `Insufficient balance ${accountBalance.toString()} to open ` +
+                `deposit (required: ${funderBondAmount.toString()}).`
+        }
+
         const result = await this.depositFactoryContract.createDeposit(
             this.systemContract.address,
             this.tokenContract.address,
@@ -99,18 +110,19 @@ export class DepositFactory {
             1,
             lotSize,
             {
-              from: '0x16B129aeDE8eF971DC692e1AbC7cF2921757558a',
+                from: this.config.web3.eth.defaultAccount,
+                value: funderBondAmount,
             }
         )
 
         const cloneEvent = result.logs.find((log) => {
-            log.event == 'DepositCloneCreated' &&
+            return log.event == 'DepositCloneCreated' &&
                 log.address == this.depositFactoryContract.address
         })
         if (! cloneEvent) {
             throw new Error(
                 `Transaction failed to include deposit creation event. ` +
-                `Transaction was: ${result}.`
+                `Transaction was: ${JSON.stringify(result)}.`
             )
         }
 
@@ -137,7 +149,7 @@ export default class Deposit {
     activeHandlers/*: ActiveHandler[]*/;
 
     static async forLotSize(factory/*: DepositFactory*/, lotSize/*: BN*/)/*: Promise<Deposit>*/ {
-        const contract = await factory.createNewDepositContract(lotSize)
+        const address = await factory.createNewDepositContract(lotSize)
 
         return new Deposit(factory, address)
     }
