@@ -1504,7 +1504,7 @@ class Redemption {
     }
 
     onBitcoinTransactionSigned(transactionHandler/*: (transaction)=>void*/) {
-
+        this.signedTransaction.then(transactionHandler)
     }
 
     onWithdrawn(withdrawalHandler/*: (txHash)=>void*/) { // bitcoin txHash
