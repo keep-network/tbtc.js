@@ -498,16 +498,76 @@ export default class Deposit {
         }
     }
 
-    async requestRedemption(redeemerScript/*: string /* bitcoin address script */)/*: Redemption*/ {
-        if (await this.getOwner() != this.factory.config.web3.eth.defaultAccount &&
-                ! await this.inVendingMachine()) {
+    async requestRedemption(redeemerAddress/*: string /* bitcoin address */)/*: Redemption*/ {
+        const inVendingMachine = await this.inVendingMachine()
+        const thisAccount = this.factory.config.web3.eth.defaultAccount
+        const belongsToThisAccount = (await this.getOwner()) == thisAccount
+
+        if (! inVendingMachine || ! belongsToThisAccount) {
             throw new Error(
                 `Redemption is currently only supported for deposits owned by` +
-                `this account or the tBTC Vending Machine.`
+                `this account (${thisAccount}) or the tBTC Vending Machine.`
             )
         }
 
-        return new Redemption(this, redeemerScript)
+        const redeemerPKH = BitcoinHelpers.Address.pubKeyHashFrom(redeemerAddress)
+        if (redeemerPKH === null) {
+            throw new Error(
+                `${redeemerAddress} is not a P2WPKH address. Currently only ` +
+                `P2WPKH addresses are supported for redemption.`
+            )
+        }
+
+        const toBN = this.factory.config.web3.utils.toBN
+        console.debug(
+            `Looking up UTXO size and transaction fee for redemption transaction...`,
+        )
+        const transactionFee = await BitcoinHelpers.Transaction.estimateFee(
+            this.factory.constantsContract,
+        )
+        const utxoSize = await this.contract.utxoSize()
+        const outputValue = toBN(utxoSize).sub(toBN(transactionFee))
+        const outputValueBytes = outputValue.toArrayLike(Buffer, 'le', 8)
+
+        const redemptionCost = await this.getRedemptionCost()
+        if (inVendingMachine) {
+            console.debug(
+                `Approving transfer of ${redemptionCost} to the vending machine....`,
+            )
+            this.factory.tokenContract.approve(
+                this.factory.vendingMachineContract.address,
+                redemptionCost,
+            )
+
+            console.debug(
+                `Initiating redemption of deposit ${this.address} from ` +
+                `vending machine...`,
+            )
+            await this.factory.vendingMachine.tbtcToBtc(
+                this.address,
+                outputValueBytes,
+                redeemerPKH,
+                thisAccount,
+                { from: thisAccount }
+            )
+        } else {
+            console.debug(
+                `Approving transfer of ${redemptionCost} to the deposit...`,
+            )
+            this.factory.tokenContract.approve(
+                this.address,
+                redemptionCost,
+            )
+
+            console.debug(`Initiating redemption from deposit ${this.address}...`)
+            await this.contract.requestRedemption(
+                outputValueBytes,
+                redeemerPKH,
+                { from: thisAccount },
+            )
+        }
+
+        return new Redemption(this, redeemerAddress)
     }
 
     ///------------------------------- Helpers ---------------------------------
