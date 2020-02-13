@@ -1,8 +1,10 @@
 import secp256k1 from 'bcrypto/lib/secp256k1.js'
 import BcoinPrimitives from 'bcoin/lib/primitives/index.js'
 import BcoinScript from 'bcoin/lib/script/index.js'
+import BcryptoSignature from 'bcrypto/lib/internal/signature.js'
 const { KeyRing } = BcoinPrimitives
 const { Script } = BcoinScript
+const { Signature } = BcoinSignature
 
 import { BitcoinSPV } from "./lib/BitcoinSPV.js"
 import { BitcoinTxParser } from "./lib/BitcoinTxParser.js"
@@ -742,6 +744,33 @@ export default class Deposit {
 */
 
 const BitcoinHelpers = {
+    /**
+     * Converts signature provided as `r` and `s` values to a bitcoin signature
+     * encoded to the DER format:
+     *   30 <length total> 02 <length r> <r (BE)> 02 <length s> <s (BE)>
+     * It also checks `s` value and converts it to a low value if necessary as per
+     * [BIP-0062](https://github.com/bitcoin/bips/blob/master/bip-0062.mediawiki#low-s-values-in-signatures).
+     *
+     * @param {Buffer} r A signature's `r` value.
+     * @param {Buffer} s A signature's `s` value.
+     *
+     * @return {Buffer} The signature in the DER format.
+     */
+    signatureDER: function(r, s) {
+        const size = secp256k1.size
+        const signature = new BcryptoSignature(size, r, s)
+
+        // Verifies if either of `r` or `s` values equals zero or is greater or equal
+        // curve's order. If so throws an error.
+        // Checks if `s` is a high value. As per BIP-0062 signature's `s` value should
+        // be in a low half of curve's order. If it's a high value it's converted to
+        // `-s`.
+        // Checks `s` per BIP-62: signature's `s` value should be in a low half of
+        // curve's order. If it's not, it's converted to `-s`.
+        const bitcoinSignature = secp256k1.signatureNormalize(signature.encode(size))
+
+        return BcryptoSignature.toDER(bitcoinSignature, size)
+    },
     /**
      * Takes the x and y coordinates of a public key point and returns a
      * hexadecimal representation of 64-byte concatenation of x and y
