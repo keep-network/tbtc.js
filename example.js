@@ -21,11 +21,40 @@ async function runExample() {
     const DepositFactory = await tbtc.DepositFactory
     const lotSizes = await DepositFactory.availableSatoshiLotSizes()
 
+    console.log("Initiating deposit...")
     const deposit = await DepositFactory.withSatoshiLotSize(lotSizes[0])
-    const fundingAddress = await deposit.getBitcoinAddress()
-    console.log("deposit funding address:", fundingAddress)
+    deposit.onBitcoinAddressAvailable(async (address, cancelAutoMonitor) => {
+        const lotSize = await deposit.getSatoshiLotSize()
+        console.log(
+            "\tGot deposit address:", address,
+            "; fund with:", lotSize.toString(), "satoshis please.")
+        console.log("Now monitoring for deposit transaction...")
 
-}
+        // call cancelAutoMonitor to manage your own BTC lifecycle if preferred
+    })
+
+    return await new Promise((resolve, reject) => {
+        console.log("Waiting for active deposit...")
+        try {
+            deposit.onActive(async () => {
+                console.log("Wrapped it, let's go...")
+                await deposit.mintTBTC()
+                resolve()
+                // or
+                // (await deposit.getTDT()).transfer(someLuckyContract)
+
+                // later…
+
+                //   (await deposit.requestRedemption("tb....")).autoSubmit()
+                //     .onWithdrawn((txHash) => {
+                //       // all done!
+                //     })
+            })
+        } catch (error) {
+            reject(error)
+        }
+    })
+    }
 
 runExample()
     .then(() => {
