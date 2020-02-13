@@ -1,5 +1,6 @@
-const ElectrumClient = require('electrum-client-js')
-const Sha256 = require('bcrypto/lib/sha256')
+import ElectrumClient from 'electrum-client-js'
+import sha256 from 'bcrypto/lib/sha256.js'
+const { digest } = sha256
 
 /**
  * Configuration of electrum client.
@@ -9,27 +10,14 @@ const Sha256 = require('bcrypto/lib/sha256')
  * @property {number} port ElectrumX server port.
  * @property {string} protocol ElectrumX server connection protocol
  * (`ssl`|`tls`|`ws`|`wss`).
-*/
-
-/**
- * Configuration of electrum client.
- * @param {string} server ElectrumX server hostname.
- * @param {number} port ElectrumX server port.
- * @param {string} protocol ElectrumX server connection protocol
- * (`ssl`|`tls`|`ws`|`wss`).
  */
-function Config(server, port, protocol) {
-  this.server = server
-  this.port = port
-  this.protocol = protocol
-}
 
 /**
  * Client to interact with [ElectrumX](https://electrumx.readthedocs.io/en/stable/index.html)
  * server.
  * Uses methods exposed by the [Electrum Protocol](https://electrumx.readthedocs.io/en/stable/protocol.html)
  */
-class Client {
+export default class Client {
   /**
    * Initializes Electrum Client instance with provided configuration.
    * @param {Config} config Electrum client connection configuration.
@@ -341,10 +329,6 @@ function toHex(bytes) {
  * @return {string} Script hash.
  */
 function scriptToHash(script) {
-  const scriptHash = Sha256.digest(fromHex(script)).reverse()
+  const scriptHash = digest(fromHex(script)).reverse()
   return toHex(scriptHash)
-}
-
-module.exports = {
-  Config, Client, scriptToHash,
 }

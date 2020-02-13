@@ -4,6 +4,8 @@ import BcoinScript from 'bcoin/lib/script/index.js'
 const { KeyRing } = BcoinPrimitives
 const { Script } = BcoinScript
 
+import ElectrumClient from "./lib/ElectrumClient.js"
+
 import TruffleContract from "@truffle/contract"
 
 import TBTCConstantsJSON from "@keep-network/tbtc/artifacts/TBTCConstants.json"
@@ -25,6 +27,9 @@ const TBTCTokenContract = TruffleContract(TBTCTokenJSON)
 const FeeRebateTokenContract = TruffleContract(FeeRebateTokenJSON)
 const VendingMachineContract = TruffleContract(VendingMachineJSON)
 const ECDSAKeepContract = TruffleContract(ECDSAKeepJSON)
+
+// TODO Need this configured via TBTC.
+import electrumConfig from "./electrum-config.json"
 
 export class DepositFactory {
     config/*: TBTCConfig*/;
@@ -442,7 +447,41 @@ const BitcoinHelpers = {
         
             // Serialize address to a format specific to given network.
             return p2wpkhScript.getAddress().toString(network)
+        },
+        /**
+         * Converts a Bitcoin ScriptPubKey address string to a hex script
+         * string.
+         *
+         * @param {string} address A Bitcoin address.
+         *
+         * @return {string} A Bitcoin script for the given address.
+         */
+        toScript: function(address) {
+            return Script.fromAddress(address).toRaw().toString('hex')
         }
+    },
+    /**
+     *
+     * @param {(ElectrumClient)=>Promise<any>} block A function to execute with
+     *        the ElectrumClient passed in; it is expected to return a Promise
+     *        that will resolve once the function is finished performing work
+     *        with the client. withElectrumClient returns that promise, but also
+     *        ensures that the client will be closed once the promise completes
+     *        (successfully or unsuccessfully).
+     */
+    withElectrumClient: async function(block) {
+        const electrumClient = new ElectrumClient(electrumConfig.electrum.testnetWS)
+
+        await electrumClient.connect()
+
+        const result = block(electrumClient)
+        result.then(
+            () => { electrumClient.close() },
+            () => { electrumClient.close() },
+        )
+
+        return result
+    },
     }
 }
 
