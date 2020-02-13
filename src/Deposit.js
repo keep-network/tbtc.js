@@ -1342,14 +1342,16 @@ async function getExistingEvent(source, eventName, filter) {
  */
 class Redemption {
     deposit/*: Deposit*/
-    redemptionAddress/*: string*/
 
     redemptionDetails/*: Promise<RedemptionDetails>*/
     unsignedTransaction/*: Promise<UnsignedTransactionDetails>*/
     signedTransaction/*: Promise<SignedTransactionDetails>*/
 
+    withdrawnEmitter/*: EventEmitter*/
+
     constructor(deposit/*: Deposit*/, redemptionDetails/*: RedemptionDetails?*/) {
         this.deposit = deposit
+        this.withdrawnEmitter = new EventEmitter()
 
         this.redemptionDetails = this.getLatestRedemptionDetails(redemptionDetails)
 
