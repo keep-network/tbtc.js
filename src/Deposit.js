@@ -862,6 +862,21 @@ const BitcoinHelpers = {
             )
         },
         /**
+         * Converts the specified `pubKeyHash` to a valid Bech32 address for
+         * the specified `network`.
+         *
+         * @param {string} pubKeyHash A pubKeyHash as a string.
+         * @param {string} network The Bitcoin network for the Bech32 address.
+         *
+         * @return {string} A Bech32 address to 
+         */
+        pubKeyHashToBech32: function(pubKeyHash, network) {
+            return Script.fromProgram(
+                0,
+                Buffer.from(pubKeyHash, 'hex'),
+            ).getAddress().toBech32(network)
+        },
+        /**
          * Converts public key to bitcoin Witness Public Key Hash Address according to
          * [BIP-173](https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki).
          * @param {string} publicKeyString Public key as a hexadecimal representation of
