@@ -567,6 +567,7 @@ export default class Deposit {
             this.factory.tokenContract.approve(
                 this.factory.vendingMachineContract.address,
                 redemptionCost,
+                { from: thisAccount },
             )
 
             console.debug(
@@ -578,7 +579,7 @@ export default class Deposit {
                 outputValueBytes,
                 redeemerPKH,
                 thisAccount,
-                { from: thisAccount }
+                { from: thisAccount },
             )
         } else {
             console.debug(
@@ -587,6 +588,7 @@ export default class Deposit {
             this.factory.tokenContract.approve(
                 this.address,
                 redemptionCost,
+                { from: thisAccount },
             )
 
             console.debug(`Initiating redemption from deposit ${this.address}...`)
