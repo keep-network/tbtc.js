@@ -15,19 +15,12 @@
     "@keep-network/tbtc": "0.6.0-pre1",
     "@truffle/contract": "^4.1.8",
     "@truffle/hdwallet-provider": "^1.0.30",
-    "@types/web3": "^1.2.2",
-    "bcoin": "git+https://github.com/bcoin-org/bcoin.git#v1.0.2",
+    "bcoin": "git+https://github.com/bcoin-org/bcoin.git#8851582",
     "bcrypto": "^4.1.0",
     "bufio": "^1.0.6",
-    "electrum-client-js": "git+https://github.com/keep-network/electrum-client-js.git#v0.1.0",
-    "typescript": "^3.7.5"
+    "electrum-client-js": "git+https://github.com/keep-network/electrum-client-js.git#v0.1.0"
   },
   "devDependencies": {
-    "@babel/core": "^7.8.4",
-    "@babel/plugin-proposal-class-properties": "^7.8.3",
-    "@babel/plugin-proposal-object-rest-spread": "^7.8.3",
-    "@babel/preset-typescript": "^7.8.3",
-    "@babel/register": "^7.8.3",
     "chai": "^4.2.0",
     "eslint": "^5.16.0",
     "eslint-config-keep": "git+https://github.com/keep-network/eslint-config-keep.git#0.2.0",
