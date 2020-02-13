@@ -383,11 +383,11 @@ export default class Deposit {
             )
         }
 
-        const requiredConfirmations = await this.factory.constantsContract.getTxProofDifficultyFactor()
+        const requiredConfirmations = (await this.factory.constantsContract.getTxProofDifficultyFactor()).toNumber()
         const confirmations =
             await BitcoinHelpers.Transaction.checkForConfirmations(
                 tx,
-                requiredConfirmations.toNumber(),
+                requiredConfirmations,
             )
         if (! confirmations) {
             throw new Error(
@@ -411,7 +411,7 @@ export default class Deposit {
             tx,
             confirmations,
         )
-        const proofArgs = await this.constructFundingProof(tx, confirmations)
+        const proofArgs = await this.constructFundingProof(tx, requiredConfirmations)
         proofArgs.unshift(this.address)
         proofArgs.push({ from: this.factory.config.web3.eth.defaultAccount })
         const transaction = await this.factory.vendingMachineContract.unqualifiedDepositToTbtc.apply(
@@ -733,9 +733,9 @@ export default class Deposit {
         )
     }
 
-    // Given a Bitcoin transaction and the number of confirmations it has,
-    // constructs an SPV proof and returns the raw parameters that would be
-    // given to an on-chain contract.
+    // Given a Bitcoin transaction and the number of confirmations that need to
+    // be proven constructs an SPV proof and returns the raw parameters that
+    // would be given to an on-chain contract.
     //
     // These are:
     // - version
@@ -749,7 +749,7 @@ export default class Deposit {
     //
     // Constructed this way to serve both qualify + mint and simple
     // qualification flows.
-    async constructFundingProof(bitcoinTransaction, confirmations, handlerFn) {
+    async constructFundingProof(bitcoinTransaction, confirmations) {
         const { transactionID, outputPosition } = bitcoinTransaction
         const {
             tx,
