@@ -555,7 +555,7 @@ export default class Deposit {
         )
         const redemptionDetails = this.redemptionDetailsFromEvent(redemptionRequest)
 
-        return new Redemption(this, s)
+        return new Redemption(this, redemptionDetails)
     }
 
     /**
