@@ -913,6 +913,16 @@ const BitcoinHelpers = {
                 return electrumClient.onNewBlock(checkConfirmations)
             })
         },
+        /**
+         * Estimates the fee that would be needed for a given transaction.
+         *
+         * @warning This is a stub. Currently it takes the TBTCConstants
+         *          contract and returns its reported minimum fee, rather than
+         *          calling electrumClient.blockchainEstimateFee.
+         */
+        estimateFee: async function(tbtcConstantsContract) {
+            return tbtcConstantsContract.getMinimumRedemptionFee()
+        },
         getProof: async function(transactionID, confirmations) {
             return await BitcoinHelpers.withElectrumClient(async (electrumClient) => {
                 const spv = new BitcoinSPV(electrumClient)
