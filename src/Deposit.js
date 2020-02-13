@@ -206,6 +206,14 @@ export default class Deposit {
     ///------------------------------- Accessors -------------------------------
 
     /**
+     * Returns a promise that resolves to the lot size of the deposit, in
+     * satoshis.
+     */
+    async getSatoshiLotSize() {
+        return await this.contract.lotSizeSatoshis()
+    }
+
+    /**
      * Returns a promise that resolves to the Bitcoin address for the wallet
      * backing this deposit. May take an extended amount of time if this deposit
      * has just been created.
