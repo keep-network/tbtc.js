@@ -455,13 +455,15 @@ function readEventFromTransaction(web3, transaction, sourceContract, eventName) 
  *
  * @param {TruffleContract} sourceContract The TruffleContract that emits the event.
  * @param {string} eventName The name of the event to wait on.
+ * @param {object} filter An additional filter to apply to the event being
+ *        searched for.
  *
  * @return A promise that will be fulfilled by the event object once it is
  *         received.
  */
-function getEvent(sourceContract, eventName) {
+function getEvent(sourceContract, eventName, filter) {
     return new Promise((resolve) => {
-        sourceContract[eventName]().once("data", (event) => {
+        sourceContract[eventName](filter).once("data", (event) => {
             clearInterval(handle);
             resolve(event)
         })
@@ -474,7 +476,11 @@ function getEvent(sourceContract, eventName) {
         const handle = setInterval(
             async function() {
                 // Query if an event was already emitted after we start watching
-                const event = await getExistingEvent(sourceContract, eventName)
+                const event = await getExistingEvent(
+                    sourceContract,
+                    eventName,
+                    filter,
+                )
 
                 if (event) {
                     clearInterval(handle)
