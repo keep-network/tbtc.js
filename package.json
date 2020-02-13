@@ -9,8 +9,8 @@
     "js:lint": "eslint .",
     "js:lint:fix": "eslint --fix ."
   },
-  "author": "Jakub Nowakowski <jakub.nowakowski@keep.network>",
-  "license": "ISC",
+  "author": "Antonio Salazar Cardozo <antonio@thesis.co>",
+  "license": "MIT",
   "dependencies": {
     "@keep-network/tbtc": "0.6.0-pre0",
     "@truffle/contract": "^4.1.8",

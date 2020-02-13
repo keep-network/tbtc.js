@@ -1,0 +1,22 @@
+= `tbtc.js`
+
+`tbtc.js` provides JS bindings to the tBTC system. The
+https://tbtc.network[tBTC system] provides a method for locking up BTC in many
+single-use BTC wallets to enable their corresponding usage on the Ethereum
+chain, primarily through the minting of a TBTC ERC20 token whose supply is
+guaranteed to be backed by at least 1 BTC per TBTC in circulation.
+
+== Usage
+
+For now, see example.js for usage. Note that currently the example is not fully
+functional. All tBTC contracts (in `@truffle/contract` form) are exposed
+through the wrappers for the system; deposits expose their per-deposit contract
+at `deposit.contract`, while the `DepositFactory` exposes all system contracts
+at `DepositFactory.systemContract`, `Deposit.tokenContract`,
+`DepositFactory.depositTokenContract`, `Deposit.feeRebateTokenContract`,
+`DepositFactory.factoryTokenContract`, and `Deposit.vendingMachineContract`.
+
+== License
+
+This code is published under the MIT license. See the LICENSE file in this
+repository for more details.
