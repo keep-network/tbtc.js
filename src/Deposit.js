@@ -1,3 +1,5 @@
+import fs from 'fs'
+
 import secp256k1 from 'bcrypto/lib/secp256k1.js'
 import BcoinPrimitives from 'bcoin/lib/primitives/index.js'
 import BcoinScript from 'bcoin/lib/script/index.js'
@@ -34,7 +36,7 @@ const VendingMachineContract = TruffleContract(VendingMachineJSON)
 const ECDSAKeepContract = TruffleContract(ECDSAKeepJSON)
 
 // TODO Need this configured via TBTC.
-import electrumConfig from "./electrum-config.json"
+const electrumConfig = JSON.parse(fs.readFileSync("./src/electrum-config.json"))
 
 export class DepositFactory {
     config/*: TBTCConfig*/;
