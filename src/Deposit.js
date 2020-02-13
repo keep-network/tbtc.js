@@ -4,7 +4,8 @@ import BcoinScript from 'bcoin/lib/script/index.js'
 import BcryptoSignature from 'bcrypto/lib/internal/signature.js'
 const { KeyRing } = BcoinPrimitives
 const { Script } = BcoinScript
-const { Signature } = BcoinSignature
+
+import bcoin from 'bcoin/lib/bcoin-browser.js'
 
 import { BitcoinSPV } from "./lib/BitcoinSPV.js"
 import { BitcoinTxParser } from "./lib/BitcoinTxParser.js"
@@ -869,6 +870,10 @@ const BitcoinHelpers = {
         return `${publicKeyX.replace('0x', '')}${publicKeyY.replace('0x','')}`
     },
     Address: {
+        pubKeyHashFrom: function(address) {
+            const script = bcoin.Script.fromAddress(address)
+            return script.getWitnessPubkeyhash()
+        },
         publicKeyPointToP2WPKHAddress: function(publicKeyX, publicKeyY, bitcoinNetwork) {
             return this.publicKeyToP2WPKHAddress(
                 BitcoinHelpers.publicKeyPointToPublicKeyString(publicKeyX, publicKeyY),
