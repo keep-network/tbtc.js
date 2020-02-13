@@ -786,14 +786,13 @@ export default class Deposit {
             _digest,
         } = redemptionRequestedEventArgs
 
-        const hexToBytes = this.factory.config.web3.utils.hexToBytes
         const toBN = this.factory.config.web3.utils.toBN
         return {
             utxoSize: toBN(_utxoSize),
-            requesterPKH: Buffer.from(hexToBytes(_requesterPKH)),
+            requesterPKH: _requesterPKH,
             requestedFee: toBN(_requestedFee),
-            outpoint: Buffer.from(hexToBytes(_outpoint)),
-            digest: Buffer.from(hexToBytes(_digest)),
+            outpoint: _outpoint,
+            digest: _digest,
         }
     }
 }
@@ -1135,14 +1134,14 @@ const BitcoinHelpers = {
          * output. Difference between previous output's value and current's
          * output value will be taken as a transaction fee.
          *
-         * @param {Buffer} previousOutpoint Previous transaction's output to be
-         *        used as an input. Provided in raw format, consists of 32-byte
-         *        transaction ID and 4-byte output index number.
+         * @param {string} previousOutpoint Previous transaction's output to be
+         *        used as an input. Provided in hexadecimal format, consists of
+         *        32-byte transaction ID and 4-byte output index number.
          * @param {uint32} inputSequence Input's sequence number. As per
          *        BIP-125 the value is used to indicate that transaction should
          *        be able to be replaced in the future. If input sequence is set
          *        to `0xffffffff` the transaction won't be replaceable.
-         * @param {BN} outputValue Value for the output.
+         * @param {number} outputValue Value for the output.
          * @param {string} outputPKH Public Key Hash for the output.
          *
          * @return {string} Raw bitcoin transaction in hexadecimal format.
@@ -1154,7 +1153,9 @@ const BitcoinHelpers = {
             outputPKH,
         ) {
             // Input
-            const prevOutpoint = bcoin.Outpoint.fromRaw(previousOutpoint)
+            const prevOutpoint = bcoin.Outpoint.fromRaw(
+                Buffer.from(previousOutpoint, 'hex')
+            )
 
             const input = bcoin.Input.fromOptions({
                 prevout: prevOutpoint,
@@ -1166,11 +1167,11 @@ const BitcoinHelpers = {
             // of a public key hash we need to change it to `fromAddress`.
             const outputScript = bcoin.Script.fromProgram(
                 0, // Witness program version
-                outputPKH
+                Buffer.from(outputPKH, 'hex'),
             )
 
             const output = bcoin.Output.fromOptions({
-                value: outputValue.toNumber(),
+                value: outputValue,
                 script: outputScript,
             })
 
