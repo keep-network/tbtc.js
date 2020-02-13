@@ -1409,12 +1409,59 @@ class Redemption {
         })
     }
 
+    autoSubmitting/*: boolean*/
     autoSubmit() {
-        // monitor chain for signature
-        // construct + submit transaction
+        // Only enable auto-submitting once.
+        if (this.autoSubmitting) {
+            return
+        }
+        this.autoSubmitting = true
+
+        this.signedTransaction.then(async (signedTransaction) => {
+            console.debug(
+                `Looking for existing signed redemption transaction on Bitcoin ` +
+                `chain for deposit ${this.deposit.address}...`
+            )
+
+            const { utxoSize, requestedFee,  requesterPKH } = await this.redemptionDetails
+            const expectedValue = utxoSize.sub(requestedFee).toNumber()
+            const requesterAddress = BitcoinHelpers.Address.pubKeyHashToBech32(
+                requesterPKH.replace('0x', ''),
+                this.deposit.factory.config.bitcoinNetwork,
+            )
+            let transaction = await BitcoinHelpers.Transaction.find(
+                requesterAddress,
+                expectedValue,
+            )
+
+            if (! transaction) {
+                console.debug(
+                    `Broadcasting signed redemption transaction to Bitcoin chain ` +
+                    `for deposit ${this.deposit.address}...`
+                )
+                transaction = await BitcoinHelpers.Transaction.broadcast(
+                    signedTransaction,
+                )
+            }
+
+            const requiredConfirmations = (await this.deposit.factory.constantsContract.getTxProofDifficultyFactor()).toNumber()
+
+            console.debug(
+                `Waiting for ${requiredConfirmations} confirmations for ` +
+                `Bitcoin transaction ${transaction.transactionID}...`
+            )
+            await BitcoinHelpers.Transaction.waitForConfirmations(
+                transaction,
+                requiredConfirmations,
+            )
+
+            console.debug(
+                `Transaction is sufficiently confirmed; submitting redemption ` +
+                `proof to deposit ${this.deposit.address}...`
+            )
+            this.proveWithdrawal(transaction.transactionID, requiredConfirmations)
+        })
         // TODO bumpFee if needed
-        // prove transaction
-        // onWithdrawn
     }
 
     /**
