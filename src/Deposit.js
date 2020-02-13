@@ -1118,6 +1118,58 @@ const BitcoinHelpers = {
 
             return signedTransaction.toRaw().toString('hex')
         },
+        /**
+         * Constructs a Bitcoin SegWit transaction with one input and one
+         * output. Difference between previous output's value and current's
+         * output value will be taken as a transaction fee.
+         *
+         * @param {Buffer} previousOutpoint Previous transaction's output to be
+         *        used as an input. Provided in raw format, consists of 32-byte
+         *        transaction ID and 4-byte output index number.
+         * @param {uint32} inputSequence Input's sequence number. As per
+         *        BIP-125 the value is used to indicate that transaction should
+         *        be able to be replaced in the future. If input sequence is set
+         *        to `0xffffffff` the transaction won't be replaceable.
+         * @param {BN} outputValue Value for the output.
+         * @param {string} outputPKH Public Key Hash for the output.
+         *
+         * @return {string} Raw bitcoin transaction in hexadecimal format.
+         */
+        constructOneInputOneOutputWitnessTransaction(
+            previousOutpoint,
+            inputSequence,
+            outputValue,
+            outputPKH,
+        ) {
+            // Input
+            const prevOutpoint = bcoin.Outpoint.fromRaw(previousOutpoint)
+
+            const input = bcoin.Input.fromOptions({
+                prevout: prevOutpoint,
+                sequence: inputSequence,
+            })
+
+            // Output
+            // TODO: When we want to give user a possibility to provide an address instead
+            // of a public key hash we need to change it to `fromAddress`.
+            const outputScript = bcoin.Script.fromProgram(
+                0, // Witness program version
+                outputPKH
+            )
+
+            const output = bcoin.Output.fromOptions({
+                value: outputValue.toNumber(),
+                script: outputScript,
+            })
+
+            // Transaction
+            const transaction = bcoin.TX.fromOptions({
+                inputs: [input],
+                outputs: [output],
+            })
+
+            return transaction.toRaw().toString('hex')
+        },
 
         // Raw helpers.
         /**
