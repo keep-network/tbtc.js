@@ -1142,18 +1142,109 @@ async function getExistingEvent(source, eventName, filter) {
     return events[0]
 }
 
+/**
+ * Details of a given redemption at a given point in time.
+ * @typedef RedemptionDetails
+ * @type {Object}
+ * @property {BN} utxoSize The size of the UTXO size in the redemption.
+ * @property {Buffer} requesterPKH The raw requester publicKeyHash bytes.
+ * @property {BN} requestedFee The fee for the redemption transaction.
+ * @property {Buffer} outpoint The raw outpoint bytes.
+ * @property {Buffer} digest The raw digest bytes.
+ */
+
+/**
+ * Details of a given unsigned transaction
+ * @typedef UnsignedTransactionDetails
+ * @type {Object}
+ * @property {string} hex The raw transaction hex string.
+ * @property {digest} digest The transaction's digest.
+ */
+
+/**
+ * The Redemption class encapsulates the operations that finalize an already-
+ * initiated redemption.
+ *
+ * Typically, you can call `autoSubmit()` and then register an `onWithdrawn`
+ * handler to be notified when the Bitcoin transaction completing redemption has
+ * been signed, submitted, and proven to the deposit contract.
+ *
+ * If you prefer to manage the Bitcoin side of the lifecycle separately, you can
+ * register to be notified when a Bitcoin transaction is ready for submission
+ * using `onBitcoinTransactionSigned`, and submit a redemption proof to once
+ * that transaction is sufficiently confirmed using `proveWithdrawal`.
+ *
+ * `proveWithdrawal` will trigger any `onWithdrawn` handlers that have been
+ * registered.
+ */
 class Redemption {
     deposit/*: Deposit*/
     redemptionAddress/*: string*/
+
+    redemptionDetails/*: Promise<RedemptionDetails>*/
+    unsignedTransaction/*: Promise<UnsignedTransactionDetails>*/
+    signedTransaction/*: Promise<SignedTransactionDetails>*/
 
     constructor(deposit/*: Deposit*/, redemptionAddress/*: string*/) {
         this.deposit = deposit
         this.redemptionAddress = redemptionAddress
 
-        // if deposit.inVendingMachine
-        //    vendingMachine.tbtcToBtc
-        // else
-        //    deposit.requestRedemption
+        this.redemptionDetails = getLatestRedemptionDetails()
+
+        this.unsignedTransaction = this.redemptionDetails.then((details) => {
+            const outputValue = details.utxoSize.sub(details.requestedFee)
+            const unsignedTransaction =
+                BitcoinHelpers.Transaction.constructOneInputOneOutputWitnessTransaction(
+                    details.outpoint,
+                    // We set sequence to `0` to be able to replace by fee. It reflects
+                    // bitcoin-spv:
+                    // https://github.com/summa-tx/bitcoin-spv/blob/2a9d594d9b14080bdbff2a899c16ffbf40d62eef/solidity/contracts/CheckBitcoinSigs.sol#L154
+                    0,
+                    outputValue,
+                    details.requesterPKH,
+                )
+
+            return {
+                hex: unsignedTransaction,
+                digest: details.digest,
+            }
+        })
+
+        this.signedTransaction = this.unsignedTransaction.then(async (unsignedTransaction) => {
+            const {
+                r,
+                s,
+                recoveryID,
+                digest,
+            } = await getEvent(
+                    this.deposit.keepContract,
+                    'SignatureSubmitted',
+                    { digest: details.digest },
+                )
+            const publicKeyPoint = await this.deposit.publicKeyPoint
+
+            const hexToBytes = this.deposit.factory.config.web3.utils.hexToBytes
+            const toBN = this.deposit.factory.config.web3.utils.toBN
+            const signature = {
+                r: Buffer.from(hexToBytes(r)),
+                s: Buffer.from(hexToBytes(s)),
+                recoveryID: toBN(recoveryID),
+                digest: Buffer.from(hexToBytes(digest)),
+            }
+
+            const signedTransaction = BitcoinHelpers.Transaction.addWitnessSignature(
+                unsignedTransaction,
+                0,
+                signature.r,
+                signature.s,
+                BitcoinHelpers.publicKeyPointToPublicKeyString(
+                    publicKeyPoint.x,
+                    publicKeyPoint.y,
+                ),
+            )
+
+            return signedTransaction
+        })
     }
 
     autoSubmit() {
@@ -1168,7 +1259,38 @@ class Redemption {
         // submit withdrawal proof
     }
 
+    onBitcoinTransactionSigned(transactionHandler/*: (transaction)=>void*/) {
+
+    }
+
     onWithdrawn(withdrawalHandler/*: (txHash)=>void*/) { // bitcoin txHash
+    }
+
+    /**
+     * Fetches the latest redemption details from the chain. These can change
+     * after fee bumps.
+     */
+    async getLatestRedemptionDetails() {
+        const {
+            _utxoSize,
+            _requesterPKH,
+            _requestedFee,
+            _outpoint,
+            _digest,
+        } = getExistingEvent(
+                this.deposit.factory.systemContract,
+                'RedemptionRequested',
+                { _depositContractAddress: this.deposit.address },
+            ).args
+
+        const hexToBytes = this.deposit.factory.config.web3.utils.hexToBytes
+        return {
+            utxoSize: new BN(_utxoSize),
+            requesterPKH: Buffer.from(hexToBytes(_requesterPKH)),
+            requestedFee: new BN(_requestedFee),
+            outpoint: Buffer.from(hexToBytes(_outpoint)),
+            digest: Buffer.from(hexToBytes(_digest)),
+        }
     }
 }
 
