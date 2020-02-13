@@ -323,7 +323,9 @@ export default class Deposit {
      *        the chain. cancelAutoMonitor can be used to turn off the auto-
      *        monitoring functionality that looks for new Bitcoin transactions
      *        to a deposit awaiting funding so as to submit a funding proof; see
-     *        the `cancelAutoMonitor` method for more.
+     *        the `cancelAutoMonitor` method for more. Note that exceptions in
+     *        this handler are not managed, so the handler itself should deal
+     *        with its own failure possibilities.
      */
     onBitcoinAddressAvailable(bitcoinAddressHandler/*: BitcoinAddressHandler*/) {
         this.bitcoinAddress.then((address) => {
@@ -337,7 +339,9 @@ export default class Deposit {
      * minting and other uses. The deposit itself is passed to the handler.
      * 
      * @param activeHandler A handler called when this deposit enters the ACTIVE
-     *        state; receives the deposit as its only parameter.
+     *        state; receives the deposit as its only parameter. Note that
+     *        exceptions in this handler are not managed, so the handler itself
+     *        should deal with its own failure possibilities.
      */
     onActive(activeHandler/*: (Deposit)=>void*/) {
         this.activeStatePromise.then(() => {
@@ -404,7 +408,8 @@ export default class Deposit {
     // manually; the deposit is not currently informed by the Keep of its newly-
     // generated pubkey for a variety of reasons.
     //
-    // Returns a promise that will be fulfilled once the public key
+    // Returns a promise that will be fulfilled once the public key is
+    // available.
     async findOrWaitForBitcoinAddress() {
         let signerPubkeyEvent = await this.readPublishedPubkeyEvent()
         if (signerPubkeyEvent) {
