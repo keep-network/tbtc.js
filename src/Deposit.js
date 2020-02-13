@@ -85,6 +85,10 @@ export class DepositFactory {
         return deposit
     }
 
+    async withAddress(depositAddress) {
+        return await Deposit.forAddress(this, depositAddress)
+    }
+
     // Await the deployed() functions of all contract dependencies.
     async resolveContracts() {
         const init = ([contract, propertyName]) => {
@@ -186,30 +190,40 @@ export default class Deposit {
     static async forAddress(factory/*: DepositFactory*/, address/*: string*/)/*: Promise<Deposit>*/ {
         const contract = await DepositContract.at(address)
 
-        return new Deposit(factory, contract)
+        const createdEvent = await getExistingEvent(
+            factory.systemContract,
+            'Created',
+            { _depositContractAddress: address },
+        )
+        if (! createdEvent) {
+            throw new Error(
+                `Could not find creation event for deposit at address ${address}.`
+            )
+        }
+
+        return new Deposit(factory, contract, createdEvent.args._keepAddress, false)
     }
 
     static async forTDT(factory/*: DepositFactory*/, tdt/*: TBTCDepositToken | string*/)/*: Promise<Deposit>*/ {
         return new Deposit(factory, "")
     }
 
-    constructor(factory/*: DepositFactory*/, depositContract/*: TruffleContract*/, keepAddress/*: string */) {
+    constructor(factory/*: DepositFactory*/, depositContract/*: TruffleContract*/, keepAddress/*: string */, autoMonitor/*: boolean*/ = true) {
+        if (! keepAddress) {
+            throw "Keep address required for Deposit instantiation."
+        }
+
         this.factory = factory
         this.address = depositContract.address
         this.keepAddress = keepAddress
         this.contract = depositContract
 
-        this.autoMonitor = true
+        this.autoMonitor = autoMonitor
 
         // Set up state transition promises.
         this.activeStatePromise = this.waitForActiveState()
-        if (! keepAddress) {
-            throw "No keep address currently means no nothin', sorryyyyy."
-            // look up keep address via factory.systemContract.getPastEvents("Created"...)
-        } else {
-            this.bitcoinAddress = this.findOrWaitForBitcoinAddress()
-        }
 
+        this.bitcoinAddress = this.findOrWaitForBitcoinAddress()
         // Set up funding auto-monitoring. Below, every time we're doing another
         // long wait, we check to see if auto-monitoring has been disabled since
         // last we checked, and return out if so.
