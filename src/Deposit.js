@@ -164,10 +164,9 @@ export default class Deposit {
     address/*: string*/;
     keepAddress/*: string*/;
     contract/*: any*/;
-    addressHandlers/*: BitcoinAddressHandler[]*/;
-    activeHandlers/*: ActiveHandler[]*/;
 
-    bitcoinAddress/*: string*/;
+    bitcoinAddress/*: Promise<string>*/;
+    activeStatePromise/*: Promise<[]>*/; // fulfilled when deposit goes active
 
     static async forLotSize(factory/*: DepositFactory*/, satoshiLotSize/*: BN*/)/*: Promise<Deposit>*/ {
         const { depositAddress, keepAddress } = await factory.createNewDepositContract(satoshiLotSize)
@@ -192,9 +191,9 @@ export default class Deposit {
         this.keepAddress = keepAddress
         this.contract = depositContract
 
-        this.addressHandlers = []
-        this.activeHandlers = []
 
+        // Set up state transition promises.
+        this.activeStatePromise = this.waitForActiveState()
         if (! keepAddress) {
             throw "No keep address currently means no nothin', sorryyyyy."
             // look up keep address via factory.systemContract.getPastEvents("Created"...)
@@ -270,7 +269,9 @@ export default class Deposit {
      *        state; receives the deposit as its only parameter.
      */
     onActive(activeHandler/*: (Deposit)=>void*/) {
-        this.activeHandlers.push(activeHandler)
+        this.activeStatePromise.then(() => {
+            activeHandler(this)
+        })
     }
 
     onReadyForProof(proofHandler/*: (prove)=>void*/) {
@@ -335,6 +336,28 @@ export default class Deposit {
             this.factory.systemContract,
             'RegisteredPubkey',
         ))
+    }
+
+    // Returns a promise that is fulfilled when the contract has entered the
+    // active state.
+    async waitForActiveState() {
+        const depositIsActive = await this.contract.inActive()
+        console.log("Got deposit is active", depositIsActive)
+        if (depositIsActive) {
+            return true
+        }
+
+        // If we weren't active, wait for Funded, then mark as active.
+        // FIXME/NOTE: We could be inactive due to being outside of the funding
+        // FIXME/NOTE: path, e.g. in liquidation or courtesy call.
+        await getEvent(
+            this.factory.systemContract,
+            'Funded',
+            { _depositContractAddress: this.address },
+        )
+        console.log("GOT IT THIS TIME SOMEHOW")
+
+        return true
     }
 
     async readPublishedPubkeyEvent() {
