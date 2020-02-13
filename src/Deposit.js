@@ -532,6 +532,16 @@ export default class Deposit {
             )
         }
 
+        const redemptionCost = await this.getRedemptionCost()
+        const availableBalance = await this.factory.tokenContract.balanceOf(thisAccount)
+        if (redemptionCost.gt(availableBalance)) {
+            throw new Error(
+                `Account ${thisAccount} does not have the required balance of ` +
+                `${redemptionCost.toString()} to redeem; it only has ` +
+                `${availableBalance.toString()} available.`
+            )
+        }
+
         const toBN = this.factory.config.web3.utils.toBN
         console.debug(
             `Looking up UTXO size and transaction fee for redemption transaction...`,
