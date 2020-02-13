@@ -181,15 +181,26 @@ export default class Deposit {
     autoMonitor/*: boolean*/;
 
     static async forLotSize(factory/*: DepositFactory*/, satoshiLotSize/*: BN*/)/*: Promise<Deposit>*/ {
+        console.debug(
+            'Creating new deposit contract with lot size',
+            satoshiLotSize.toNumber(),
+            'satoshis...',
+        )
         const { depositAddress, keepAddress } = await factory.createNewDepositContract(satoshiLotSize)
+        console.debug(
+            `Looking up new deposit with address ${depositAddress} backed by ` +
+            `keep at address ${keepAddress}...`
+        )
         const contract = await DepositContract.at(depositAddress)
 
         return new Deposit(factory, contract, keepAddress)
     }
 
     static async forAddress(factory/*: DepositFactory*/, address/*: string*/)/*: Promise<Deposit>*/ {
+        console.debug(`Looking up Deposit contract at address ${address}...`)
         const contract = await DepositContract.at(address)
 
+        console.debug(`Looking up Created event for deposit ${address}...`)
         const createdEvent = await getExistingEvent(
             factory.systemContract,
             'Created',
@@ -201,6 +212,7 @@ export default class Deposit {
             )
         }
 
+        console.debug(`Found keep address ${createdEvent.args._keepAddress}.`)
         return new Deposit(factory, contract, createdEvent.args._keepAddress, false)
     }
 
@@ -231,12 +243,21 @@ export default class Deposit {
             const expectedValue = (await this.getSatoshiLotSize()).toNumber()
 
             if (! this.autoMonitor) return;
+            console.debug(
+                `Monitoring Bitcoin for transaction to address ${address}...`,
+            )
+
             const tx = await BitcoinHelpers.Transaction.findOrWaitFor(address, expectedValue)
             // issue event when we find a tx
 
             const requiredConfirmations = await this.factory.constantsContract.getTxProofDifficultyFactor()
 
             if (! this.autoMonitor) return;
+            console.debug(
+                `Waiting for ${requiredConfirmations} confirmations for ` +
+                `Bitcoin transaction ${tx.transactionID}...`
+            )
+
             const confirmations =
                 await BitcoinHelpers.Transaction.waitForConfirmations(
                     tx,
@@ -244,6 +265,10 @@ export default class Deposit {
                 )
 
             if (! this.autoMonitor) return;
+            console.debug(
+                `Submitting funding proof to deposit ${this.address} for ` +
+                `Bitcoin transaction ${tx.transactionID}...`
+            )
             this.submitFundingProof(tx, confirmations)
         })
     }
@@ -383,13 +408,20 @@ export default class Deposit {
     async findOrWaitForBitcoinAddress() {
         let signerPubkeyEvent = await this.readPublishedPubkeyEvent()
         if (signerPubkeyEvent) {
-            return this.parseBitcoinAddress(signerPubkeyEvent)
+            console.debug(
+                `Found existing Bitcoin address for deposit ${this.address}...`,
+            )
+            return this.parseBitcoinAddress(signerPubkeyEvent.args)
         }
+
+        console.debug(`Waiting for deposit ${this.address} keep public key...`)
 
         ECDSAKeepContract.setProvider(this.factory.config.web3.currentProvider)
         const ecdsaKeep = await ECDSAKeepContract.at(this.keepAddress)
         // Wait for the Keep to be ready.
         await getEvent(ecdsaKeep, 'PublicKeyPublished')
+
+        console.debug(`Waiting for deposit ${this.address} to retrieve public key...`)
         // Ask the deposit to fetch and store the signer pubkey.
         const pubkeyTransaction = await this.contract.retrieveSignerPubkey(
             {
@@ -397,6 +429,7 @@ export default class Deposit {
             }
         )
 
+        console.debug(`Found Bitcoin address for deposit ${this.address}...`)
         return this.parseBitcoinAddress(readEventFromTransaction(
             this.factory.config.web3,
             pubkeyTransaction,
@@ -409,10 +442,11 @@ export default class Deposit {
     // active state.
     async waitForActiveState() {
         const depositIsActive = await this.contract.inActive()
-        console.log("Got deposit is active", depositIsActive)
         if (depositIsActive) {
             return true
         }
+
+        console.debug(`Monitoring deposit ${this.address} for transition to ACTIVE.`)
 
         // If we weren't active, wait for Funded, then mark as active.
         // FIXME/NOTE: We could be inactive due to being outside of the funding
@@ -422,7 +456,7 @@ export default class Deposit {
             'Funded',
             { _depositContractAddress: this.address },
         )
-        console.log("GOT IT THIS TIME SOMEHOW")
+        console.debug(`Deposit ${this.address} transitioned to ACTIVE.`)
 
         return true
     }
