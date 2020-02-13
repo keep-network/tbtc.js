@@ -1357,13 +1357,13 @@ class Redemption {
             const outputValue = details.utxoSize.sub(details.requestedFee)
             const unsignedTransaction =
                 BitcoinHelpers.Transaction.constructOneInputOneOutputWitnessTransaction(
-                    details.outpoint,
+                    details.outpoint.replace('0x', ''),
                     // We set sequence to `0` to be able to replace by fee. It reflects
                     // bitcoin-spv:
                     // https://github.com/summa-tx/bitcoin-spv/blob/2a9d594d9b14080bdbff2a899c16ffbf40d62eef/solidity/contracts/CheckBitcoinSigs.sol#L154
                     0,
-                    outputValue,
-                    details.requesterPKH,
+                    outputValue.toNumber(),
+                    details.requesterPKH.replace('0x', ''),
                 )
 
             return {
