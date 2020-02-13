@@ -1416,8 +1416,43 @@ class Redemption {
         // onWithdrawn
     }
 
-    proveWithdrawal(txHash) {
-        // submit withdrawal proof
+    /**
+     * Proves the withdrawal of the BTC in this deposit via the Bitcoin
+     * transaction with id `transactionID`.
+     *
+     * @param {string} transactionID A hexadecimal transaction id hash for the
+     *        transaction that completes the withdrawal of this deposit's BTC.
+     * @param {number} confirmations The number of confirmations required for
+     *        the proof; if this is not provided, looks up the required
+     *        confirmations via the deposit.
+     */
+    async proveWithdrawal(transactionID, confirmations) {
+        if (! confirmations) { // 0 still triggers a lookup
+            confirmations = (await this.deposit.factory.constantsContract.getTxProofDifficultyFactor()).toNumber()
+        }
+
+        const provableTransaction = {
+            transactionID: transactionID,
+            // For filtering, see provideRedemptionProof call below.
+            outputPosition: 'output position',
+        }
+        const proofArgs = await this.deposit.constructFundingProof(
+            provableTransaction,
+            confirmations,
+        )
+
+        proofArgs.push({ from: this.deposit.factory.config.web3.eth.defaultAccount })
+        await this.deposit.contract.provideRedemptionProof.apply(
+            this.deposit.contract,
+            // Redemption proof does not take the output position as a
+            // parameter, as all redemption transactions are one-input-one-output
+            // However, constructFundingProof includes it for deposit funding
+            // proofs. Here, we filter it out to produce the right set of
+            // parameters.
+            proofArgs.filter((_) => _ != 'output position'),
+        )
+
+        this.withdrawnEmitter.emit('withdrawn', transactionID)
     }
 
     onBitcoinTransactionSigned(transactionHandler/*: (transaction)=>void*/) {
