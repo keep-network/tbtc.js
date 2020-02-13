@@ -509,15 +509,18 @@ export default class Deposit {
         }
     }
 
-    async requestRedemption(redeemerAddress/*: string /* bitcoin address */)/*: Redemption*/ {
+    async requestRedemption(redeemerAddress/*: string /* bitcoin address */)/*: Promise<Redemption>*/ {
         const inVendingMachine = await this.inVendingMachine()
         const thisAccount = this.factory.config.web3.eth.defaultAccount
-        const belongsToThisAccount = (await this.getOwner()) == thisAccount
+        const owner = await this.getOwner()
+        const belongsToThisAccount = owner == thisAccount
 
-        if (! inVendingMachine || ! belongsToThisAccount) {
+        if (! inVendingMachine && ! belongsToThisAccount) {
             throw new Error(
-                `Redemption is currently only supported for deposits owned by` +
-                `this account (${thisAccount}) or the tBTC Vending Machine.`
+                `Redemption is currently only supported for deposits owned by ` +
+                `this account (${thisAccount}) or the tBTC Vending Machine ` +
+                `(${this.factory.vendingMachineContract.address}). This ` +
+                `deposit is owned by ${owner}.`
             )
         }
 
