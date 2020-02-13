@@ -496,7 +496,10 @@ export default class Deposit {
                 await this.contract.getOwnerRedemptionTbtcRequirement(
                     this.factory.config.web3.eth.defaultAccount
                 )
-            return this.factory.config.web3.utils.toBN(10).pow(this.factory.config.web3.utils.toBN(18)).add(
+            const lotSize = await this.getSatoshiLotSize()
+
+            const toBN = this.factory.config.web3.utils.toBN
+            return lotSize.mul(toBN(10).pow(toBN(10))).add(
                 ownerRedemptionRequirement
             )
         } else {
