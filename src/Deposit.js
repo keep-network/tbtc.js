@@ -1,21 +1,31 @@
+import secp256k1 from 'bcrypto/lib/secp256k1.js'
+import BcoinPrimitives from 'bcoin/lib/primitives/index.js'
+import BcoinScript from 'bcoin/lib/script/index.js'
+const KeyRing = BcoinPrimitives.KeyRing
+const Script = BcoinScript.Script
+
 import TruffleContract from "@truffle/contract"
 
 import TBTCConstantsJSON from "@keep-network/tbtc/artifacts/TBTCConstants.json"
 import TBTCSystemJSON from "@keep-network/tbtc/artifacts/TBTCSystem.json"
 import TBTCDepositTokenJSON from "@keep-network/tbtc/artifacts/TBTCDepositToken.json"
 import DepositJSON from "@keep-network/tbtc/artifacts/Deposit.json"
+import DepositLogJSON from "@keep-network/tbtc/artifacts/DepositLog.json"
 import DepositFactoryJSON from "@keep-network/tbtc/artifacts/DepositFactory.json"
 import TBTCTokenJSON from "@keep-network/tbtc/artifacts/TBTCToken.json"
 import FeeRebateTokenJSON from "@keep-network/tbtc/artifacts/FeeRebateToken.json"
 import VendingMachineJSON from "@keep-network/tbtc/artifacts/VendingMachine.json"
+import ECDSAKeepJSON from "@keep-network/tbtc/artifacts/ECDSAKeep.json"
 const TBTCConstants = TruffleContract(TBTCConstantsJSON)
 const TBTCSystemContract = TruffleContract(TBTCSystemJSON)
 const TBTCDepositTokenContract = TruffleContract(TBTCDepositTokenJSON)
 const DepositContract = TruffleContract(DepositJSON)
+const DepositLogContract = TruffleContract(DepositLogJSON)
 const DepositFactoryContract = TruffleContract(DepositFactoryJSON)
 const TBTCTokenContract = TruffleContract(TBTCTokenJSON)
 const FeeRebateTokenContract = TruffleContract(FeeRebateTokenJSON)
 const VendingMachineContract = TruffleContract(VendingMachineJSON)
+const ECDSAKeepContract = TruffleContract(ECDSAKeepJSON)
 
 export class DepositFactory {
     config/*: TBTCConfig*/;
@@ -26,12 +36,13 @@ export class DepositFactory {
     depositTokenContract/*: any*/;
     feeRebateTokenContract/*: any */;
     depositContract/*: any*/;
+    depositLogContract/*: any*/;
     depositFactoryContract/*: any */;
     vendingMachineContract/*: any */;
 
     static async withConfig(config/*: TBTCConfig)*/)/*: Promise<DepositFactory>*/ {
         const statics = new DepositFactory(config)
-        const result = await statics.resolveContracts()
+        await statics.resolveContracts()
 
         return statics
     }
@@ -91,6 +102,9 @@ export class DepositFactory {
 
     /**
      * INTERNAL USE ONLY
+     *
+     * Initializes a new deposit and returns a tuple of the deposit contract
+     * address and the associated keep address.
      */
     async createNewDepositContract(lotSize/*: BN */) {
         const funderBondAmount = await this.constants.getFunderBondAmount()
@@ -115,18 +129,23 @@ export class DepositFactory {
             }
         )
 
-        const cloneEvent = result.logs.find((log) => {
-            return log.event == 'DepositCloneCreated' &&
-                log.address == this.depositFactoryContract.address
-        })
-        if (! cloneEvent) {
+        const createdEvent = readEventFromTransaction(
+            this.config.web3,
+            result,
+            this.systemContract,
+            'Created',
+        )
+        if (! createdEvent) {
             throw new Error(
-                `Transaction failed to include deposit creation event. ` +
+                `Transaction failed to include keep creation event. ` +
                 `Transaction was: ${JSON.stringify(result)}.`
             )
         }
 
-        return await DepositContract.at(cloneEvent.args.depositCloneAddress)
+        return {
+            depositAddress: createdEvent._depositContractAddress,
+            keepAddress: createdEvent._keepAddress,
+        }
     }
 }
 
@@ -144,31 +163,49 @@ export class DepositFactory {
 export default class Deposit {
     factory/*: DepositFactory*/;
     address/*: string*/;
+    keepAddress/*: string*/;
     contract/*: any*/;
     addressHandlers/*: BitcoinAddressHandler[]*/;
     activeHandlers/*: ActiveHandler[]*/;
 
-    static async forLotSize(factory/*: DepositFactory*/, lotSize/*: BN*/)/*: Promise<Deposit>*/ {
-        const address = await factory.createNewDepositContract(lotSize)
+    bitcoinAddress/*: string*/;
 
-        return new Deposit(factory, address)
+    static async forLotSize(factory/*: DepositFactory*/, lotSize/*: BN*/)/*: Promise<Deposit>*/ {
+        const { depositAddress, keepAddress } = await factory.createNewDepositContract(lotSize)
+        const contract = await DepositContract.at(depositAddress)
+
+        return new Deposit(factory, contract, keepAddress)
     }
 
     static async forAddress(factory/*: DepositFactory*/, address/*: string*/)/*: Promise<Deposit>*/ {
-        return new Deposit(factory, address)
+        const contract = await DepositContract.at(address)
+
+        return new Deposit(factory, contract)
     }
 
     static async forTDT(factory/*: DepositFactory*/, tdt/*: TBTCDepositToken | string*/)/*: Promise<Deposit>*/ {
         return new Deposit(factory, "")
     }
 
-    constructor(factory/*: DepositFactory*/, address/*: string*/) {
+    constructor(factory/*: DepositFactory*/, depositContract/*: TruffleContract*/, keepAddress/*: string */) {
         this.factory = factory
-        this.address = address
-        this.contract = DepositContract.at(address)
+        this.address = depositContract.address
+        this.keepAddress = keepAddress
+        this.contract = depositContract
 
         this.addressHandlers = []
         this.activeHandlers = []
+
+        if (! keepAddress) {
+            throw "No keep address currently means no nothin', sorryyyyy."
+            // look up keep address via factory.systemContract.getPastEvents("Created"...)
+        } else {
+            this.bitcoinAddress = this.findOrWaitForBitcoinAddress()
+        }
+    }
+
+    async getBitcoinAddress() {
+        return await this.bitcoinAddress
     }
 
     async open() {
@@ -244,6 +281,164 @@ export default class Deposit {
     async requestRedemption(redemptionAddress/*: string /* bitcoin address */)/*: Redemption*/ {
         return new Redemption(this, redemption)
     }
+
+    // Finds an existing event from the keep backing the Deposit to access the
+    // keep's public key, then submits it to the deposit to transition from
+    // state AWAITING_SIGNER_SETUP to state AWAITING_BTC_FUNDING_PROOF and
+    // provide access to the Bitcoin address for the deposit.
+    //
+    // Note that the client must do this public key submission to the deposit
+    // manually; the deposit is not currently informed by the Keep of its newly-
+    // generated pubkey for a variety of reasons.
+    //
+    // Returns a promise that will be fulfilled once the public key
+    async findOrWaitForBitcoinAddress() {
+        let signerPubkeyEvent = await this.readPublishedPubkeyEvent()
+        if (signerPubkeyEvent) {
+            return this.parseBitcoinAddress(signerPubkeyEvent)
+        }
+
+        ECDSAKeepContract.setProvider(this.factory.config.web3.currentProvider)
+        const ecdsaKeep = await ECDSAKeepContract.at(this.keepAddress)
+        // Wait for the Keep to be ready.
+        await getEvent(ecdsaKeep, 'PublicKeyPublished')
+        // Ask the deposit to fetch and store the signer pubkey.
+        const pubkeyTransaction = await this.contract.retrieveSignerPubkey(
+            {
+                from: this.factory.config.web3.eth.defaultAccount,
+            }
+        )
+
+        return this.parseBitcoinAddress(readEventFromTransaction(
+            this.factory.config.web3,
+            pubkeyTransaction,
+            this.factory.systemContract,
+            'RegisteredPubkey',
+        ))
+    }
+
+    async readPublishedPubkeyEvent() {
+        return getExistingEvent(
+            this.factory.systemContract,
+            'RegisteredPubkey',
+            { _depositContractAddress: this.address }
+        )
+    }
+
+    async parseBitcoinAddress(signerPubkeyEvent) {
+        return BitcoinHelpers.Address.publicKeyPointToP2WPKHAddress(
+            signerPubkeyEvent._signingGroupPubkeyX,
+            signerPubkeyEvent._signingGroupPubkeyY,
+            this.factory.config.bitcoinNetwork,
+        )
+    }
+}
+
+const BitcoinHelpers = {
+    Address: {
+        publicKeyPointToP2WPKHAddress: function(publicKeyX, publicKeyY, bitcoinNetwork) {
+            return this.publicKeyToP2WPKHAddress(
+                `${publicKeyX.replace('0x', '')}${publicKeyY.replace('0x','')}`,
+                bitcoinNetwork,
+            )
+        },
+        /**
+         * Converts public key to bitcoin Witness Public Key Hash Address according to
+         * [BIP-173](https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki).
+         * @param {string} publicKeyString Public key as a hexadecimal representation of
+         * 64-byte concatenation of x and y coordinates.
+         * @param {Network} network Network for which address has to be calculated.
+         * @return {string} A Bitcoin P2WPKH address for given network.
+         */
+        publicKeyToP2WPKHAddress: function (publicKeyString, network) {
+            const publicKeyBytes = Buffer.from(publicKeyString, 'hex')
+
+            // Witness program requires usage of compressed public keys.
+            const compress = true
+
+            const publicKey = secp256k1.publicKeyImport(publicKeyBytes, compress)
+            const keyRing = KeyRing.fromKey(publicKey, compress)
+            const p2wpkhScript = Script.fromProgram(0, keyRing.getKeyHash())
+        
+            // Serialize address to a format specific to given network.
+            return p2wpkhScript.getAddress().toString(network)
+        }
+    }
+}
+
+/**
+ * From a given transaction result, extracts the first event with the given
+ * name from the given source contract.
+ * 
+ * @param {Web3} web3 A web3 instance for operating.
+ * @param {Result} transaction A web3 transaction result.
+ * @param {TruffleContract} sourceContract A TruffleContract instance whose event is being read.
+ * @param {string} eventName The name of the event to be read.
+ * 
+ * @return The event as read from the transaction's raw logs; note that this
+ *         event has a different structure than the event passed to event
+ *         handlers---it returns the equivalent of `event.args` from event
+ *         handlers.
+ */
+function readEventFromTransaction(web3, transaction, sourceContract, eventName) {
+    const inputsABI = sourceContract.abi.find(
+        (entry) => entry.type == "event" && entry.name == eventName
+    ).inputs
+
+    return transaction.receipt.rawLogs.
+        filter((_) => _.address == sourceContract.address).
+        map((_) => web3.eth.abi.decodeLog(inputsABI, _.data, _.topics.slice(1)))
+        [0]
+}
+
+/**
+ * Waits until `source` emits the given `event`, including searching past blocks
+ * for such `event`, then returns it.
+ *
+ * @param {TruffleContract} sourceContract The TruffleContract that emits the event.
+ * @param {string} eventName The name of the event to wait on.
+ *
+ * @return A promise that will be fulfilled by the event object once it is
+ *         received.
+ */
+function getEvent(sourceContract, eventName) {
+    return new Promise((resolve) => {
+        sourceContract[eventName]().once("data", (event) => {
+            clearInterval(handle);
+            resolve(event)
+        })
+
+        // As a workaround for a problem with MetaMask version 7.1.1 where subscription
+        // for events doesn't work correctly we pull past events in a loop until
+        // we find our event. This is a temporary solution which should be removed
+        // after problem with MetaMask is solved.
+        // See: https://github.com/MetaMask/metamask-extension/issues/7270
+        const handle = setInterval(
+            async function() {
+                // Query if an event was already emitted after we start watching
+                const event = await getExistingEvent(sourceContract, eventName)
+
+                if (event) {
+                    clearInterval(handle)
+                    resolve(event)
+                }
+            },
+            3000, // every 3 seconds
+        )
+    })
+}
+
+async function getExistingEvent(source, eventName, filter) {
+    const events = await source.getPastEvents(
+        eventName,
+        {
+            fromBlock: 0,
+            toBlock: 'latest',
+            filter,
+        }
+    )
+
+    return events[0]
 }
 
 class Redemption {
