@@ -1,8 +1,8 @@
 import secp256k1 from 'bcrypto/lib/secp256k1.js'
 import BcoinPrimitives from 'bcoin/lib/primitives/index.js'
 import BcoinScript from 'bcoin/lib/script/index.js'
-const KeyRing = BcoinPrimitives.KeyRing
-const Script = BcoinScript.Script
+const { KeyRing } = BcoinPrimitives
+const { Script } = BcoinScript
 
 import TruffleContract from "@truffle/contract"
 
@@ -20,7 +20,6 @@ const TBTCConstants = TruffleContract(TBTCConstantsJSON)
 const TBTCSystemContract = TruffleContract(TBTCSystemJSON)
 const TBTCDepositTokenContract = TruffleContract(TBTCDepositTokenJSON)
 const DepositContract = TruffleContract(DepositJSON)
-const DepositLogContract = TruffleContract(DepositLogJSON)
 const DepositFactoryContract = TruffleContract(DepositFactoryJSON)
 const TBTCTokenContract = TruffleContract(TBTCTokenJSON)
 const FeeRebateTokenContract = TruffleContract(FeeRebateTokenJSON)
@@ -30,7 +29,7 @@ const ECDSAKeepContract = TruffleContract(ECDSAKeepJSON)
 export class DepositFactory {
     config/*: TBTCConfig*/;
 
-    constants/*: any */;
+    constantsContract/*: any */;
     systemContract/*: any*/;
     tokenContract/*: any */;
     depositTokenContract/*: any*/;
@@ -87,7 +86,7 @@ export class DepositFactory {
         }
 
         const contracts = [
-            [TBTCConstants, 'constants'],
+            [TBTCConstants, 'constantsContract'],
             [TBTCSystemContract, 'systemContract'],
             [TBTCTokenContract, 'tokenContract'],
             [TBTCDepositTokenContract, 'depositTokenContract'],
@@ -107,7 +106,7 @@ export class DepositFactory {
      * address and the associated keep address.
      */
     async createNewDepositContract(lotSize/*: BN */) {
-        const funderBondAmount = await this.constants.getFunderBondAmount()
+        const funderBondAmount = await this.constantsContract.getFunderBondAmount()
         const accountBalance = await this.config.web3.eth.getBalance(this.config.web3.eth.defaultAccount)
         if (funderBondAmount.lt(accountBalance)) {
             throw `Insufficient balance ${accountBalance.toString()} to open ` +
@@ -170,8 +169,8 @@ export default class Deposit {
 
     bitcoinAddress/*: string*/;
 
-    static async forLotSize(factory/*: DepositFactory*/, lotSize/*: BN*/)/*: Promise<Deposit>*/ {
-        const { depositAddress, keepAddress } = await factory.createNewDepositContract(lotSize)
+    static async forLotSize(factory/*: DepositFactory*/, satoshiLotSize/*: BN*/)/*: Promise<Deposit>*/ {
+        const { depositAddress, keepAddress } = await factory.createNewDepositContract(satoshiLotSize)
         const contract = await DepositContract.at(depositAddress)
 
         return new Deposit(factory, contract, keepAddress)
@@ -204,13 +203,34 @@ export default class Deposit {
         }
     }
 
+    ///------------------------------- Accessors -------------------------------
+
+    /**
+     * Returns a promise that resolves to the Bitcoin address for the wallet
+     * backing this deposit. May take an extended amount of time if this deposit
+     * has just been created.
+     */
     async getBitcoinAddress() {
         return await this.bitcoinAddress
     }
 
-    async open() {
-        // 
+    async getTDT()/*: Promise<TBTCDepositToken>*/ {
+        return {}
     }
+
+    async getFRT()/*: Promise<FeeRebateToken | null>*/ {
+        return {}
+    }
+
+    async getOwner()/*: Promise<string>*/ /* ETH address */ {
+        return ""
+    }
+
+    async inVendingMachine()/*: Promise<boolean>*/ {
+        return false
+    }
+
+    ///---------------------------- Event Handlers -----------------------------
 
     /**
      * Registers a handler for notification when a Bitcoin address is available
@@ -218,15 +238,19 @@ export default class Deposit {
      * if it wishes to disable auto-monitoring and submission of funding
      * transaction proof.
      * 
-     * @note Currently, this function will only notify the passed handler if the
-     *       Bitcoin address becomes available _after_ the function is called.
-     *       If the address was already available at call time, the handler will
-     *       never be called.
-     * 
-     * @param bitcoinAddressHandler Add
+     * @param bitcoinAddressHandler A function that takes a bitcoin address and
+     *        a cancelAutoMonitor function, and is called when the deposit's
+     *        Bitcoin address becomes available. For already-open deposits, this
+     *        callback will be invoked as soon as the address is fetched from
+     *        the chain. cancelAutoMonitor can be used to turn off the auto-
+     *        monitoring functionality that looks for new Bitcoin transactions
+     *        to a deposit awaiting funding so as to submit a funding proof; see
+     *        the `cancelAutoMonitor` method for more.
      */
-    onAddressAvailable(bitcoinAddressHandler/*: BitcoinAddressHandler*/) {
-        this.addressHandlers.push(bitcoinAddressHandler)
+    onBitcoinAddressAvailable(bitcoinAddressHandler/*: BitcoinAddressHandler*/) {
+        this.bitcoinAddress.then((address) => {
+            bitcoinAddressHandler(address, this.cancelAutoMonitor)
+        })
     }
 
     /**
@@ -246,21 +270,7 @@ export default class Deposit {
         // Bitcoin txHash; no verification initially.
     }
 
-    async getTDT()/*: Promise<TBTCDepositToken>*/ {
-        return {}
-    }
-
-    async getFRT()/*: Promise<FeeRebateToken | null>*/ {
-        return {}
-    }
-
-    async getOwner()/*: Promise<string>*/ /* ETH address */ {
-        return ""
-    }
-
-    async inVendingMachine()/*: Promise<boolean>*/ {
-        return false
-    }
+    ///--------------------------- Deposit Actions -----------------------------
 
     async mintTBTC()/*: Promise<BN>*/ {
         // check is active
@@ -281,6 +291,8 @@ export default class Deposit {
     async requestRedemption(redemptionAddress/*: string /* bitcoin address */)/*: Redemption*/ {
         return new Redemption(this, redemption)
     }
+
+    ///------------------------------- Helpers ---------------------------------
 
     // Finds an existing event from the keep backing the Deposit to access the
     // keep's public key, then submits it to the deposit to transition from
@@ -321,7 +333,7 @@ export default class Deposit {
         return getExistingEvent(
             this.factory.systemContract,
             'RegisteredPubkey',
-            { _depositContractAddress: this.address }
+            { _depositContractAddress: this.address },
         )
     }
 
@@ -332,7 +344,44 @@ export default class Deposit {
             this.factory.config.bitcoinNetwork,
         )
     }
+
+    async submitFundingProof(transaction, confirmations) {
+        const { transactionID, outputPosition } = transaction
+        const {
+            tx,
+            merkleProof,
+            chainHeaders,
+        } = await BitcoinHelpers.Transaction.getProof(transactionID, confirmations)
+
+        const {
+            version,
+            txInVector,
+            txOutVector,
+            locktime,
+        } = BitcoinTxParser.parse(tx)
+
+        console.log("Submitting proof........")
+        return await this.contract.provideBTCFundingProof(
+            Buffer.from(version, 'hex'),
+            Buffer.from(txInVector, 'hex'),
+            Buffer.from(txOutVector, 'hex'),
+            Buffer.from(locktime, 'hex'),
+            outputPosition,
+            Buffer.from(merkleProof, 'hex'),
+            proof.txInBlockIndex,
+            Buffer.from(chainHeaders, 'hex'),
+        )
+    }
 }
+
+/**
+ * Found transaction details.
+ * @typedef FoundTransaction
+ * @type {Object}
+ * @property {string} transactionID Transaction ID.
+ * @property {number} outputPosition Position of output in the transaction.
+ * @property {number} value Value of the output (satoshis).
+*/
 
 const BitcoinHelpers = {
     Address: {
@@ -350,7 +399,7 @@ const BitcoinHelpers = {
          * @param {Network} network Network for which address has to be calculated.
          * @return {string} A Bitcoin P2WPKH address for given network.
          */
-        publicKeyToP2WPKHAddress: function (publicKeyString, network) {
+        publicKeyToP2WPKHAddress: function(publicKeyString, network) {
             const publicKeyBytes = Buffer.from(publicKeyString, 'hex')
 
             // Witness program requires usage of compressed public keys.
@@ -372,7 +421,8 @@ const BitcoinHelpers = {
  * 
  * @param {Web3} web3 A web3 instance for operating.
  * @param {Result} transaction A web3 transaction result.
- * @param {TruffleContract} sourceContract A TruffleContract instance whose event is being read.
+ * @param {TruffleContract} sourceContract A TruffleContract instance whose
+ *        event is being read.
  * @param {string} eventName The name of the event to be read.
  * 
  * @return The event as read from the transaction's raw logs; note that this
