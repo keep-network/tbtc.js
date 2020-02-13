@@ -43,7 +43,7 @@ class TBTC {
         this.config = config
     }
 
-    get Deposit()/*: Promise<DepositFactory>*/ {
+    get DepositFactory()/*: Promise<DepositFactory>*/ {
         return DepositFactory.withConfig(this.config)
     }
 }

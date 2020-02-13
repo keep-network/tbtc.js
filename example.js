@@ -17,11 +17,11 @@ const tbtc = TBTC.configure({
     bitcoinNetwork: "testnet",
 })
 
-const Deposit = await tbtc.Deposit
-const lotSizes = await Deposit.availableSatoshiLotSizes()
+const DepositFactory = await tbtc.DepositFactory
+const lotSizes = await DepositFactory.availableSatoshiLotSizes()
 console.log("available", lotSizes.map(_ => _.toString()))
 
-const deposit = await Deposit.withSatoshiLotSize(lotSizes[0])
+const deposit = await DepositFactory.withSatoshiLotSize(lotSizes[0])
 console.log("deposit", deposit)
 }
 
