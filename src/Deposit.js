@@ -933,7 +933,8 @@ const BitcoinHelpers = {
     Transaction: {
         /**
          * Finds a transaction to the given `bitcoinAddress` of the given
-         * `expectedValue`.
+         * `expectedValue`. If there is more than one such transaction, returns
+         * the most recent one.
          *
          * @param {string} bitcoinAddress A receiving Bitcoin address.
          * @param {number} expectedValue The expected value of the transaction
@@ -1187,7 +1188,8 @@ const BitcoinHelpers = {
         // Raw helpers.
         /**
          * Finds a transaction to the given `receiverScript` of the given
-         * `expectedValue` using the given `electrumClient`.
+         * `expectedValue` using the given `electrumClient`. If there is more
+         * than one such transaction, returns the most recent one.
          *
          * @param {ElectrumClient} electrumClient An already-initialized Electrum client.
          * @param {string} receiverScript A receiver script.
@@ -1202,7 +1204,7 @@ const BitcoinHelpers = {
         findWithClient: async function(electrumClient, receiverScript, expectedValue) {
             const unspentTransactions = await electrumClient.getUnspentToScript(receiverScript)
 
-            for (const tx of unspentTransactions) {
+            for (const tx of unspentTransactions.reverse()) {
                 if (tx.value == expectedValue) {
                     return {
                         transactionID: tx.tx_hash,
