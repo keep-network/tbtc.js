@@ -4,6 +4,8 @@ import BcoinScript from 'bcoin/lib/script/index.js'
 const { KeyRing } = BcoinPrimitives
 const { Script } = BcoinScript
 
+import { BitcoinSPV } from "./lib/BitcoinSPV.js"
+import { BitcoinTxParser } from "./lib/BitcoinTxParser.js"
 import ElectrumClient from "./lib/ElectrumClient.js"
 
 import TruffleContract from "@truffle/contract"
@@ -482,6 +484,101 @@ const BitcoinHelpers = {
 
         return result
     },
+    Transaction: {
+        /**
+         * Finds a transaction to the given `receiverScript` of the given
+         * `expectedValue` using the given `electrumClient`.
+         *
+         * @param {ElectrumClient} electrumClient An already-initialized Electrum client.
+         * @param {string} receiverScript A receiver script.
+         * @param {number} expectedValue The expected value of the transaction
+         *        to fetch.
+         *
+         * @return {FoundTransaction} A promise to an object of transactionID,
+         *         outputPosition, and value, that resolves with either null
+         *         if such a transaction could not be found, or the information
+         *         about the transaction that was found.
+         */
+        find: async function(electrumClient, receiverScript, expectedValue) {
+            const unspentTransactions = await electrumClient.getUnspentToScript(receiverScript)
+
+            for (const tx of unspentTransactions) {
+                if (tx.value == expectedValue) {
+                    return {
+                        transactionID: tx.tx_hash,
+                        outputPosition: tx.tx_pos,
+                        value: tx.value,
+                    }
+                }
+            }
+        },
+        /**
+         * Watches the Bitcoin chain for a transaction of value `expectedValue`
+         * to address `bitcoinAddress`.
+         *
+         * @param {string} bitcoinAddress Bitcoin address to watch.
+         * @param {number} expectedValue The expected value to watch for.
+         *
+         * @return {Promise<FoundTransaction>} A promise to the found
+         *         transaction once it is seen on the chain.
+         */
+        findOrWaitFor: async function(bitcoinAddress, expectedValue) {
+            return await BitcoinHelpers.withElectrumClient(async (electrumClient) => {
+                const script = BitcoinHelpers.Address.toScript(bitcoinAddress)
+
+                // This function is used as a callback to electrum client. It is
+                // invoked when an existing or a new transaction is found.
+                const checkTransactions = async function(status) {
+                    // If the status is set, transactions were seen for the
+                    // script.
+                    if (status) {
+                        const result =  BitcoinHelpers.Transaction.find(
+                            electrumClient,
+                            script,
+                            expectedValue,
+                        )
+
+                        return result
+                    }
+                }
+
+                return electrumClient.onTransactionToScript(
+                    script,
+                    checkTransactions,
+                )
+            })
+        },
+        /**
+         * Watches the Bitcoin chain until the given `transaction` has the given
+         * number of `requiredConfirmations`.
+         *
+         * @param {Transaction} transaction Transaction object from Electrum.
+         * @param {number} requiredConfirmations The number of required
+         *        confirmations to wait before returning.
+         *
+         * @return A promise to the final number of confirmations observed that
+         *         was at least equal to the required confirmations.
+         */
+        waitForConfirmations: async function(transaction, requiredConfirmations) {
+            const id = transaction.transactionID
+
+            return BitcoinHelpers.withElectrumClient(async (electrumClient) => {
+                const checkConfirmations = async function() {
+                    const { confirmations } = await electrumClient.getTransaction(id)
+                    if (confirmations >= requiredConfirmations) {
+                        return confirmations
+                    }
+                }
+
+                return electrumClient.onNewBlock(checkConfirmations)
+            })
+        },
+        getProof: async function(transactionID, confirmations) {
+            return await BitcoinHelpers.withElectrumClient(async (electrumClient) => {
+                const spv = new BitcoinSPV(electrumClient)
+                return spv.getTransactionProof(transactionID, confirmations)
+            })
+        },
     }
 }
 

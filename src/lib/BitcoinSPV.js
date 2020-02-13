@@ -1,8 +1,9 @@
 // JS implementation of merkle.py script from [summa-tx/bitcoin-spv] repository.
 //
 // [summa-tx/bitcoin-spv]: https://github.com/summa-tx/bitcoin-spv/
-const Hash256 = require('bcrypto/lib/hash256')
-const Merkle = require('bcrypto/lib/merkle')
+import Hash256 from 'bcrypto/lib/hash256.js'
+import BcryptoMerkle from 'bcrypto/lib/merkle.js'
+const { deriveRoot } = BcryptoMerkle
 
 /**
  * @typedef {Object} Proof
@@ -12,7 +13,7 @@ const Merkle = require('bcrypto/lib/merkle')
  * @property {string} chainHeaders - Chain of blocks headers.
  */
 
-class BitcoinSPV {
+export class BitcoinSPV {
   /**
    * Initialize Bitcoin SPV with provided Electrum Client.
    * @param {ElectrumClient} electrumClient
@@ -93,7 +94,7 @@ class BitcoinSPV {
 
     // Derive expected root from branches and transaction.
     const txHashBuffer = Buffer.from(txHash, 'hex').reverse()
-    const expectedRoot = Merkle.deriveRoot(Hash256, txHashBuffer, branches, index)
+    const expectedRoot = deriveRoot(Hash256, txHashBuffer, branches, index)
 
     // Validate if calculated root is equal to the one returned from client.
     if (actualRoot.equals(expectedRoot)) {
@@ -102,8 +103,4 @@ class BitcoinSPV {
       return false
     }
   }
-}
-
-module.exports = {
-  BitcoinSPV,
 }
