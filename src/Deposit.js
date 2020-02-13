@@ -497,8 +497,16 @@ export default class Deposit {
         }
     }
 
-    async requestRedemption(redemptionAddress/*: string /* bitcoin address */)/*: Redemption*/ {
-        return new Redemption(this, redemption)
+    async requestRedemption(redeemerScript/*: string /* bitcoin address script */)/*: Redemption*/ {
+        if (await this.getOwner() != this.factory.config.web3.eth.defaultAccount &&
+                ! await this.inVendingMachine()) {
+            throw new Error(
+                `Redemption is currently only supported for deposits owned by` +
+                `this account or the tBTC Vending Machine.`
+            )
+        }
+
+        return new Redemption(this, redeemerScript)
     }
 
     ///------------------------------- Helpers ---------------------------------
