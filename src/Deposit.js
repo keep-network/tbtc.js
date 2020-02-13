@@ -838,14 +838,18 @@ const BitcoinHelpers = {
      * It also checks `s` value and converts it to a low value if necessary as per
      * [BIP-0062](https://github.com/bitcoin/bips/blob/master/bip-0062.mediawiki#low-s-values-in-signatures).
      *
-     * @param {Buffer} r A signature's `r` value.
-     * @param {Buffer} s A signature's `s` value.
+     * @param {string} r A signature's `r` value in hexadecimal format.
+     * @param {string} s A signature's `s` value in hexadecimal format.
      *
      * @return {Buffer} The signature in the DER format.
      */
     signatureDER: function(r, s) {
         const size = secp256k1.size
-        const signature = new BcryptoSignature(size, r, s)
+        const signature = new BcryptoSignature(
+            size,
+            Buffer.from(r, 'hex'),
+            Buffer.from(s, 'hex'),
+        )
 
         // Verifies if either of `r` or `s` values equals zero or is greater or equal
         // curve's order. If so throws an error.
@@ -1070,10 +1074,10 @@ const BitcoinHelpers = {
          * @param {string} unsignedTransaction Unsigned raw bitcoin transaction
          *        in hexadecimal format.
          * @param {uint32} inputIndex Index number of input to be signed.
-         * @param {Buffer} r Signature's `r` value.
-         * @param {Buffer} s Signature's `s` value.
-         * @param {Buffer} publicKey 64-byte signer's public key's concatenated
-         *        x and y coordinates.
+         * @param {string} r Signature's `r` value in hexadecimal format.
+         * @param {string} s Signature's `s` value in hexadecimal format.
+         * @param {string} publicKey 64-byte signer's public key's concatenated
+         *        x and y coordinates in hexadecimal format.
          *
          * @return {string} Raw transaction in a hexadecimal format with witness
          *         signature.
@@ -1093,7 +1097,8 @@ const BitcoinHelpers = {
             // Public Key
             let compressedPublicKey
             try {
-                compressedPublicKey = secp256k1.publicKeyImport(publicKey, true)
+                const publicKeyBytes = Buffer.from(publicKey, 'hex')
+                compressedPublicKey = secp256k1.publicKeyImport(publicKeyBytes, true)
             } catch (err) {
                 throw new Error(`failed to import public key: [${err}]`)
             }
