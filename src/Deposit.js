@@ -1508,6 +1508,7 @@ class Redemption {
     }
 
     onWithdrawn(withdrawalHandler/*: (txHash)=>void*/) { // bitcoin txHash
+        this.withdrawnEmitter.on('withdrawn', withdrawalHandler)
     }
 
     /**
