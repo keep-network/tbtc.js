@@ -663,6 +663,17 @@ const BitcoinHelpers = {
                 )
             })
         },
+        checkForConfirmations: async function(transaction, requiredConfirmations) {
+            const id = transaction.transactionID
+
+            return BitcoinHelpers.withElectrumClient(async (electrumClient) => {
+                return await BitcoinHelpers.Transaction.checkForConfirmationsWithClient(
+                    electrumClient,
+                    id,
+                    requiredConfirmations,
+                )
+            })
+        },
         /**
          * Watches the Bitcoin chain until the given `transaction` has the given
          * number of `requiredConfirmations`.
@@ -679,10 +690,11 @@ const BitcoinHelpers = {
 
             return BitcoinHelpers.withElectrumClient(async (electrumClient) => {
                 const checkConfirmations = async function() {
-                    const { confirmations } = await electrumClient.getTransaction(id)
-                    if (confirmations >= requiredConfirmations) {
-                        return confirmations
-                    }
+                    return await BitcoinHelpers.Transaction.checkForConfirmationsWithClient(
+                        electrumClient,
+                        id,
+                        requiredConfirmations,
+                    )
                 }
 
                 return electrumClient.onNewBlock(checkConfirmations)
@@ -721,6 +733,12 @@ const BitcoinHelpers = {
                         value: tx.value,
                     }
                 }
+            }
+        },
+        checkForConfirmationsWithClient: async function(electrumClient, transactionID, requiredConfirmations) {
+            const { confirmations } = await electrumClient.getTransaction(transactionID)
+            if (confirmations >= requiredConfirmations) {
+                return confirmations
             }
         },
     }
