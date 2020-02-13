@@ -474,9 +474,27 @@ export default class Deposit {
         return transferEvent.value.div(this.factory.config.web3.utils.toBN(10).pow(18))
     }
 
-    async redemptionCost()/*: Promise<BN>*/ {
-        // if inVendingMachine -> 1 TBTC + getOwnerRedemption...
-        // else getOwnerRedemption...
+    /**
+     * Returns the cost, in TBTC, to redeem this deposit. If the deposit is in
+     * the tBTC Vending Machine, includes the cost of retrieving it from the
+     * Vending Machine.
+     *
+     * @return A promise to the amount of TBTC needed to redeem this deposit.
+     */
+    async getRedemptionCost()/*: Promise<BN>*/ {
+        if (await this.inVendingMachine()) {
+            const ownerRedemptionRequirement =
+                await this.contract.getOwnerRedemptionTbtcRequirement(
+                    this.factory.config.web3.eth.defaultAccount
+                )
+            return this.factory.config.web3.utils.toBN(10).pow(this.factory.config.web3.utils.toBN(18)).add(
+                ownerRedemptionRequirement
+            )
+        } else {
+            return await this.contract.getRedemptionTbtcRequirement(
+                this.factory.config.web3.eth.defaultAccount
+            )
+        }
     }
 
     async requestRedemption(redemptionAddress/*: string /* bitcoin address */)/*: Redemption*/ {

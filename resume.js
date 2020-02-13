@@ -25,8 +25,8 @@ async function runExample() {
     const deposit = await DepositFactory.withAddress(depositAddress)
     // console.log("Minted!", await deposit.qualifyAndMintTBTC())
     console.log("Minted!", await deposit.mintTBTC())
-    // console.log("Redemption!", (await deposit.redemptionCost()).toString())
-    // console.log("Redemption!", (await deposit.redemptionCost()).toString())
+    // console.log("Redemption!", (await deposit.getRedemptionCost()).toString())
+    // console.log("Redemption!", (await deposit.getRedemptionCost()).toString())
     // const lotSizes = await DepositFactory.availableSatoshiLotSizes()
 
     // console.log("Initiating deposit...")
