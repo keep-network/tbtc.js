@@ -905,6 +905,21 @@ const BitcoinHelpers = {
                 )
             })
         },
+        /**
+         * Checks the given Bitcoin `transaction` to ensure it has at least
+         * `requiredConfirmations` on-chain. If it does, resolves the returned
+         * promise with the current number of on-chain confirmations. If it does
+         * not, fulfills the promise with `null`.
+         *
+         * @param {FoundTransaction} transaction A transaction object whose
+         *        confirmations will be checked.
+         * @param {number} requiredConfirmations A number of required
+         *        confirmations below which this function will return null.
+         *
+         * @return {Promise<number>} A promise to the current number of
+         *         confirmations for the given `transaction`, iff that transaction has
+         *         at least `requiredConfirmations` confirmations.
+         */
         checkForConfirmations: async function(transaction, requiredConfirmations) {
             const id = transaction.transactionID
 
