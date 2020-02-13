@@ -175,7 +175,7 @@ export class DepositFactory {
 export default class Deposit {
     factory/*: DepositFactory*/;
     address/*: string*/;
-    keepAddress/*: string*/;
+    keepContract/*: string*/;
     contract/*: any*/;
 
     bitcoinAddress/*: Promise<string>*/;
@@ -195,7 +195,10 @@ export default class Deposit {
         )
         const contract = await DepositContract.at(depositAddress)
 
-        return new Deposit(factory, contract, keepAddress)
+        ECDSAKeepContract.setProvider(factory.config.web3.currentProvider)
+        const keepContract = await ECDSAKeepContract.at(keepAddress)
+
+        return new Deposit(factory, contract, keepContract)
     }
 
     static async forAddress(factory/*: DepositFactory*/, address/*: string*/)/*: Promise<Deposit>*/ {
@@ -215,21 +218,24 @@ export default class Deposit {
         }
 
         console.debug(`Found keep address ${createdEvent.args._keepAddress}.`)
-        return new Deposit(factory, contract, createdEvent.args._keepAddress, false)
+        ECDSAKeepContract.setProvider(factory.config.web3.currentProvider)
+        const keepContract = await ECDSAKeepContract.at(createdEvent.args._keepAddress)
+
+        return new Deposit(factory, contract, keepContract, false)
     }
 
     static async forTDT(factory/*: DepositFactory*/, tdt/*: TBTCDepositToken | string*/)/*: Promise<Deposit>*/ {
         return new Deposit(factory, "")
     }
 
-    constructor(factory/*: DepositFactory*/, depositContract/*: TruffleContract*/, keepAddress/*: string */, autoMonitor/*: boolean*/ = true) {
-        if (! keepAddress) {
-            throw "Keep address required for Deposit instantiation."
+    constructor(factory/*: DepositFactory*/, depositContract/*: TruffleContract*/, keepContract/*: TruffleContract */, autoMonitor/*: boolean*/ = true) {
+        if (! keepContract) {
+            throw "Keep contract required for Deposit instantiation."
         }
 
         this.factory = factory
         this.address = depositContract.address
-        this.keepAddress = keepAddress
+        this.keepContract = keepContract
         this.contract = depositContract
 
         this.autoMonitor = autoMonitor
@@ -620,10 +626,8 @@ export default class Deposit {
 
         console.debug(`Waiting for deposit ${this.address} keep public key...`)
 
-        ECDSAKeepContract.setProvider(this.factory.config.web3.currentProvider)
-        const ecdsaKeep = await ECDSAKeepContract.at(this.keepAddress)
         // Wait for the Keep to be ready.
-        await getEvent(ecdsaKeep, 'PublicKeyPublished')
+        await getEvent(this.keepContract, 'PublicKeyPublished')
 
         console.debug(`Waiting for deposit ${this.address} to retrieve public key...`)
         // Ask the deposit to fetch and store the signer pubkey.
