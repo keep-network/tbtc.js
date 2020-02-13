@@ -335,6 +335,27 @@ export default class Deposit {
 
     ///------------------------------- Helpers ---------------------------------
 
+    /**
+     * Mostly meant to be called from the onAddressAvailable callback, this
+     * method cancels the deposit's default behavior of automatically monitoring
+     * for a new Bitcoin transaction to the deposit signers' Bitcoin wallet,
+     * then watching that transaction until it has accumulated sufficient work
+     * for proof submission, then submitting that proof to the deposit to
+     * qualify it and move it into the active state.
+     *
+     * After calling this function, the deposit will do none of those things;
+     * instead, the caller will be in charge of managing (or choosing not to)
+     * this process. This can be useful, for example, if a dApp wants to open
+     * a deposit, then transfer the deposit to a service provider who will
+     * handle deposit qualification.
+     *
+     * Note that a Deposit object created for a deposit that already exists and
+     * has been funded will not do any auto-monitoring.
+     */
+    cancelAutoMonitor() {
+        this.autoMonitor = false
+    }
+
     // Finds an existing event from the keep backing the Deposit to access the
     // keep's public key, then submits it to the deposit to transition from
     // state AWAITING_SIGNER_SETUP to state AWAITING_BTC_FUNDING_PROOF and
