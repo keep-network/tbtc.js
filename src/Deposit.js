@@ -359,15 +359,119 @@ export default class Deposit {
 
     ///--------------------------- Deposit Actions -----------------------------
 
+    /**
+     * Mints TBTC from this deposit by giving ownership of it to the tBTC
+     * Vending Machine contract in exchange for TBTC. Requires that the deposit
+     * already be qualified, i.e. in the ACTIVE state.
+     *
+     * @return A promise to the amount of TBTC that was minted to the deposit
+     *         owner.
+     */
     async mintTBTC()/*: Promise<BN>*/ {
-        // check is active
-        // throw if not
+        if (! await this.contract.inActive()) {
+            throw new Error(
+                "Can't mint TBTC with a deposit that isn't in ACTIVE state."
+            )
+        }
+
+        console.debug(
+            `Approving transfer of deposit ${this.address} TDT to Vending Machine...`
+        )
+        await this.factory.depositTokenContract.approve(
+            this.factory.vendingMachineContract.address,
+            this.address,
+            { from: this.factory.config.web3.eth.defaultAccount },
+        )
+
+        console.debug(
+            `Minting TBTC...`
+        )
+        const transaction = await this.factory.vendingMachineContract.tdtToTbtc(
+            this.address,
+            { from: this.factory.config.web3.eth.defaultAccount },
+        )
+
         // return TBTC minted amount
+        const transferEvent = readEventFromTransaction(
+            this.factory.config.web3,
+            transaction,
+            this.factory.tokenContract,
+            'Transfer',
+        )
+
+        console.debug(`Found Transfer event for`, transferEvent.value, `TBTC.`)
+        return transferEvent.value
     }
 
-    async qualifyAndMintTBTC(txHash/*: string*/)/*: Promise<BN>*/ {
-        // VendingMachine.tdtToTbtc
+    /**
+     * Finds a funding transaction to this deposit's funding address with the
+     * appropriate number of confirmations, then calls the tBTC Vending
+     * Machine's shortcut function to simultaneously qualify the deposit and
+     * mint TBTC off of it, transferring ownership of the deposit to the
+     * Vending Machine.
+     *
+     * @return A promise to the amount of TBTC that was minted to the deposit
+     *         owner.
+     *
+     * @throws When there is no existing Bitcoin funding transaction with the
+     *         appropriate number of confirmations, or if there is an issue
+     *         in the Vending Machine's qualification + minting process.
+     */
+    async qualifyAndMintTBTC()/*: Promise<BN>*/ {
+        const address = await this.bitcoinAddress
+        const expectedValue = (await this.getSatoshiLotSize()).toNumber()
+        const tx = await BitcoinHelpers.Transaction.find(address, expectedValue)
+        if (! tx) {
+            throw new Error(
+                `Funding transaction not found for deposit ${this.address}.`
+            )
+        }
+
+        const requiredConfirmations = await this.factory.constantsContract.getTxProofDifficultyFactor()
+        const confirmations =
+            await BitcoinHelpers.Transaction.checkForConfirmations(
+                tx,
+                requiredConfirmations.toNumber(),
+            )
+        if (! confirmations) {
+            throw new Error(
+                `Funding transaction did not have sufficient confirmations; ` +
+                `expected ${requiredConfirmations.toNumber()}.`
+            )
+        }
+
+        console.debug(
+            `Approving transfer of deposit ${this.address} TDT to Vending Machine...`
+        )
+        await this.factory.depositTokenContract.approve(
+            this.factory.vendingMachineContract.address,
+            this.address,
+            { from: this.factory.config.web3.eth.defaultAccount },
+        )
+
+        console.debug(
+            `Qualifying and minting off of deposit ${this.address} for ` +
+            `Bitcoin transaction ${tx.transactionID}...`,
+            tx,
+            confirmations,
+        )
+        const proofArgs = await this.constructFundingProof(tx, confirmations)
+        proofArgs.unshift(this.address)
+        proofArgs.push({ from: this.factory.config.web3.eth.defaultAccount })
+        const transaction = await this.factory.vendingMachineContract.unqualifiedDepositToTbtc.apply(
+            this.factory.vendingMachineContract,
+            proofArgs,
+        )
+
         // return TBTC minted amount
+        const transferEvent = readEventFromTransaction(
+            this.factory.config.web3,
+            transaction,
+            this.factory.tokenContract,
+            'Transfer',
+        )
+
+        return transferEvent.value.div(this.factory.config.web3.utils.toBN(10).pow(18))
     }
 
     async redemptionCost()/*: Promise<BN>*/ {
