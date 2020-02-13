@@ -29,14 +29,14 @@ function getTxOutputVector(tx) {
 }
 
 function getTxLocktime(tx) {
-  const buffer = write()
+  const buffer = bufio.write()
   buffer.writeU32(tx.locktime)
 
   return toHex(buffer)
 }
 
 function vectorToRaw(elements) {
-  const buffer = write()
+  const buffer = bufio.write()
   buffer.writeVarint(elements.length)
 
   for (const element of elements) {

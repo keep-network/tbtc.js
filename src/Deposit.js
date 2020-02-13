@@ -174,6 +174,7 @@ export default class Deposit {
 
     bitcoinAddress/*: Promise<string>*/;
     activeStatePromise/*: Promise<[]>*/; // fulfilled when deposit goes active
+    autoMonitor/*: boolean*/;
 
     static async forLotSize(factory/*: DepositFactory*/, satoshiLotSize/*: BN*/)/*: Promise<Deposit>*/ {
         const { depositAddress, keepAddress } = await factory.createNewDepositContract(satoshiLotSize)
@@ -198,6 +199,7 @@ export default class Deposit {
         this.keepAddress = keepAddress
         this.contract = depositContract
 
+        this.autoMonitor = true
 
         // Set up state transition promises.
         this.activeStatePromise = this.waitForActiveState()
@@ -207,6 +209,29 @@ export default class Deposit {
         } else {
             this.bitcoinAddress = this.findOrWaitForBitcoinAddress()
         }
+
+        // Set up funding auto-monitoring. Below, every time we're doing another
+        // long wait, we check to see if auto-monitoring has been disabled since
+        // last we checked, and return out if so.
+        this.bitcoinAddress.then(async (address) => {
+            const expectedValue = (await this.getSatoshiLotSize()).toNumber()
+
+            if (! this.autoMonitor) return;
+            const tx = await BitcoinHelpers.Transaction.findOrWaitFor(address, expectedValue)
+            // issue event when we find a tx
+
+            const requiredConfirmations = await this.factory.constantsContract.getTxProofDifficultyFactor()
+
+            if (! this.autoMonitor) return;
+            const confirmations =
+                await BitcoinHelpers.Transaction.waitForConfirmations(
+                    tx,
+                    requiredConfirmations.toNumber(),
+                )
+
+            if (! this.autoMonitor) return;
+            this.submitFundingProof(tx, confirmations)
+        })
     }
 
     ///------------------------------- Accessors -------------------------------
