@@ -1061,6 +1061,26 @@ const BitcoinHelpers = {
             })
         },
         /**
+         * Broadcasts the given signed transaction to the Bitcoin chain.
+         *
+         * @param {string} signedTransaction The signed transaction in
+         *        hexadecimal format.
+         *
+         * @return {Promise<FoundTransaction>} A partial FoundTransaction with
+         *         the transactionID field set.
+         */
+        broadcast: async function(signedTransaction) {
+            return await BitcoinHelpers.withElectrumClient(async (electrumClient) => {
+                const transactionID = await electrumClient.broadcastTransaction(
+                    signedTransaction,
+                )
+
+                return {
+                    transactionID: transactionID,
+                }
+            })
+        },
+        /**
          * Adds a witness signature for an input in a transaction.
          *
          * @param {string} unsignedTransaction Unsigned raw bitcoin transaction
