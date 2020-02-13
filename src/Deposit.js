@@ -301,11 +301,11 @@ export default class Deposit {
     }
 
     async getOwner()/*: Promise<string>*/ /* ETH address */ {
-        return ""
+        return await this.factory.depositTokenContract.ownerOf(this.address)
     }
 
     async inVendingMachine()/*: Promise<boolean>*/ {
-        return false
+        return (await this.getOwner()) == this.factory.vendingMachineContract.address
     }
 
     ///---------------------------- Event Handlers -----------------------------
