@@ -1,3 +1,4 @@
+import EventEmitter from 'events'
 import fs from 'fs'
 
 import secp256k1 from 'bcrypto/lib/secp256k1.js'
