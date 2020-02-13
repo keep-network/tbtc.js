@@ -1524,30 +1524,3 @@ class Redemption {
     }
 }
 
-/*
-
-import TBTC from 'tbtc.js'
-const tbtc = TBTC.configure({
-    web3: web3
-    // maybe contractAddresses
-    btcNetwork: 'testnet'
-})
-
-const deposit = await Deposit.withLotSize(100000)
-deposit.onAddressAvailable((address, cancelAutoMonitor) => {
-  // show QR code
-  // call cancelAutoMonitor to manage your own BTC lifecycle if preferred
-})
-deposit.onActive(async () => {
-  await deposit.mintTBTC()
-  // or
-  (await deposit.getTDT()).transfer(someLuckyContract)
-})
-
-// later…
-
-(await deposit.requestRedemption("tb....")).autoSubmit()
-  .onWithdrawn((txHash) => {
-    // all done!
-  })
-  */
