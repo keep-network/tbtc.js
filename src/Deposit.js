@@ -235,7 +235,8 @@ export default class Deposit {
         // Set up state transition promises.
         this.activeStatePromise = this.waitForActiveState()
 
-        this.bitcoinAddress = this.findOrWaitForBitcoinAddress()
+        this.publicKeyPoint = this.findOrWaitForPublicKeyPoint()
+        this.bitcoinAddress = this.publicKeyPoint.then(this.publicKeyPointToBitcoinAddress.bind(this))
         // Set up funding auto-monitoring. Below, every time we're doing another
         // long wait, we check to see if auto-monitoring has been disabled since
         // last we checked, and return out if so.
@@ -542,14 +543,17 @@ export default class Deposit {
     // generated pubkey for a variety of reasons.
     //
     // Returns a promise that will be fulfilled once the public key is
-    // available.
-    async findOrWaitForBitcoinAddress() {
+    // available, with a public key point with x and y properties.
+    async findOrWaitForPublicKeyPoint() {
         let signerPubkeyEvent = await this.readPublishedPubkeyEvent()
         if (signerPubkeyEvent) {
             console.debug(
                 `Found existing Bitcoin address for deposit ${this.address}...`,
             )
-            return this.parseBitcoinAddress(signerPubkeyEvent.args)
+            return {
+                x: signerPubkeyEvent.args._signingGroupPubkeyX,
+                y: signerPubkeyEvent.args._signingGroupPubkeyY,
+            }
         }
 
         console.debug(`Waiting for deposit ${this.address} keep public key...`)
@@ -567,13 +571,21 @@ export default class Deposit {
             }
         )
 
-        console.debug(`Found Bitcoin address for deposit ${this.address}...`)
-        return this.parseBitcoinAddress(readEventFromTransaction(
-            this.factory.config.web3,
-            pubkeyTransaction,
-            this.factory.systemContract,
-            'RegisteredPubkey',
-        ))
+        console.debug(`Found public key for deposit ${this.address}...`)
+        const {
+            _signingGroupPubkeyX,
+            _signingGroupPubkeyY,
+        } = readEventFromTransaction(
+                this.factory.config.web3,
+                pubkeyTransaction,
+                this.factory.systemContract,
+                'RegisteredPubkey',
+            )
+
+        return {
+            x: _signingGroupPubkeyX,
+            y: _signingGroupPubkeyY,
+        }
     }
 
     // Returns a promise that is fulfilled when the contract has entered the
@@ -607,10 +619,10 @@ export default class Deposit {
         )
     }
 
-    async parseBitcoinAddress(signerPubkeyEvent) {
+    async publicKeyPointToBitcoinAddress(publicKeyPoint) {
         return BitcoinHelpers.Address.publicKeyPointToP2WPKHAddress(
-            signerPubkeyEvent._signingGroupPubkeyX,
-            signerPubkeyEvent._signingGroupPubkeyY,
+            publicKeyPoint.x,
+            publicKeyPoint.y,
             this.factory.config.bitcoinNetwork,
         )
     }
@@ -670,10 +682,21 @@ export default class Deposit {
 */
 
 const BitcoinHelpers = {
+    /**
+     * Takes the x and y coordinates of a public key point and returns a
+     * hexadecimal representation of 64-byte concatenation of x and y
+     * coordinates.
+     *
+     * @param {string} publicKeyX A hex public key X coordinate.
+     * @param {string} publicKeyY A hex public key Y coordinate.
+     */
+    publicKeyPointToPublicKeyString: function(publicKeyX, publicKeyY) {
+        return `${publicKeyX.replace('0x', '')}${publicKeyY.replace('0x','')}`
+    },
     Address: {
         publicKeyPointToP2WPKHAddress: function(publicKeyX, publicKeyY, bitcoinNetwork) {
             return this.publicKeyToP2WPKHAddress(
-                `${publicKeyX.replace('0x', '')}${publicKeyY.replace('0x','')}`,
+                BitcoinHelpers.publicKeyPointToPublicKeyString(publicKeyX, publicKeyY),
                 bitcoinNetwork,
             )
         },
