@@ -12,7 +12,7 @@
   "author": "Antonio Salazar Cardozo <antonio@thesis.co>",
   "license": "MIT",
   "dependencies": {
-    "@keep-network/tbtc": "0.6.0-pre0",
+    "@keep-network/tbtc": "0.6.0-pre1",
     "@truffle/contract": "^4.1.8",
     "@types/web3": "^1.2.2",
     "bcoin": "git+https://github.com/bcoin-org/bcoin.git#v1.0.2",
