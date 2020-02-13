@@ -604,31 +604,28 @@ const BitcoinHelpers = {
     },
     Transaction: {
         /**
-         * Finds a transaction to the given `receiverScript` of the given
-         * `expectedValue` using the given `electrumClient`.
+         * Finds a transaction to the given `bitcoinAddress` of the given
+         * `expectedValue`.
          *
-         * @param {ElectrumClient} electrumClient An already-initialized Electrum client.
-         * @param {string} receiverScript A receiver script.
+         * @param {string} bitcoinAddress A receiving Bitcoin address.
          * @param {number} expectedValue The expected value of the transaction
          *        to fetch.
          *
-         * @return {FoundTransaction} A promise to an object of transactionID,
-         *         outputPosition, and value, that resolves with either null
-         *         if such a transaction could not be found, or the information
-         *         about the transaction that was found.
+         * @return {Promise<FoundTransaction>} A promise to an object of
+         *         transactionID, outputPosition, and value, that resolves with
+         *         either null if such a transaction could not be found, or the
+         *         information about the transaction that was found.
          */
-        find: async function(electrumClient, receiverScript, expectedValue) {
-            const unspentTransactions = await electrumClient.getUnspentToScript(receiverScript)
+        find: async function(bitcoinAddress, expectedValue) {
+            const script = BitcoinHelpers.Address.toScript(bitcoinAddress)
 
-            for (const tx of unspentTransactions) {
-                if (tx.value == expectedValue) {
-                    return {
-                        transactionID: tx.tx_hash,
-                        outputPosition: tx.tx_pos,
-                        value: tx.value,
-                    }
-                }
-            }
+            return await BitcoinHelpers.withElectrumClient((electrumClient) => {
+                return BitcoinHelpers.Transaction.findWithClient(
+                    electrumClient,
+                    script,
+                    expectedValue,
+                )
+            })
         },
         /**
          * Watches the Bitcoin chain for a transaction of value `expectedValue`
@@ -650,7 +647,7 @@ const BitcoinHelpers = {
                     // If the status is set, transactions were seen for the
                     // script.
                     if (status) {
-                        const result =  BitcoinHelpers.Transaction.find(
+                        const result =  BitcoinHelpers.Transaction.findWithClient(
                             electrumClient,
                             script,
                             expectedValue,
@@ -696,6 +693,35 @@ const BitcoinHelpers = {
                 const spv = new BitcoinSPV(electrumClient)
                 return spv.getTransactionProof(transactionID, confirmations)
             })
+        },
+
+        // Raw helpers.
+        /**
+         * Finds a transaction to the given `receiverScript` of the given
+         * `expectedValue` using the given `electrumClient`.
+         *
+         * @param {ElectrumClient} electrumClient An already-initialized Electrum client.
+         * @param {string} receiverScript A receiver script.
+         * @param {number} expectedValue The expected value of the transaction
+         *        to fetch.
+         *
+         * @return {Promise<FoundTransaction>} A promise to an object of
+         *         transactionID, outputPosition, and value, that resolves with
+         *         either null if such a transaction could not be found, or the
+         *         information about the transaction that was found.
+         */
+        findWithClient: async function(electrumClient, receiverScript, expectedValue) {
+            const unspentTransactions = await electrumClient.getUnspentToScript(receiverScript)
+
+            for (const tx of unspentTransactions) {
+                if (tx.value == expectedValue) {
+                    return {
+                        transactionID: tx.tx_hash,
+                        outputPosition: tx.tx_pos,
+                        value: tx.value,
+                    }
+                }
+            }
         },
     }
 }
