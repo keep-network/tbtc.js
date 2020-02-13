@@ -27,7 +27,8 @@ async function runExample() {
         const lotSize = await deposit.getSatoshiLotSize()
         console.log(
             "\tGot deposit address:", address,
-            "; fund with:", lotSize.toString(), "satoshis please.")
+            "; fund with:", lotSize.toString(), "satoshis please.",
+        )
         console.log("Now monitoring for deposit transaction...")
 
         // call cancelAutoMonitor to manage your own BTC lifecycle if preferred
@@ -37,18 +38,26 @@ async function runExample() {
         console.log("Waiting for active deposit...")
         try {
             deposit.onActive(async () => {
-                console.log("Wrapped it, let's go...")
-                await deposit.mintTBTC()
-                resolve()
-                // or
-                // (await deposit.getTDT()).transfer(someLuckyContract)
+                try {
+                    console.log("Deposit is active, minting...")
+                    const tbtc = await deposit.mintTBTC()
+                    console.log(`Minted ${tbtc} TBTC!`)
+                    // or
+                    // (await deposit.getTDT()).transfer(someLuckyContract)
 
-                // later…
+                    console.log("You have 10s before I redeem this sucker...")
 
-                //   (await deposit.requestRedemption("tb....")).autoSubmit()
-                //     .onWithdrawn((txHash) => {
-                //       // all done!
-                //     })
+                    // later…
+                    setTimeout(async () => {
+                        console.log("Redeeming deposit :sunglasses:")
+                        (await deposit.requestRedemption("tb....")).autoSubmit()
+                            .onWithdrawn((txHash) => {
+                            // all done!
+                            })
+                    }, 10000)
+                } catch (error) {
+                    reject(error)
+                }
             })
         } catch (error) {
             reject(error)
