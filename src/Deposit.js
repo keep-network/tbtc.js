@@ -973,6 +973,55 @@ const BitcoinHelpers = {
                 return spv.getTransactionProof(transactionID, confirmations)
             })
         },
+        /**
+         * Adds a witness signature for an input in a transaction.
+         *
+         * @param {string} unsignedTransaction Unsigned raw bitcoin transaction
+         *        in hexadecimal format.
+         * @param {uint32} inputIndex Index number of input to be signed.
+         * @param {Buffer} r Signature's `r` value.
+         * @param {Buffer} s Signature's `s` value.
+         * @param {Buffer} publicKey 64-byte signer's public key's concatenated
+         *        x and y coordinates.
+         *
+         * @return {string} Raw transaction in a hexadecimal format with witness
+         *         signature.
+         */
+        addWitnessSignature: function(unsignedTransaction, inputIndex, r, s, publicKey) {
+            // Signature
+            let signatureDER
+            try {
+                signatureDER = BitcoinHelpers.signatureDER(r, s)
+            } catch (err) {
+                throw new Error(`failed to convert signature to DER format: [${err}]`)
+            }
+
+            const hashType = Buffer.from([bcoin.Script.hashType.ALL])
+            const sig = Buffer.concat([signatureDER, hashType])
+
+            // Public Key
+            let compressedPublicKey
+            try {
+                compressedPublicKey = secp256k1.publicKeyImport(publicKey, true)
+            } catch (err) {
+                throw new Error(`failed to import public key: [${err}]`)
+            }
+
+            // Combine witness
+            let signedTransaction
+            try {
+                signedTransaction = bcoin.TX.fromRaw(unsignedTransaction, 'hex').clone()
+            } catch (err) {
+                throw new Error(`failed to import transaction: [${err}]`)
+            }
+
+            signedTransaction.inputs[inputIndex].witness.fromItems([
+                sig,
+                compressedPublicKey,
+            ])
+
+            return signedTransaction.toRaw().toString('hex')
+        },
 
         // Raw helpers.
         /**
