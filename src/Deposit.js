@@ -509,6 +509,12 @@ export default class Deposit {
         }
     }
 
+    async getCurrentRedemption()/*: Promise<Redemption?>*/ {
+        const details = await this.getLatestRedemptionDetails()
+
+        return new Redemption(this, details)
+    }
+
     async requestRedemption(redeemerAddress/*: string /* bitcoin address */)/*: Promise<Redemption>*/ {
         const inVendingMachine = await this.inVendingMachine()
         const thisAccount = this.factory.config.web3.eth.defaultAccount
@@ -553,7 +559,7 @@ export default class Deposit {
         const outputValue = toBN(utxoSize).sub(toBN(transactionFee))
         const outputValueBytes = outputValue.toArrayLike(Buffer, 'le', 8)
 
-        const redemptionCost = await this.getRedemptionCost()
+        let transaction
         if (inVendingMachine) {
             console.debug(
                 `Approving transfer of ${redemptionCost} to the vending machine....`,
@@ -567,7 +573,7 @@ export default class Deposit {
                 `Initiating redemption of deposit ${this.address} from ` +
                 `vending machine...`,
             )
-            await this.factory.vendingMachine.tbtcToBtc(
+            transaction = await this.factory.vendingMachineContract.tbtcToBtc(
                 this.address,
                 outputValueBytes,
                 redeemerPKH,
@@ -584,14 +590,52 @@ export default class Deposit {
             )
 
             console.debug(`Initiating redemption from deposit ${this.address}...`)
-            await this.contract.requestRedemption(
+            transaction = await this.contract.requestRedemption(
                 outputValueBytes,
                 redeemerPKH,
                 { from: thisAccount },
             )
         }
 
-        return new Redemption(this, redeemerAddress)
+
+        const redemptionRequest = readEventFromTransaction(
+            this.factory.config.web3,
+            transaction,
+            this.factory.systemContract,
+            'RedemptionRequested',
+        )
+        const redemptionDetails = this.redemptionDetailsFromEvent(redemptionRequest)
+
+        return new Redemption(this, s)
+    }
+
+    /**
+     * Fetches the latest redemption details from the chain. These can change
+     * after fee bumps.
+     *
+     * Returns a promise to the redemption details, or to null if there is no
+     * current redemption in progress.
+     */
+    async getLatestRedemptionDetails() {
+        // If the contract is ACTIVE, there's definitely no redemption. This can
+        // be generalized to a state check that the contract is either
+        // AWAITING_WITHDRAWAL_SIGNATURE or AWAITING_WITHDRAWAL_PROOF, but let's
+        // hold on that for now.
+        if (await this.contract.inActive()) {
+            return null
+        }
+
+        const redemptionRequest = await getExistingEvent(
+            this.factory.systemContract,
+            'RedemptionRequested',
+            { _depositContractAddress: this.address },
+        )
+
+        if (! redemptionRequest) {
+            return null
+        }
+
+        return this.redemptionDetailsFromEvent(redemptionRequest.args)
     }
 
     ///------------------------------- Helpers ---------------------------------
@@ -751,6 +795,26 @@ export default class Deposit {
             txInBlockIndex,
             Buffer.from(chainHeaders, 'hex'),
         ]
+    }
+
+    redemptionDetailsFromEvent(redemptionRequestedEventArgs)/*: RedemptionDetails*/ {
+        const {
+            _utxoSize,
+            _requesterPKH,
+            _requestedFee,
+            _outpoint,
+            _digest,
+        } = redemptionRequestedEventArgs
+
+        const hexToBytes = this.factory.config.web3.utils.hexToBytes
+        const toBN = this.factory.config.web3.utils.toBN
+        return {
+            utxoSize: toBN(_utxoSize),
+            requesterPKH: Buffer.from(hexToBytes(_requesterPKH)),
+            requestedFee: toBN(_requestedFee),
+            outpoint: Buffer.from(hexToBytes(_outpoint)),
+            digest: Buffer.from(hexToBytes(_digest)),
+        }
     }
 }
 
@@ -1205,13 +1269,12 @@ class Redemption {
     unsignedTransaction/*: Promise<UnsignedTransactionDetails>*/
     signedTransaction/*: Promise<SignedTransactionDetails>*/
 
-    constructor(deposit/*: Deposit*/, redemptionAddress/*: string*/) {
+    constructor(deposit/*: Deposit*/, redemptionDetails/*: RedemptionDetails?*/) {
         this.deposit = deposit
-        this.redemptionAddress = redemptionAddress
 
-        this.redemptionDetails = getLatestRedemptionDetails()
+        this.redemptionDetails = this.getLatestRedemptionDetails(redemptionDetails)
 
-        this.unsignedTransaction = this.redemptionDetails.then((details) => {
+        this.unsignedTransactionDetails = this.redemptionDetails.then((details) => {
             const outputValue = details.utxoSize.sub(details.requestedFee)
             const unsignedTransaction =
                 BitcoinHelpers.Transaction.constructOneInputOneOutputWitnessTransaction(
@@ -1290,27 +1353,12 @@ class Redemption {
      * Fetches the latest redemption details from the chain. These can change
      * after fee bumps.
      */
-    async getLatestRedemptionDetails() {
-        const {
-            _utxoSize,
-            _requesterPKH,
-            _requestedFee,
-            _outpoint,
-            _digest,
-        } = getExistingEvent(
-                this.deposit.factory.systemContract,
-                'RedemptionRequested',
-                { _depositContractAddress: this.deposit.address },
-            ).args
-
-        const hexToBytes = this.deposit.factory.config.web3.utils.hexToBytes
-        return {
-            utxoSize: new BN(_utxoSize),
-            requesterPKH: Buffer.from(hexToBytes(_requesterPKH)),
-            requestedFee: new BN(_requestedFee),
-            outpoint: Buffer.from(hexToBytes(_outpoint)),
-            digest: Buffer.from(hexToBytes(_digest)),
+    async getLatestRedemptionDetails(existingRedemptionDetails/*: RedemptionDetails?*/) {
+        if (existingRedemptionDetails) {
+            return existingRedemptionDetails
         }
+
+        return await this.deposit.getLatestRedemptionDetails()
     }
 }
 
