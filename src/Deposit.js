@@ -164,14 +164,8 @@ export class DepositFactory {
     }
 }
 
-// Bitcoin address handlers are given an address and a cancelAutoMonitor
-// function. By default, when an address is made available, the deposit
-// automatically starts monitoring for a Bitcoin chain transaction to that
-// address, and, upon seeing such a transaction with the number of confirmations
-// required by the tBTC system, submits proof of that transaction to the chain.
-// Calling cancelAutoMonitor() disables this, and leaves chain monitoring and
-// proof submission to the caller.
-// type BitcoinAddressHandler = (address: string, cancelAutoMonitor: ()=>void)=>void
+// Bitcoin address handlers are given the deposit's Bitcoin address.
+// type BitcoinAddressHandler = (address: string)=>void)=>void
 // Active handlers are given the deposit that just entered the ACTIVE state.
 // type ActiveHandler = (deposit: Deposit)=>void
 
@@ -183,7 +177,6 @@ export default class Deposit {
 
     bitcoinAddress/*: Promise<string>*/;
     activeStatePromise/*: Promise<[]>*/; // fulfilled when deposit goes active
-    autoMonitor/*: boolean*/;
 
     static async forLotSize(factory/*: DepositFactory*/, satoshiLotSize/*: BN*/)/*: Promise<Deposit>*/ {
         console.debug(
@@ -224,14 +217,14 @@ export default class Deposit {
         ECDSAKeepContract.setProvider(factory.config.web3.currentProvider)
         const keepContract = await ECDSAKeepContract.at(createdEvent.args._keepAddress)
 
-        return new Deposit(factory, contract, keepContract, false)
+        return new Deposit(factory, contract, keepContract)
     }
 
     static async forTDT(factory/*: DepositFactory*/, tdt/*: TBTCDepositToken | string*/)/*: Promise<Deposit>*/ {
         return new Deposit(factory, "")
     }
 
-    constructor(factory/*: DepositFactory*/, depositContract/*: TruffleContract*/, keepContract/*: TruffleContract */, autoMonitor/*: boolean*/ = true) {
+    constructor(factory/*: DepositFactory*/, depositContract/*: TruffleContract*/, keepContract/*: TruffleContract */) {
         if (! keepContract) {
             throw "Keep contract required for Deposit instantiation."
         }
@@ -241,51 +234,11 @@ export default class Deposit {
         this.keepContract = keepContract
         this.contract = depositContract
 
-        this.autoMonitor = autoMonitor
-
         // Set up state transition promises.
         this.activeStatePromise = this.waitForActiveState()
 
         this.publicKeyPoint = this.findOrWaitForPublicKeyPoint()
         this.bitcoinAddress = this.publicKeyPoint.then(this.publicKeyPointToBitcoinAddress.bind(this))
-        // Set up funding auto-monitoring. Below, every time we're doing another
-        // long wait, we check to see if auto-monitoring has been disabled since
-        // last we checked, and return out if so.
-        this.bitcoinAddress.then(async (address) => {
-            const expectedValue = (await this.getSatoshiLotSize()).toNumber()
-
-            if (! this.autoMonitor) return;
-            console.debug(
-                `Monitoring Bitcoin for transaction to address ${address}...`,
-            )
-
-            const tx = await BitcoinHelpers.Transaction.findOrWaitFor(address, expectedValue)
-            // issue event when we find a tx
-
-            const requiredConfirmations = await this.factory.constantsContract.getTxProofDifficultyFactor()
-
-            if (! this.autoMonitor) return;
-            console.debug(
-                `Waiting for ${requiredConfirmations} confirmations for ` +
-                `Bitcoin transaction ${tx.transactionID}...`
-            )
-
-            const confirmations =
-                await BitcoinHelpers.Transaction.waitForConfirmations(
-                    tx,
-                    requiredConfirmations.toNumber(),
-                )
-
-            if (! this.autoMonitor) return;
-            console.debug(
-                `Submitting funding proof to deposit ${this.address} for ` +
-                `Bitcoin transaction ${tx.transactionID}...`
-            )
-
-            const proofArgs = await this.constructFundingProof(tx, confirmations)
-            proofArgs.push({ from: this.factory.config.web3.eth.defaultAccount })
-            this.contract.provideBTCFundingProof.apply(this.contract, proofArgs)
-        })
     }
 
     ///------------------------------- Accessors -------------------------------
@@ -327,25 +280,16 @@ export default class Deposit {
 
     /**
      * Registers a handler for notification when a Bitcoin address is available
-     * for this deposit. The handler receives the address and a function to call
-     * if it wishes to disable auto-monitoring and submission of funding
-     * transaction proof.
+     * for this deposit. The handler receives the deposit signer wallet's
+     * address.
      * 
-     * @param bitcoinAddressHandler A function that takes a bitcoin address and
-     *        a cancelAutoMonitor function, and is called when the deposit's
-     *        Bitcoin address becomes available. For already-open deposits, this
-     *        callback will be invoked as soon as the address is fetched from
-     *        the chain. cancelAutoMonitor can be used to turn off the auto-
-     *        monitoring functionality that looks for new Bitcoin transactions
-     *        to a deposit awaiting funding so as to submit a funding proof; see
-     *        the `cancelAutoMonitor` method for more. Note that exceptions in
-     *        this handler are not managed, so the handler itself should deal
-     *        with its own failure possibilities.
+     * @param bitcoinAddressHandler A function that takes a bitcoin address
+     *        corresponding to this deposit's signer wallet. Note that
+     *        exceptions in this handler are not managed, so the handler itself
+     *        should deal with its own failure possibilities.
      */
     onBitcoinAddressAvailable(bitcoinAddressHandler/*: BitcoinAddressHandler*/) {
-        this.bitcoinAddress.then((address) => {
-            bitcoinAddressHandler(address, this.cancelAutoMonitor)
-        })
+        this.bitcoinAddress.then(bitcoinAddressHandler)
     }
 
     /**
@@ -645,25 +589,56 @@ export default class Deposit {
 
     ///------------------------------- Helpers ---------------------------------
 
+    autoSubmitting/*: boolean*/
     /**
-     * Mostly meant to be called from the onAddressAvailable callback, this
-     * method cancels the deposit's default behavior of automatically monitoring
-     * for a new Bitcoin transaction to the deposit signers' Bitcoin wallet,
-     * then watching that transaction until it has accumulated sufficient work
-     * for proof submission, then submitting that proof to the deposit to
-     * qualify it and move it into the active state.
+     * This method enables the deposit's auto-submission capabilities. In
+     * auto-submit mode, the deposit will automatically monitor for a new
+     * Bitcoin transaction to the deposit signers' Bitcoin wallet, then watch
+     * that transaction until it has accumulated sufficient work for proof
+     * of funding to be submitted to the deposit, then submit that proof to the
+     * deposit to qualify it and move it into the ACTIVE state.
      *
-     * After calling this function, the deposit will do none of those things;
+     * Without calling this function, the deposit will do none of those things;
      * instead, the caller will be in charge of managing (or choosing not to)
      * this process. This can be useful, for example, if a dApp wants to open
      * a deposit, then transfer the deposit to a service provider who will
      * handle deposit qualification.
-     *
-     * Note that a Deposit object created for a deposit that already exists and
-     * has been funded will not do any auto-monitoring.
      */
-    cancelAutoMonitor() {
-        this.autoMonitor = false
+    autoSubmit() {
+        // Only enable auto-submitting once.
+        if (this.autoSubmitting) {
+            return
+        }
+        this.autoSubmitting = true
+
+        this.bitcoinAddress.then(async (address) => {
+            const expectedValue = (await this.getSatoshiLotSize()).toNumber()
+
+            console.debug(
+                `Monitoring Bitcoin for transaction to address ${address}...`,
+            )
+            const tx = await BitcoinHelpers.Transaction.findOrWaitFor(address, expectedValue)
+            // TODO issue event when we find a tx
+
+            const requiredConfirmations = (await this.factory.constantsContract.getTxProofDifficultyFactor()).toNumber()
+
+            console.debug(
+                `Waiting for ${requiredConfirmations} confirmations for ` +
+                `Bitcoin transaction ${tx.transactionID}...`
+            )
+            await BitcoinHelpers.Transaction.waitForConfirmations(
+                tx,
+                requiredConfirmations,
+            )
+
+            console.debug(
+                `Submitting funding proof to deposit ${this.address} for ` +
+                `Bitcoin transaction ${tx.transactionID}...`
+            )
+            const proofArgs = await this.constructFundingProof(tx, requiredConfirmations)
+            proofArgs.push({ from: this.factory.config.web3.eth.defaultAccount })
+            this.contract.provideBTCFundingProof.apply(this.contract, proofArgs)
+        })
     }
 
     // Finds an existing event from the keep backing the Deposit to access the
