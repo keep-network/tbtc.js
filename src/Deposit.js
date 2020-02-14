@@ -37,7 +37,7 @@ const VendingMachineContract = TruffleContract(VendingMachineJSON)
 const ECDSAKeepContract = TruffleContract(ECDSAKeepJSON)
 
 // TODO Need this configured via TBTC.
-const electrumConfig = JSON.parse(fs.readFileSync("./src/electrum-config.json"))
+const electrumConfig = require(__dirname + "/../src/electrum-config.json")
 
 export class DepositFactory {
     config/*: TBTCConfig*/;
