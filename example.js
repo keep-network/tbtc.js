@@ -40,15 +40,14 @@ async function runExample() {
 
     console.log("Initiating deposit...")
     const deposit = await DepositFactory.withSatoshiLotSize(lotSizes[0])
-    deposit.onBitcoinAddressAvailable(async (address, cancelAutoMonitor) => {
+    deposit.autoSubmit()
+    deposit.onBitcoinAddressAvailable(async (address) => {
         const lotSize = await deposit.getSatoshiLotSize()
         console.log(
             "\tGot deposit address:", address,
             "; fund with:", lotSize.toString(), "satoshis please.",
         )
         console.log("Now monitoring for deposit transaction...")
-
-        // call cancelAutoMonitor to manage your own BTC lifecycle if preferred
     })
 
     return await new Promise((resolve, reject) => {
