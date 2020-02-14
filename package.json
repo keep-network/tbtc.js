@@ -1,7 +1,15 @@
 {
-  "name": "tbtc.js",
-  "version": "0.6.0",
+  "name": "@keep-network/tbtc.js",
+  "version": "0.6.4",
   "description": "tbtc.js provides JS bindings to the tBTC system that establishes a TBTC ERC20 token supply-pegged to BTC.",
+  "repository": {
+    "type": "git",
+    "url": "ssh://git@github.com/keep-network/tbtc.js"
+  },
+  "bugs": {
+    "url": "https://github.com/keep-network/tbtc.js"
+  },
+  "homepage": "https://github.com/keep-network/tbtc.js",
   "main": "index.js",
   "type": "module",
   "scripts": {
