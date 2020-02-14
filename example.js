@@ -13,7 +13,7 @@ async function runExample() {
     const web3 = new Web3(provider)
     web3.eth.defaultAccount = (await web3.eth.getAccounts())[0]
 
-    const tbtc = TBTC.configure({
+    const tbtc = await TBTC.withConfig({
         web3: web3,
         bitcoinNetwork: "testnet",
         electrum: {
@@ -35,11 +35,10 @@ async function runExample() {
         },
     })
 
-    const DepositFactory = await tbtc.DepositFactory
-    const lotSizes = await DepositFactory.availableSatoshiLotSizes()
+    const lotSizes = await tbtc.Deposit.availableSatoshiLotSizes()
 
     console.log("Initiating deposit...")
-    const deposit = await DepositFactory.withSatoshiLotSize(lotSizes[0])
+    const deposit = await tbtc.Deposit.withSatoshiLotSize(lotSizes[0])
     deposit.autoSubmit()
     deposit.onBitcoinAddressAvailable(async (address) => {
         const lotSize = await deposit.getSatoshiLotSize()
