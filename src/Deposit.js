@@ -1,6 +1,11 @@
 import { BitcoinTxParser } from "./lib/BitcoinTxParser.js"
 import BitcoinHelpers from "./BitcoinHelpers.js"
+
+import EthereumHelpers from "./EthereumHelpers.js"
+
 import TruffleContract from "@truffle/contract"
+
+import Redemption from "./Redemption.js"
 
 import TBTCConstantsJSON from "@keep-network/tbtc/artifacts/TBTCConstants.json"
 import TBTCSystemJSON from "@keep-network/tbtc/artifacts/TBTCSystem.json"
@@ -130,7 +135,7 @@ export class DepositFactory {
             }
         )
 
-        const createdEvent = readEventFromTransaction(
+        const createdEvent = EthereumHelpers.readEventFromTransaction(
             this.config.web3,
             result,
             this.systemContract,
@@ -188,7 +193,7 @@ export default class Deposit {
         const contract = await DepositContract.at(address)
 
         console.debug(`Looking up Created event for deposit ${address}...`)
-        const createdEvent = await getExistingEvent(
+        const createdEvent = await EthereumHelpers.getExistingEvent(
             factory.systemContract,
             'Created',
             { _depositContractAddress: address },
@@ -334,7 +339,7 @@ export default class Deposit {
         )
 
         // return TBTC minted amount
-        const transferEvent = readEventFromTransaction(
+        const transferEvent = EthereumHelpers.readEventFromTransaction(
             this.factory.config.web3,
             transaction,
             this.factory.tokenContract,
@@ -406,7 +411,7 @@ export default class Deposit {
         )
 
         // return TBTC minted amount
-        const transferEvent = readEventFromTransaction(
+        const transferEvent = EthereumHelpers.readEventFromTransaction(
             this.factory.config.web3,
             transaction,
             this.factory.tokenContract,
@@ -533,7 +538,7 @@ export default class Deposit {
         }
 
 
-        const redemptionRequest = readEventFromTransaction(
+        const redemptionRequest = EthereumHelpers.readEventFromTransaction(
             this.factory.config.web3,
             transaction,
             this.factory.systemContract,
@@ -560,7 +565,7 @@ export default class Deposit {
             return null
         }
 
-        const redemptionRequest = await getExistingEvent(
+        const redemptionRequest = await EthereumHelpers.getExistingEvent(
             this.factory.systemContract,
             'RedemptionRequested',
             { _depositContractAddress: this.address },
@@ -653,7 +658,7 @@ export default class Deposit {
         console.debug(`Waiting for deposit ${this.address} keep public key...`)
 
         // Wait for the Keep to be ready.
-        await getEvent(this.keepContract, 'PublicKeyPublished')
+        await EthereumHelpers.getEvent(this.keepContract, 'PublicKeyPublished')
 
         console.debug(`Waiting for deposit ${this.address} to retrieve public key...`)
         // Ask the deposit to fetch and store the signer pubkey.
@@ -667,7 +672,7 @@ export default class Deposit {
         const {
             _signingGroupPubkeyX,
             _signingGroupPubkeyY,
-        } = readEventFromTransaction(
+        } = EthereumHelpers.readEventFromTransaction(
                 this.factory.config.web3,
                 pubkeyTransaction,
                 this.factory.systemContract,
@@ -693,7 +698,7 @@ export default class Deposit {
         // If we weren't active, wait for Funded, then mark as active.
         // FIXME/NOTE: We could be inactive due to being outside of the funding
         // FIXME/NOTE: path, e.g. in liquidation or courtesy call.
-        await getEvent(
+        await EthereumHelpers.getEvent(
             this.factory.systemContract,
             'Funded',
             { _depositContractAddress: this.address },
@@ -704,7 +709,7 @@ export default class Deposit {
     }
 
     async readPublishedPubkeyEvent() {
-        return getExistingEvent(
+        return EthereumHelpers.getExistingEvent(
             this.factory.systemContract,
             'RegisteredPubkey',
             { _depositContractAddress: this.address },
@@ -780,305 +785,5 @@ export default class Deposit {
             outpoint: _outpoint,
             digest: _digest,
         }
-    }
-}
-
-/**
- * From a given transaction result, extracts the first event with the given
- * name from the given source contract.
- * 
- * @param {Web3} web3 A web3 instance for operating.
- * @param {Result} transaction A web3 transaction result.
- * @param {TruffleContract} sourceContract A TruffleContract instance whose
- *        event is being read.
- * @param {string} eventName The name of the event to be read.
- * 
- * @return The event as read from the transaction's raw logs; note that this
- *         event has a different structure than the event passed to event
- *         handlers---it returns the equivalent of `event.args` from event
- *         handlers.
- */
-function readEventFromTransaction(web3, transaction, sourceContract, eventName) {
-    const inputsABI = sourceContract.abi.find(
-        (entry) => entry.type == "event" && entry.name == eventName
-    ).inputs
-
-    return transaction.receipt.rawLogs.
-        filter((_) => _.address == sourceContract.address).
-        map((_) => web3.eth.abi.decodeLog(inputsABI, _.data, _.topics.slice(1)))
-        [0]
-}
-
-/**
- * Waits until `source` emits the given `event`, including searching past blocks
- * for such `event`, then returns it.
- *
- * @param {TruffleContract} sourceContract The TruffleContract that emits the event.
- * @param {string} eventName The name of the event to wait on.
- * @param {object} filter An additional filter to apply to the event being
- *        searched for.
- *
- * @return A promise that will be fulfilled by the event object once it is
- *         received.
- */
-function getEvent(sourceContract, eventName, filter) {
-    return new Promise((resolve) => {
-        sourceContract[eventName](filter).once("data", (event) => {
-            clearInterval(handle);
-            resolve(event)
-        })
-
-        // As a workaround for a problem with MetaMask version 7.1.1 where subscription
-        // for events doesn't work correctly we pull past events in a loop until
-        // we find our event. This is a temporary solution which should be removed
-        // after problem with MetaMask is solved.
-        // See: https://github.com/MetaMask/metamask-extension/issues/7270
-        const handle = setInterval(
-            async function() {
-                // Query if an event was already emitted after we start watching
-                const event = await getExistingEvent(
-                    sourceContract,
-                    eventName,
-                    filter,
-                )
-
-                if (event) {
-                    clearInterval(handle)
-                    resolve(event)
-                }
-            },
-            3000, // every 3 seconds
-        )
-    })
-}
-
-async function getExistingEvent(source, eventName, filter) {
-    const events = await source.getPastEvents(
-        eventName,
-        {
-            fromBlock: 0,
-            toBlock: 'latest',
-            filter,
-        }
-    )
-
-    return events[0]
-}
-
-/**
- * Details of a given redemption at a given point in time.
- * @typedef RedemptionDetails
- * @type {Object}
- * @property {BN} utxoSize The size of the UTXO size in the redemption.
- * @property {Buffer} requesterPKH The raw requester publicKeyHash bytes.
- * @property {BN} requestedFee The fee for the redemption transaction.
- * @property {Buffer} outpoint The raw outpoint bytes.
- * @property {Buffer} digest The raw digest bytes.
- */
-
-/**
- * Details of a given unsigned transaction
- * @typedef UnsignedTransactionDetails
- * @type {Object}
- * @property {string} hex The raw transaction hex string.
- * @property {digest} digest The transaction's digest.
- */
-
-/**
- * The Redemption class encapsulates the operations that finalize an already-
- * initiated redemption.
- *
- * Typically, you can call `autoSubmit()` and then register an `onWithdrawn`
- * handler to be notified when the Bitcoin transaction completing redemption has
- * been signed, submitted, and proven to the deposit contract.
- *
- * If you prefer to manage the Bitcoin side of the lifecycle separately, you can
- * register to be notified when a Bitcoin transaction is ready for submission
- * using `onBitcoinTransactionSigned`, and submit a redemption proof to once
- * that transaction is sufficiently confirmed using `proveWithdrawal`.
- *
- * `proveWithdrawal` will trigger any `onWithdrawn` handlers that have been
- * registered.
- */
-class Redemption {
-    // deposit/*: Deposit*/
-
-    // redemptionDetails/*: Promise<RedemptionDetails>*/
-    // unsignedTransaction/*: Promise<UnsignedTransactionDetails>*/
-    // signedTransaction/*: Promise<SignedTransactionDetails>*/
-
-    // withdrawnEmitter/*: EventEmitter*/
-
-    constructor(deposit/*: Deposit*/, redemptionDetails/*: RedemptionDetails?*/) {
-        this.deposit = deposit
-        this.withdrawnEmitter = new EventEmitter()
-
-        this.redemptionDetails = this.getLatestRedemptionDetails(redemptionDetails)
-
-        this.unsignedTransactionDetails = this.redemptionDetails.then((details) => {
-            const outputValue = details.utxoSize.sub(details.requestedFee)
-            const unsignedTransaction =
-                BitcoinHelpers.Transaction.constructOneInputOneOutputWitnessTransaction(
-                    details.outpoint.replace('0x', ''),
-                    // We set sequence to `0` to be able to replace by fee. It reflects
-                    // bitcoin-spv:
-                    // https://github.com/summa-tx/bitcoin-spv/blob/2a9d594d9b14080bdbff2a899c16ffbf40d62eef/solidity/contracts/CheckBitcoinSigs.sol#L154
-                    0,
-                    outputValue.toNumber(),
-                    details.requesterPKH.replace('0x', ''),
-                )
-
-            return {
-                hex: unsignedTransaction,
-                digest: details.digest,
-            }
-        })
-
-        this.signedTransaction = this.unsignedTransactionDetails.then(async (unsignedTransactionDetails) => {
-            console.debug(
-                `Looking up latest redemption details for deposit ` +
-                `${this.deposit.address}...`
-            )
-            const redemptionDigest = (await this.redemptionDetails).digest
-
-            console.debug(
-                `Finding or waiting for transaction signature for deposit ` +
-                `${this.deposit.address}...`
-            )
-            const signatureEvent = await getEvent(
-                this.deposit.keepContract,
-                'SignatureSubmitted',
-                { digest: redemptionDigest },
-            )
-            const { r, s } = signatureEvent.args
-            const publicKeyPoint = await this.deposit.publicKeyPoint
-
-            const signedTransaction = BitcoinHelpers.Transaction.addWitnessSignature(
-                unsignedTransactionDetails.hex,
-                0,
-                r.replace('0x', ''),
-                s.replace('0x', ''),
-                BitcoinHelpers.publicKeyPointToPublicKeyString(
-                    publicKeyPoint.x,
-                    publicKeyPoint.y,
-                ),
-            )
-
-            return signedTransaction
-        })
-    }
-
-    // autoSubmitting/*: boolean*/
-    autoSubmit() {
-        // Only enable auto-submitting once.
-        if (this.autoSubmitting) {
-            return
-        }
-        this.autoSubmitting = true
-
-        this.signedTransaction.then(async (signedTransaction) => {
-            console.debug(
-                `Looking for existing signed redemption transaction on Bitcoin ` +
-                `chain for deposit ${this.deposit.address}...`
-            )
-
-            const { utxoSize, requestedFee,  requesterPKH } = await this.redemptionDetails
-            const expectedValue = utxoSize.sub(requestedFee).toNumber()
-            const requesterAddress = BitcoinHelpers.Address.pubKeyHashToBech32(
-                requesterPKH.replace('0x', ''),
-                this.deposit.factory.config.bitcoinNetwork,
-            )
-            let transaction = await BitcoinHelpers.Transaction.find(
-                requesterAddress,
-                expectedValue,
-            )
-
-            if (! transaction) {
-                console.debug(
-                    `Broadcasting signed redemption transaction to Bitcoin chain ` +
-                    `for deposit ${this.deposit.address}...`
-                )
-                transaction = await BitcoinHelpers.Transaction.broadcast(
-                    signedTransaction,
-                )
-            }
-
-            const requiredConfirmations = (await this.deposit.factory.constantsContract.getTxProofDifficultyFactor()).toNumber()
-
-            console.debug(
-                `Waiting for ${requiredConfirmations} confirmations for ` +
-                `Bitcoin transaction ${transaction.transactionID}...`
-            )
-            await BitcoinHelpers.Transaction.waitForConfirmations(
-                transaction,
-                requiredConfirmations,
-            )
-
-            console.debug(
-                `Transaction is sufficiently confirmed; submitting redemption ` +
-                `proof to deposit ${this.deposit.address}...`
-            )
-            this.proveWithdrawal(transaction.transactionID, requiredConfirmations)
-        })
-        // TODO bumpFee if needed
-    }
-
-    /**
-     * Proves the withdrawal of the BTC in this deposit via the Bitcoin
-     * transaction with id `transactionID`.
-     *
-     * @param {string} transactionID A hexadecimal transaction id hash for the
-     *        transaction that completes the withdrawal of this deposit's BTC.
-     * @param {number} confirmations The number of confirmations required for
-     *        the proof; if this is not provided, looks up the required
-     *        confirmations via the deposit.
-     */
-    async proveWithdrawal(transactionID, confirmations) {
-        if (! confirmations) { // 0 still triggers a lookup
-            confirmations = (await this.deposit.factory.constantsContract.getTxProofDifficultyFactor()).toNumber()
-        }
-
-        const provableTransaction = {
-            transactionID: transactionID,
-            // For filtering, see provideRedemptionProof call below.
-            outputPosition: 'output position',
-        }
-        const proofArgs = await this.deposit.constructFundingProof(
-            provableTransaction,
-            confirmations,
-        )
-
-        proofArgs.push({ from: this.deposit.factory.config.web3.eth.defaultAccount })
-        await this.deposit.contract.provideRedemptionProof.apply(
-            this.deposit.contract,
-            // Redemption proof does not take the output position as a
-            // parameter, as all redemption transactions are one-input-one-output
-            // However, constructFundingProof includes it for deposit funding
-            // proofs. Here, we filter it out to produce the right set of
-            // parameters.
-            proofArgs.filter((_) => _ != 'output position'),
-        )
-
-        this.withdrawnEmitter.emit('withdrawn', transactionID)
-    }
-
-    onBitcoinTransactionSigned(transactionHandler/*: (transaction)=>void*/) {
-        this.signedTransaction.then(transactionHandler)
-    }
-
-    onWithdrawn(withdrawalHandler/*: (txHash)=>void*/) { // bitcoin txHash
-        this.withdrawnEmitter.on('withdrawn', withdrawalHandler)
-    }
-
-    /**
-     * Fetches the latest redemption details from the chain. These can change
-     * after fee bumps.
-     */
-    async getLatestRedemptionDetails(existingRedemptionDetails/*: RedemptionDetails?*/) {
-        if (existingRedemptionDetails) {
-            return existingRedemptionDetails
-        }
-
-        return await this.deposit.getLatestRedemptionDetails()
     }
 }
