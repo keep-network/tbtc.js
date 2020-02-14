@@ -7,6 +7,7 @@
   "scripts": {
     "test": "mocha --timeout 10000",
     "js:lint": "eslint .",
+    "build": "babel src --out-dir lib",
     "js:lint:fix": "eslint --fix ."
   },
   "author": "Antonio Salazar Cardozo <antonio@thesis.co>",
@@ -21,6 +22,16 @@
     "electrum-client-js": "git+https://github.com/keep-network/electrum-client-js.git#v0.1.0"
   },
   "devDependencies": {
+    "@babel/cli": "^7.8.4",
+    "@babel/core": "^7.8.4",
+    "@babel/plugin-proposal-class-properties": "^7.8.3",
+    "@babel/plugin-proposal-object-rest-spread": "^7.8.3",
+    "@babel/plugin-transform-runtime": "^7.8.3",
+    "@babel/preset-env": "^7.8.4",
+    "@babel/preset-typescript": "^7.8.3",
+    "@babel/register": "^7.8.3",
+    "@babel/runtime": "^7.8.4",
+    "babel-loader": "^8.0.6",
     "chai": "^4.2.0",
     "eslint": "^5.16.0",
     "eslint-config-keep": "git+https://github.com/keep-network/eslint-config-keep.git#0.2.0",
