@@ -8,6 +8,7 @@ const { Script } = BcoinScript
 import bcoin from 'bcoin/lib/bcoin-browser.js'
 
 import { BitcoinSPV } from "./lib/BitcoinSPV.js"
+import { BitcoinTxParser } from "./lib/BitcoinTxParser.js"
 import ElectrumClient from "./lib/ElectrumClient.js"
 
 /**
@@ -279,10 +280,37 @@ const BitcoinHelpers = {
         estimateFee: async function(tbtcConstantsContract) {
             return tbtcConstantsContract.getMinimumRedemptionFee()
         },
-        getProof: async function(transactionID, confirmations) {
+        /**
+         * Takes a raw hexadecimal Bitcoin transaction and returns a parsed
+         * version with relevant properties.
+         *
+         * @param {string} rawTransaction Raw Bitcoin transaction in hexadecimal
+         *        format.
+         */
+        parseRaw: function(rawTransaction) {
+            return BitcoinTxParser.parse(rawTransaction)
+        },
+        /**
+         * For the given `transactionID`, constructs an SPV proof that proves it
+         * has at least `confirmations` confirmations on the Bitcoin chain.
+         * Returns data for this proof, as well as the parsed Bitcoin
+         * transaction data.
+         *
+         * @param {string} transactionID A hex Bitcoin transaction id hash.
+         * @param {number} confirmations The number of confirmations to include
+         *        in the proof.
+         *
+         * @return The proof data, plus the parsed transaction for the proof.
+         */
+        getSPVProof: async function(transactionID, confirmations) {
             return await BitcoinHelpers.withElectrumClient(async (electrumClient) => {
                 const spv = new BitcoinSPV(electrumClient)
-                return spv.getTransactionProof(transactionID, confirmations)
+                const proof = await spv.getTransactionProof(transactionID, confirmations)
+
+                return {
+                    ...proof,
+                    parsedTransaction: BitcoinHelpers.Transaction.parseRaw(proof.tx)
+                }
             })
         },
         /**

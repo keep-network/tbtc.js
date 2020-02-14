@@ -1,4 +1,3 @@
-import { BitcoinTxParser } from "./lib/BitcoinTxParser.js"
 import BitcoinHelpers from "./BitcoinHelpers.js"
 
 import EthereumHelpers from "./EthereumHelpers.js"
@@ -743,18 +742,18 @@ export default class Deposit {
     async constructFundingProof(bitcoinTransaction, confirmations) {
         const { transactionID, outputPosition } = bitcoinTransaction
         const {
-            tx,
+            parsedTransaction,
             merkleProof,
             chainHeaders,
             txInBlockIndex,
-        } = await BitcoinHelpers.Transaction.getProof(transactionID, confirmations)
+        } = await BitcoinHelpers.Transaction.getSPVProof(transactionID, confirmations)
 
         const {
             version,
             txInVector,
             txOutVector,
             locktime,
-        } = BitcoinTxParser.parse(tx)
+        } = parsedTransaction
 
         return [
             Buffer.from(version, 'hex'),
