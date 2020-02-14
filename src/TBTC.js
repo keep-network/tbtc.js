@@ -26,8 +26,15 @@ function isTestnet(web3/*: Web3*/) {
 
 class TBTC {
     // config/*: TBTCConfig*/;
+    // depositFactory/*: DepositFactory*/;
 
-    constructor(config/*: TBTCConfig*/ = defaultConfig, networkMatchCheck = true) {
+    async static withConfig(config = defaultConfig/*: TBTCConfig*/, networkMatchCheck = true) {
+        const depositFactory = await DepositFactory.withConfig(config)
+
+        new TBTC(depositFactory, config, networkMatchCheck)
+    }
+
+    constructor(depositFactory/*: DepositFactory*/, config/*: TBTCConfig*/ = defaultConfig, networkMatchCheck = true) {
         if (networkMatchCheck &&
             isMainnet(config.web3) && config.bitcoinNetwork == BitcoinNetwork.TESTNET ||
             isTestnet(config.web3) && config.bitcoinNetwork == BitcoinNetwork.MAINNET) {
@@ -40,16 +47,17 @@ class TBTC {
                 )
         }
 
+        this.depositFactory = depositFactory
         this.config = config
     }
 
-    get DepositFactory()/*: Promise<DepositFactory>*/ {
-        return DepositFactory.withConfig(this.config)
+    get Deposit()/*: DepositFactory*/ {
+        return this.depositFactory
     }
 }
 
 export default {
-    configure: (config/*: TBTCConfig*/, networkMatchCheck = true) => {
-        return new TBTC(config, networkMatchCheck)
+    withConfig: async (config/*: TBTCConfig*/, networkMatchCheck = true) => {
+        return await TBTC.withConfig(config, networkMatchCheck)
     }
 };
