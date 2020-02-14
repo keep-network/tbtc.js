@@ -8,6 +8,7 @@
     "test": "mocha --timeout 10000",
     "js:lint": "eslint .",
     "build": "babel src --out-dir lib",
+    "preinstall": "npm run build",
     "js:lint:fix": "eslint --fix ."
   },
   "author": "Antonio Salazar Cardozo <antonio@thesis.co>",
