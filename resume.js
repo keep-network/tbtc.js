@@ -20,6 +20,23 @@ async function runExample() {
     const tbtc = TBTC.configure({
         web3: web3,
         bitcoinNetwork: "testnet",
+        electrum: {
+            "testnet": {
+                "server": "electrumx-server.test.tbtc.network",
+                "port": 50002,
+                "protocol": "ssl"
+            },
+            "testnetPublic": {
+                "server": "testnet1.bauerj.eu",
+                "port": 50002,
+                "protocol": "ssl"
+            },
+            "testnetWS": {
+                "server": "electrumx-server.test.tbtc.network",
+                "port": 50003,
+                "protocol": "ws"
+            }
+        },
     })
 
     const DepositFactory = await tbtc.DepositFactory

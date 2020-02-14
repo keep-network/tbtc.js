@@ -36,9 +36,6 @@ const FeeRebateTokenContract = TruffleContract(FeeRebateTokenJSON)
 const VendingMachineContract = TruffleContract(VendingMachineJSON)
 const ECDSAKeepContract = TruffleContract(ECDSAKeepJSON)
 
-// TODO Need this configured via TBTC.
-const electrumConfig = JSON.parse(fs.readFileSync("./src/electrum-config.json"))
-
 export class DepositFactory {
     // config/*: TBTCConfig*/;
 
@@ -55,6 +52,8 @@ export class DepositFactory {
     static async withConfig(config/*: TBTCConfig)*/)/*: Promise<DepositFactory>*/ {
         const statics = new DepositFactory(config)
         await statics.resolveContracts()
+
+        BitcoinHelpers.setElectrumConfig(config.electrum)
 
         return statics
     }
@@ -808,6 +807,18 @@ export default class Deposit {
 */
 
 const BitcoinHelpers = {
+    electrumConfig: null,
+    /**
+     * Updates the config to use for Electrum client connections. Electrum is
+     * the core mechanism used to interact with the Bitcoin blockchain.
+     *
+     * @param {ElectrumConfig} newConfig The config to use for future Electrum
+     *        connections.
+     */
+    setElectrumConfig: function(newConfig) {
+        BitcoinHelpers.electrumConfig = newConfig
+    },
+
     /**
      * Converts signature provided as `r` and `s` values to a bitcoin signature
      * encoded to the DER format:
@@ -919,7 +930,7 @@ const BitcoinHelpers = {
      *        (successfully or unsuccessfully).
      */
     withElectrumClient: async function(block) {
-        const electrumClient = new ElectrumClient(electrumConfig.electrum.testnetWS)
+        const electrumClient = new ElectrumClient(BitcoinHelpers.electrumConfig.testnetWS)
 
         await electrumClient.connect()
 
