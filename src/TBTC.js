@@ -28,10 +28,10 @@ class TBTC {
     // config/*: TBTCConfig*/;
     // depositFactory/*: DepositFactory*/;
 
-    async static withConfig(config = defaultConfig/*: TBTCConfig*/, networkMatchCheck = true) {
+    static async withConfig(config = defaultConfig/*: TBTCConfig*/, networkMatchCheck = true) {
         const depositFactory = await DepositFactory.withConfig(config)
 
-        new TBTC(depositFactory, config, networkMatchCheck)
+        return new TBTC(depositFactory, config, networkMatchCheck)
     }
 
     constructor(depositFactory/*: DepositFactory*/, config/*: TBTCConfig*/ = defaultConfig, networkMatchCheck = true) {
