@@ -40,17 +40,17 @@ const ECDSAKeepContract = TruffleContract(ECDSAKeepJSON)
 const electrumConfig = JSON.parse(fs.readFileSync("./src/electrum-config.json"))
 
 export class DepositFactory {
-    config/*: TBTCConfig*/;
+    // config/*: TBTCConfig*/;
 
-    constantsContract/*: any */;
-    systemContract/*: any*/;
-    tokenContract/*: any */;
-    depositTokenContract/*: any*/;
-    feeRebateTokenContract/*: any */;
-    depositContract/*: any*/;
-    depositLogContract/*: any*/;
-    depositFactoryContract/*: any */;
-    vendingMachineContract/*: any */;
+    // constantsContract/*: any */;
+    // systemContract/*: any*/;
+    // tokenContract/*: any */;
+    // depositTokenContract/*: any*/;
+    // feeRebateTokenContract/*: any */;
+    // depositContract/*: any*/;
+    // depositLogContract/*: any*/;
+    // depositFactoryContract/*: any */;
+    // vendingMachineContract/*: any */;
 
     static async withConfig(config/*: TBTCConfig)*/)/*: Promise<DepositFactory>*/ {
         const statics = new DepositFactory(config)
@@ -171,13 +171,13 @@ export class DepositFactory {
 // type ActiveHandler = (deposit: Deposit)=>void
 
 export default class Deposit {
-    factory/*: DepositFactory*/;
-    address/*: string*/;
-    keepContract/*: string*/;
-    contract/*: any*/;
+    // factory/*: DepositFactory*/;
+    // address/*: string*/;
+    // keepContract/*: string*/;
+    // contract/*: any*/;
 
-    bitcoinAddress/*: Promise<string>*/;
-    activeStatePromise/*: Promise<[]>*/; // fulfilled when deposit goes active
+    // bitcoinAddress/*: Promise<string>*/;
+    // activeStatePromise/*: Promise<[]>*/; // fulfilled when deposit goes active
 
     static async forLotSize(factory/*: DepositFactory*/, satoshiLotSize/*: BN*/)/*: Promise<Deposit>*/ {
         console.debug(
@@ -590,7 +590,7 @@ export default class Deposit {
 
     ///------------------------------- Helpers ---------------------------------
 
-    autoSubmitting/*: boolean*/
+    // autoSubmitting/*: boolean*/
     /**
      * This method enables the deposit's auto-submission capabilities. In
      * auto-submit mode, the deposit will automatically monitor for a new
@@ -1342,13 +1342,13 @@ async function getExistingEvent(source, eventName, filter) {
  * registered.
  */
 class Redemption {
-    deposit/*: Deposit*/
+    // deposit/*: Deposit*/
 
-    redemptionDetails/*: Promise<RedemptionDetails>*/
-    unsignedTransaction/*: Promise<UnsignedTransactionDetails>*/
-    signedTransaction/*: Promise<SignedTransactionDetails>*/
+    // redemptionDetails/*: Promise<RedemptionDetails>*/
+    // unsignedTransaction/*: Promise<UnsignedTransactionDetails>*/
+    // signedTransaction/*: Promise<SignedTransactionDetails>*/
 
-    withdrawnEmitter/*: EventEmitter*/
+    // withdrawnEmitter/*: EventEmitter*/
 
     constructor(deposit/*: Deposit*/, redemptionDetails/*: RedemptionDetails?*/) {
         this.deposit = deposit
@@ -1409,7 +1409,7 @@ class Redemption {
         })
     }
 
-    autoSubmitting/*: boolean*/
+    // autoSubmitting/*: boolean*/
     autoSubmit() {
         // Only enable auto-submitting once.
         if (this.autoSubmitting) {
@@ -1523,4 +1523,3 @@ class Redemption {
         return await this.deposit.getLatestRedemptionDetails()
     }
 }
-

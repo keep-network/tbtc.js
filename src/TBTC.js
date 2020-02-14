@@ -25,7 +25,7 @@ function isTestnet(web3/*: Web3*/) {
 }
 
 class TBTC {
-    config/*: TBTCConfig*/;
+    // config/*: TBTCConfig*/;
 
     constructor(config/*: TBTCConfig*/ = defaultConfig, networkMatchCheck = true) {
         if (networkMatchCheck &&
