@@ -1,7 +1,7 @@
 #!/usr/bin/env node --experimental-modules
 import Web3 from 'web3';
 
-import TBTC from './index.js'
+import TBTC from '@keep-network/tbtc.js'
 
 import HDWalletProvider from '@truffle/hdwallet-provider'
 const mnemonic = "egg dune news grocery detail frog kiwi hidden tuna noble speak over"
