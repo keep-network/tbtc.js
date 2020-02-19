@@ -59,17 +59,6 @@ async function runExample() {
                     console.log(`Minted ${tbtc} TBTC!`)
                     // or
                     // (await deposit.getTDT()).transfer(someLuckyContract)
-
-                    console.log("You have 10s before I redeem this sucker...")
-
-                    // later…
-                    setTimeout(async () => {
-                        console.log("Redeeming deposit :sunglasses:")
-                        (await deposit.requestRedemption("tb....")).autoSubmit()
-                            .onWithdrawn((txHash) => {
-                            // all done!
-                            })
-                    }, 10000)
                 } catch (error) {
                     reject(error)
                 }
