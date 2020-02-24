@@ -1,5 +1,6 @@
 import { DepositFactory } from "./Deposit.js";
 import BitcoinHelpers from "./BitcoinHelpers.js";
+import BN from "bn.js"
 /** @typedef { import("./BitcoinHelpers.js").BitcoinNetwork } BitcoinNetwork
 
 
@@ -48,6 +49,8 @@ class TBTC {
 
         this.depositFactory = depositFactory
         this.config = config
+
+        this.satoshisPerTbtc = (new BN(10)).pow(new BN(10))
     }
 
     get Deposit()/*: DepositFactory*/ {

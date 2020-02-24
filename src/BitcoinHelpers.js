@@ -11,12 +11,14 @@ import { BitcoinSPV } from "./lib/BitcoinSPV.js"
 import { BitcoinTxParser } from "./lib/BitcoinTxParser.js"
 import ElectrumClient from "./lib/ElectrumClient.js"
 
+import BN from "bn.js"
 
 /** @enum {string} */
 const BitcoinNetwork = {
     TESTNET: "testnet",
     MAINNET: "mainnet",
 }
+
 /**
  * Found transaction details.
  * @typedef FoundTransaction
@@ -27,6 +29,8 @@ const BitcoinNetwork = {
 */
 
 const BitcoinHelpers = {
+    satoshisPerBtc: (new BN(10)).pow(new BN(8)),
+
     Network: BitcoinNetwork,
 
     electrumConfig: null,
