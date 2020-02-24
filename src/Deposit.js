@@ -579,7 +579,12 @@ export default class Deposit {
 
     ///------------------------------- Helpers ---------------------------------
 
-    // autoSubmitting/*: boolean*/
+    /**
+     * @typedef {Object} AutoSubmitState
+     * @prop {Promise<BitcoinTransaction>} fundingTransaction
+     * @prop {Promise<{ transaction: FoundTransaction, requiredConfirmations: Number }>} resolvedConfirmations
+     * @prop {Promise<EthereumTransaction>} proofTransaction
+     */
     /**
      * This method enables the deposit's auto-submission capabilities. In
      * auto-submit mode, the deposit will automatically monitor for a new
@@ -593,42 +598,56 @@ export default class Deposit {
      * this process. This can be useful, for example, if a dApp wants to open
      * a deposit, then transfer the deposit to a service provider who will
      * handle deposit qualification.
+     *
+     * @return {AutoSubmitState} An object with promises to various stages of
+     *         the auto-submit lifetime. Each promise can be fulfilled or
+     *         rejected, and they are in a sequence where later promises will be
+     *         rejected by earlier ones.
      */
     autoSubmit() {
         // Only enable auto-submitting once.
-        if (this.autoSubmitting) {
-            return
+        if (this.autoSubmittingState) {
+            return this.autoSubmittingState
         }
-        this.autoSubmitting = true
+        /** @type {AutoSubmitState} */
+        const state = this.autoSubmittingState = {}
 
-        this.bitcoinAddress.then(async (address) => {
+        state.fundingTransaction = this.bitcoinAddress.then(async (address) => {
             const expectedValue = (await this.getSatoshiLotSize()).toNumber()
 
             console.debug(
                 `Monitoring Bitcoin for transaction to address ${address}...`,
             )
-            const tx = await BitcoinHelpers.Transaction.findOrWaitFor(address, expectedValue)
-            // TODO issue event when we find a tx
+            return BitcoinHelpers.Transaction.findOrWaitFor(address, expectedValue)
+        })
 
+        state.resolvedConfirmations = state.fundingTransaction.then(async (transaction) => {
             const requiredConfirmations = (await this.factory.constantsContract.getTxProofDifficultyFactor()).toNumber()
 
             console.debug(
                 `Waiting for ${requiredConfirmations} confirmations for ` +
-                `Bitcoin transaction ${tx.transactionID}...`
+                `Bitcoin transaction ${transaction.transactionID}...`
             )
             await BitcoinHelpers.Transaction.waitForConfirmations(
-                tx,
+                transaction,
                 requiredConfirmations,
             )
+            
+            return { transaction, requiredConfirmations }
+        })
 
+        state.proofTransaction = state.resolvedConfirmations.then(async ({ transaction, requiredConfirmations }) => {
             console.debug(
                 `Submitting funding proof to deposit ${this.address} for ` +
-                `Bitcoin transaction ${tx.transactionID}...`
+                `Bitcoin transaction ${transaction.transactionID}...`
             )
-            const proofArgs = await this.constructFundingProof(tx, requiredConfirmations)
+            const proofArgs = await this.constructFundingProof(transaction, requiredConfirmations)
             proofArgs.push({ from: this.factory.config.web3.eth.defaultAccount })
-            this.contract.provideBTCFundingProof.apply(this.contract, proofArgs)
+
+            return this.contract.provideBTCFundingProof.apply(this.contract, proofArgs)
         })
+
+        return state
     }
 
     // Finds an existing event from the keep backing the Deposit to access the
