@@ -599,6 +599,9 @@ export default class Deposit {
      * a deposit, then transfer the deposit to a service provider who will
      * handle deposit qualification.
      *
+     * Calling this function more than once will return the existing state of
+     * the first auto submission process, rather than restarting the process.
+     *
      * @return {AutoSubmitState} An object with promises to various stages of
      *         the auto-submit lifetime. Each promise can be fulfilled or
      *         rejected, and they are in a sequence where later promises will be
