@@ -4,40 +4,48 @@ import BN from "bn.js"
 /** @typedef { import("./BitcoinHelpers.js").BitcoinNetwork } BitcoinNetwork
 
 
-/*
-export type TBTCConfig = {
-    bitcoinNetwork: BitcoinNetwork,
-    web3: Web3,
-}
-*/
+/**
+ * @typedef {Object} TBTCConfig
+ * @prop {BitcoinNetwork} bitcoinNetwork
+ * @prop {Web3} web3
+ */
 
-const defaultConfig/*: TBTCConfig */ = {
+/** @type {TBTCConfig} */
 const defaultConfig = {
     bitcoinNetwork: BitcoinHelpers.Network.TESTNET,
     web3: global.Web3,
 }
 
-function isMainnet(web3/*: Web3*/) {
+/**
+ * @param {Web3} web3 
+ */
+function isMainnet(web3) {
     return web3.currentProvider['chainId'] == 0x1
 }
-function isTestnet(web3/*: Web3*/) {
+/**
+ * @param {Web3} web3 
+ */
+function isTestnet(web3) {
     return ! isMainnet(web3)
 }
 
-class TBTC {
-    // config/*: TBTCConfig*/;
-    // depositFactory/*: DepositFactory*/;
-
-    static async withConfig(config = defaultConfig/*: TBTCConfig*/, networkMatchCheck = true) {
+export class TBTC {
+    static async withConfig(config = defaultConfig, networkMatchCheck = true) {
         const depositFactory = await DepositFactory.withConfig(config)
 
         return new TBTC(depositFactory, config, networkMatchCheck)
     }
 
-    constructor(depositFactory/*: DepositFactory*/, config/*: TBTCConfig*/ = defaultConfig, networkMatchCheck = true) {
+    /**
+     * 
+     * @param {DepositFactory} depositFactory 
+     * @param {TBTCConfig} config 
+     * @param {boolean} networkMatchCheck 
+     */
+    constructor(depositFactory, config, networkMatchCheck = true) {
         if (networkMatchCheck &&
-            isMainnet(config.web3) && config.bitcoinNetwork == BitcoinNetwork.TESTNET ||
-            isTestnet(config.web3) && config.bitcoinNetwork == BitcoinNetwork.MAINNET) {
+            isMainnet(config.web3) && config.bitcoinNetwork == BitcoinHelpers.Network.TESTNET ||
+            isTestnet(config.web3) && config.bitcoinNetwork == BitcoinHelpers.Network.MAINNET) {
                 throw new Error(
                     `Ethereum network ${config.web3.currentProvider.chainId} ` +
                     `and Bitcoin network ${config.bitcoinNetwork} are not both ` +
@@ -47,7 +55,9 @@ class TBTC {
                 )
         }
 
+        /** @package */
         this.depositFactory = depositFactory
+        /** @package */
         this.config = config
 
         this.satoshisPerTbtc = (new BN(10)).pow(new BN(10))
@@ -59,7 +69,11 @@ class TBTC {
 }
 
 export default {
-    withConfig: async (config/*: TBTCConfig*/, networkMatchCheck = true) => {
+    /**
+     * @param {TBTCConfig} config
+     * @param {boolean} networkMatchCheck 
+     */
+    withConfig: async (config, networkMatchCheck = true) => {
         return await TBTC.withConfig(config, networkMatchCheck)
     },
     BitcoinNetwork: BitcoinHelpers.Network,
