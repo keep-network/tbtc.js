@@ -136,12 +136,13 @@ const BitcoinHelpers = {
     },
     /**
      *
-     * @param {(ElectrumClient)=>Promise<any>} block A function to execute with
+     * @param {(ElectrumClient)=>Promise<T>} block A function to execute with
      *        the ElectrumClient passed in; it is expected to return a Promise
      *        that will resolve once the function is finished performing work
      *        with the client. withElectrumClient returns that promise, but also
      *        ensures that the client will be closed once the promise completes
      *        (successfully or unsuccessfully).
+     * @template T
      */
     withElectrumClient: async function(block) {
         const electrumClient = new ElectrumClient(BitcoinHelpers.electrumConfig.testnetWS)
@@ -248,7 +249,7 @@ const BitcoinHelpers = {
          * Watches the Bitcoin chain until the given `transaction` has the given
          * number of `requiredConfirmations`.
          *
-         * @param {Transaction} transaction Transaction object from Electrum.
+         * @param {FoundTransaction} transaction Transaction object from Electrum.
          * @param {number} requiredConfirmations The number of required
          *        confirmations to wait before returning.
          *
