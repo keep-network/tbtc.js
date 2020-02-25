@@ -628,7 +628,7 @@ export default class Deposit {
     /**
      * @typedef {Object} AutoSubmitState
      * @prop {Promise<BitcoinTransaction>} fundingTransaction
-     * @prop {Promise<{ transaction: FoundTransaction, requiredConfirmations: Number }>} resolvedConfirmations
+     * @prop {Promise<{ transaction: FoundTransaction, requiredConfirmations: Number }>} fundingConfirmations
      * @prop {Promise<EthereumTransaction>} proofTransaction
      */
     /**
@@ -670,7 +670,7 @@ export default class Deposit {
             return BitcoinHelpers.Transaction.findOrWaitFor(address, expectedValue)
         })
 
-        state.resolvedConfirmations = state.fundingTransaction.then(async (transaction) => {
+        state.fundingConfirmations = state.fundingTransaction.then(async (transaction) => {
             const requiredConfirmations = (await this.factory.constantsContract.getTxProofDifficultyFactor()).toNumber()
 
             console.debug(
@@ -685,7 +685,7 @@ export default class Deposit {
             return { transaction, requiredConfirmations }
         })
 
-        state.proofTransaction = state.resolvedConfirmations.then(async ({ transaction, requiredConfirmations }) => {
+        state.proofTransaction = state.fundingConfirmations.then(async ({ transaction, requiredConfirmations }) => {
             console.debug(
                 `Submitting funding proof to deposit ${this.address} for ` +
                 `Bitcoin transaction ${transaction.transactionID}...`
