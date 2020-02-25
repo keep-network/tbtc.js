@@ -483,10 +483,19 @@ export default class Deposit {
         }
     }
 
-    async getCurrentRedemption()/*: Promise<Redemption?>*/ {
+    /**
+     * Checks to see if this deposit is already in the redemption process and,
+     * if it is, returns the details of that redemption. Returns null if there
+     * is no current redemption.
+     */
+    async getCurrentRedemption() {
         const details = await this.getLatestRedemptionDetails()
 
-        return new Redemption(this, details)
+        if (details) {
+            return new Redemption(this, details)
+        } else {
+            return null
+        }
     }
 
     async requestRedemption(redeemerAddress/*: string /* bitcoin address */)/*: Promise<Redemption>*/ {
