@@ -66,7 +66,7 @@ export class DepositFactory {
      * @return {Promise<BN[]>} A list of the available lot sizes, in satoshis,
      *         as BN instances.
      */
-    async availableSatoshiLotSizes()/*: Promise<BN[]>*/ {
+    async availableSatoshiLotSizes() {
         return await this.systemContract.getAllowedLotSizes()
     }
 
@@ -83,7 +83,7 @@ export class DepositFactory {
      * 
      * @return {Promise<Deposit>} The new deposit with the given lot size.
      */
-    async withSatoshiLotSize(satoshiLotSize/*: BN*/)/*: Promise<Deposit>*/ {
+    async withSatoshiLotSize(satoshiLotSize) {
         if (! await this.systemContract.isAllowedLotSize(satoshiLotSize)) {
             throw new Error(
                 `Lot size ${satoshiLotSize} is not permitted; only ` +
