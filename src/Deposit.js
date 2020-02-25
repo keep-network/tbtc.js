@@ -550,7 +550,7 @@ export default class Deposit {
     /**
      *  
      * @param {string} redeemerAddress The Bitcoin address where the redeemer
-     *        like to receive the BTC UTXO the deposit holds, less Bitcoin
+     *        would like to receive the BTC UTXO the deposit holds, less Bitcoin
      *        transaction fees.
      * @return {Promise<Redemption>} Returns a promise to a Redemption object,
      *         which will be fulfilled once the redemption process is in
