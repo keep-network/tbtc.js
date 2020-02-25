@@ -127,6 +127,8 @@ export default class Redemption {
                 requesterPKH.replace('0x', ''),
                 this.deposit.factory.config.bitcoinNetwork,
             )
+            // FIXME Check that the transaction spends the right UTXO, not just
+            // FIXME that it's the right amount to the right address.
             let transaction = await BitcoinHelpers.Transaction.find(
                 requesterAddress,
                 expectedValue,
