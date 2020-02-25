@@ -26,6 +26,34 @@ const FeeRebateTokenContract = TruffleContract(FeeRebateTokenJSON)
 const VendingMachineContract = TruffleContract(VendingMachineJSON)
 const ECDSAKeepContract = TruffleContract(ECDSAKeepJSON)
 
+/** @enum {number} */
+const DepositStates = {
+    // Not initialized.
+    START: 0,
+
+    // Funding flow.
+    AWAITING_SIGNER_SETUP: 1,
+    AWAITING_BTC_FUNDING_PROOF: 2,
+
+    // Failed setup.
+    FRAUD_AWAITING_BTC_FUNDING_PROOF: 3,
+    FAILED_SETUP: 4,
+
+    // Active/qualified, pre- or at-term.
+    ACTIVE: 5,
+
+    // Redemption flow.
+    AWAITING_WITHDRAWAL_SIGNATURE: 6,
+    AWAITING_WITHDRAWAL_PROOF: 7,
+    REDEEMED: 8,
+
+    // Signer liquidation flow.
+    COURTESY_CALL: 9,
+    FRAUD_LIQUIDATION_IN_PROGRESS: 10,
+    LIQUIDATION_IN_PROGRESS: 11,
+    LIQUIDATED: 12
+}
+
 export class DepositFactory {
     // config/*: TBTCConfig*/;
 
@@ -50,6 +78,8 @@ export class DepositFactory {
 
     constructor(config/*: TBTCConfig*/) {
         this.config = config
+
+        this.State = DepositStates
     }
 
     async availableSatoshiLotSizes()/*: Promise<BN[]>*/ {
@@ -248,6 +278,13 @@ export default class Deposit {
      */
     async getBitcoinAddress() {
         return await this.bitcoinAddress
+    }
+
+    /**
+     * @return {DepositStates} The current state of the deposit.
+     */
+    async getCurrentState() {
+        return (await this.contract.getCurrentState()).toNumber()
     }
 
     async getTDT()/*: Promise<TBTCDepositToken>*/ {
