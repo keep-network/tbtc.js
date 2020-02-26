@@ -23,13 +23,13 @@
   "dependencies": {
     "@keep-network/tbtc": "0.6.0-pre1",
     "@truffle/contract": "^4.1.8",
-    "@truffle/hdwallet-provider": "^1.0.30",
     "bcoin": "git+https://github.com/bcoin-org/bcoin.git#8851582",
     "bcrypto": "^4.1.0",
     "bufio": "^1.0.6",
     "electrum-client-js": "git+https://github.com/keep-network/electrum-client-js.git#v0.1.0"
   },
   "devDependencies": {
+    "@truffle/hdwallet-provider": "^1.0.30",
     "chai": "^4.2.0",
     "eslint": "^5.16.0",
     "eslint-config-keep": "git+https://github.com/keep-network/eslint-config-keep.git#0.2.0",

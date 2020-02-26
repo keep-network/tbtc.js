@@ -39,6 +39,34 @@ const ECDSAKeepContract = TruffleContract(ECDSAKeepJSON)
 /** @typedef { import("bn.js") } BN */
 /** @typedef { import("./TBTC").TBTCConfig } TBTCConfig */
 
+/** @enum {number} */
+const DepositStates = {
+    // Not initialized.
+    START: 0,
+
+    // Funding flow.
+    AWAITING_SIGNER_SETUP: 1,
+    AWAITING_BTC_FUNDING_PROOF: 2,
+
+    // Failed setup.
+    FRAUD_AWAITING_BTC_FUNDING_PROOF: 3,
+    FAILED_SETUP: 4,
+
+    // Active/qualified, pre- or at-term.
+    ACTIVE: 5,
+
+    // Redemption flow.
+    AWAITING_WITHDRAWAL_SIGNATURE: 6,
+    AWAITING_WITHDRAWAL_PROOF: 7,
+    REDEEMED: 8,
+
+    // Signer liquidation flow.
+    COURTESY_CALL: 9,
+    FRAUD_LIQUIDATION_IN_PROGRESS: 10,
+    LIQUIDATION_IN_PROGRESS: 11,
+    LIQUIDATED: 12
+}
+
 export class DepositFactory {
     /**
      * Returns a fully-initialized DepositFactory for the given config.
@@ -60,6 +88,8 @@ export class DepositFactory {
     constructor(config) {
         /** @package */
         this.config = config
+
+        this.State = DepositStates
     }
 
     /**
@@ -343,6 +373,13 @@ export default class Deposit {
         return await this.bitcoinAddress
     }
 
+    /**
+     * @return {DepositStates} The current state of the deposit.
+     */
+    async getCurrentState() {
+        return (await this.contract.getCurrentState()).toNumber()
+    }
+
     async getTDT()/*: Promise<TBTCDepositToken>*/ {
         return {}
     }
@@ -541,10 +578,19 @@ export default class Deposit {
         }
     }
 
-    async getCurrentRedemption()/*: Promise<Redemption?>*/ {
+    /**
+     * Checks to see if this deposit is already in the redemption process and,
+     * if it is, returns the details of that redemption. Returns null if there
+     * is no current redemption.
+     */
+    async getCurrentRedemption() {
         const details = await this.getLatestRedemptionDetails()
 
-        return new Redemption(this, details)
+        if (details) {
+            return new Redemption(this, details)
+        } else {
+            return null
+        }
     }
 
     /**
@@ -687,7 +733,12 @@ export default class Deposit {
 
     ///------------------------------- Helpers ---------------------------------
 
-    // autoSubmitting/*: boolean*/
+    /**
+     * @typedef {Object} AutoSubmitState
+     * @prop {Promise<BitcoinTransaction>} fundingTransaction
+     * @prop {Promise<{ transaction: FoundTransaction, requiredConfirmations: Number }>} fundingConfirmations
+     * @prop {Promise<EthereumTransaction>} proofTransaction
+     */
     /**
      * This method enables the deposit's auto-submission capabilities. In
      * auto-submit mode, the deposit will automatically monitor for a new
@@ -701,42 +752,59 @@ export default class Deposit {
      * this process. This can be useful, for example, if a dApp wants to open
      * a deposit, then transfer the deposit to a service provider who will
      * handle deposit qualification.
+     *
+     * Calling this function more than once will return the existing state of
+     * the first auto submission process, rather than restarting the process.
+     *
+     * @return {AutoSubmitState} An object with promises to various stages of
+     *         the auto-submit lifetime. Each promise can be fulfilled or
+     *         rejected, and they are in a sequence where later promises will be
+     *         rejected by earlier ones.
      */
     autoSubmit() {
         // Only enable auto-submitting once.
-        if (this.autoSubmitting) {
-            return
+        if (this.autoSubmittingState) {
+            return this.autoSubmittingState
         }
-        this.autoSubmitting = true
+        /** @type {AutoSubmitState} */
+        const state = this.autoSubmittingState = {}
 
-        this.bitcoinAddress.then(async (address) => {
+        state.fundingTransaction = this.bitcoinAddress.then(async (address) => {
             const expectedValue = (await this.getSatoshiLotSize()).toNumber()
 
             console.debug(
                 `Monitoring Bitcoin for transaction to address ${address}...`,
             )
-            const tx = await BitcoinHelpers.Transaction.findOrWaitFor(address, expectedValue)
-            // TODO issue event when we find a tx
+            return BitcoinHelpers.Transaction.findOrWaitFor(address, expectedValue)
+        })
 
+        state.fundingConfirmations = state.fundingTransaction.then(async (transaction) => {
             const requiredConfirmations = (await this.factory.constantsContract.getTxProofDifficultyFactor()).toNumber()
 
             console.debug(
                 `Waiting for ${requiredConfirmations} confirmations for ` +
-                `Bitcoin transaction ${tx.transactionID}...`
+                `Bitcoin transaction ${transaction.transactionID}...`
             )
             await BitcoinHelpers.Transaction.waitForConfirmations(
-                tx,
+                transaction,
                 requiredConfirmations,
             )
+            
+            return { transaction, requiredConfirmations }
+        })
 
+        state.proofTransaction = state.fundingConfirmations.then(async ({ transaction, requiredConfirmations }) => {
             console.debug(
                 `Submitting funding proof to deposit ${this.address} for ` +
-                `Bitcoin transaction ${tx.transactionID}...`
+                `Bitcoin transaction ${transaction.transactionID}...`
             )
-            const proofArgs = await this.constructFundingProof(tx, requiredConfirmations)
+            const proofArgs = await this.constructFundingProof(transaction, requiredConfirmations)
             proofArgs.push({ from: this.factory.config.web3.eth.defaultAccount })
-            this.contract.provideBTCFundingProof.apply(this.contract, proofArgs)
+
+            return this.contract.provideBTCFundingProof.apply(this.contract, proofArgs)
         })
+
+        return state
     }
 
     // Finds an existing event from the keep backing the Deposit to access the

@@ -11,6 +11,14 @@ import { BitcoinSPV } from "./lib/BitcoinSPV.js"
 import { BitcoinTxParser } from "./lib/BitcoinTxParser.js"
 import ElectrumClient from "./lib/ElectrumClient.js"
 
+import BN from "bn.js"
+
+/** @enum {string} */
+const BitcoinNetwork = {
+    TESTNET: "testnet",
+    MAINNET: "mainnet",
+}
+
 /**
  * Found transaction details.
  * @typedef FoundTransaction
@@ -21,6 +29,10 @@ import ElectrumClient from "./lib/ElectrumClient.js"
 */
 
 const BitcoinHelpers = {
+    satoshisPerBtc: (new BN(10)).pow(new BN(8)),
+
+    Network: BitcoinNetwork,
+
     electrumConfig: null,
     /**
      * Updates the config to use for Electrum client connections. Electrum is
@@ -106,7 +118,7 @@ const BitcoinHelpers = {
          * [BIP-173](https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki).
          * @param {string} publicKeyString Public key as a hexadecimal representation of
          * 64-byte concatenation of x and y coordinates.
-         * @param {Network} network Network for which address has to be calculated.
+         * @param {BitcoinNetwork} network Network for which address has to be calculated.
          * @return {string} A Bitcoin P2WPKH address for given network.
          */
         publicKeyToP2WPKHAddress: function(publicKeyString, network) {

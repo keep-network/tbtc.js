@@ -107,15 +107,11 @@ export default class Redemption {
         })
     }
 
-    // autoSubmitting/*: boolean*/
     autoSubmit() {
-        // Only enable auto-submitting once.
-        if (this.autoSubmitting) {
-            return
+        if (this.autoSubmitPromise) {
+            return this.autoSubmitPromise
         }
-        this.autoSubmitting = true
-
-        this.signedTransaction.then(async (signedTransaction) => {
+        this.autoSubmitPromise = this.signedTransaction.then(async (signedTransaction) => {
             console.debug(
                 `Looking for existing signed redemption transaction on Bitcoin ` +
                 `chain for deposit ${this.deposit.address}...`
@@ -159,7 +155,7 @@ export default class Redemption {
                 `Transaction is sufficiently confirmed; submitting redemption ` +
                 `proof to deposit ${this.deposit.address}...`
             )
-            this.proveWithdrawal(transaction.transactionID, requiredConfirmations)
+            return this.proveWithdrawal(transaction.transactionID, requiredConfirmations)
         })
         // TODO bumpFee if needed
     }

@@ -1,10 +1,8 @@
 import { DepositFactory } from "./Deposit.js";
+import BitcoinHelpers from "./BitcoinHelpers.js";
+import BN from "bn.js"
+/** @typedef { import("./BitcoinHelpers.js").BitcoinNetwork } BitcoinNetwork
 
-/** @enum {string} */
-const BitcoinNetwork = {
-    TESTNET: "testnet",
-    MAINNET: "mainnet"
-}
 
 /**
  * @typedef {Object} TBTCConfig
@@ -14,7 +12,7 @@ const BitcoinNetwork = {
 
 /** @type {TBTCConfig} */
 const defaultConfig = {
-    bitcoinNetwork: BitcoinNetwork.TESTNET,
+    bitcoinNetwork: BitcoinHelpers.Network.TESTNET,
     web3: global.Web3,
 }
 
@@ -61,6 +59,8 @@ export class TBTC {
         this.depositFactory = depositFactory
         /** @package */
         this.config = config
+
+        this.satoshisPerTbtc = (new BN(10)).pow(new BN(10))
     }
 
     get Deposit()/*: DepositFactory*/ {
@@ -75,5 +75,6 @@ export default {
      */
     withConfig: async (config, networkMatchCheck = true) => {
         return await TBTC.withConfig(config, networkMatchCheck)
-    }
+    },
+    BitcoinNetwork: BitcoinHelpers.Network,
 };
