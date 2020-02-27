@@ -225,13 +225,6 @@ export class DepositFactory {
         }
 
         const result = await this.depositFactoryContract.createDeposit(
-            this.systemContract.address,
-            this.tokenContract.address,
-            this.depositTokenContract.address,
-            this.feeRebateTokenContract.address,
-            this.vendingMachineContract.address,
-            1,
-            1,
             lotSize,
             {
                 from: this.config.web3.eth.defaultAccount,
