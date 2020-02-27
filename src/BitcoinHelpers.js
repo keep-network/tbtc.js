@@ -187,10 +187,28 @@ const BitcoinHelpers = {
         find: async function(bitcoinAddress, expectedValue) {
             const script = BitcoinHelpers.Address.toScript(bitcoinAddress)
 
+            return await BitcoinHelpers.Transaction.findScript(script, expectedValue)
+        },
+        /**
+         * Finds a transaction to the given `outputScript` of the given
+         * `expectedValue`. If there is more than one such transaction, returns
+         * the most recent one.
+         *
+         * @param {string} outputScript A Bitcoin output script to look for as a
+         *        non-0x-prefixed hex string.
+         * @param {number} expectedValue The expected value of the transaction
+         *        to fetch.
+         *
+         * @return {Promise<FoundTransaction>} A promise to an object of
+         *         transactionID, outputPosition, and value, that resolves with
+         *         either null if such a transaction could not be found, or the
+         *         information about the transaction that was found.
+         */
+        findScript: async function(outputScript, expectedValue) {
             return await BitcoinHelpers.withElectrumClient((electrumClient) => {
                 return BitcoinHelpers.Transaction.findWithClient(
                     electrumClient,
-                    script,
+                    outputScript,
                     expectedValue,
                 )
             })
