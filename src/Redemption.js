@@ -8,7 +8,7 @@ import EthereumHelpers from "./EthereumHelpers.js"
  * Details of a given redemption at a given point in time.
  * @typedef {Object} RedemptionDetails
  * @property {BN} utxoSize The size of the UTXO size in the redemption.
- * @property {Buffer} requesterPKH The raw requester publicKeyHash bytes.
+ * @property {Buffer} redeemerOutputScript The raw redeemer output script bytes.
  * @property {BN} requestedFee The fee for the redemption transaction.
  * @property {Buffer} outpoint The raw outpoint bytes.
  * @property {Buffer} digest The raw digest bytes.
@@ -62,7 +62,7 @@ export default class Redemption {
                     // https://github.com/summa-tx/bitcoin-spv/blob/2a9d594d9b14080bdbff2a899c16ffbf40d62eef/solidity/contracts/CheckBitcoinSigs.sol#L154
                     0,
                     outputValue.toNumber(),
-                    details.requesterPKH.replace('0x', ''),
+                    details.redeemerOutputScript.replace('0x', ''),
                 )
 
             return {
@@ -115,16 +115,13 @@ export default class Redemption {
                 `chain for deposit ${this.deposit.address}...`
             )
 
-            const { utxoSize, requestedFee,  requesterPKH } = await this.redemptionDetails
+            const { utxoSize, requestedFee, redeemerOutputScript } = await this.redemptionDetails
             const expectedValue = utxoSize.sub(requestedFee).toNumber()
-            const requesterAddress = BitcoinHelpers.Address.pubKeyHashToBech32(
-                requesterPKH.replace('0x', ''),
-                this.deposit.factory.config.bitcoinNetwork,
-            )
             // FIXME Check that the transaction spends the right UTXO, not just
-            // FIXME that it's the right amount to the right address.
-            let transaction = await BitcoinHelpers.Transaction.find(
-                requesterAddress,
+            // FIXME that it's the right amount to the right address. outpoint
+            // FIXME compared against vin is probably the move here.
+            let transaction = await BitcoinHelpers.Transaction.findScript(
+                redeemerOutputScript.replace('0x', ''),
                 expectedValue,
             )
 

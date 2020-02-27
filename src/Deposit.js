@@ -614,12 +614,9 @@ export default class Deposit {
             )
         }
 
-        const redeemerPKH = BitcoinHelpers.Address.pubKeyHashFrom(redeemerAddress)
-        if (redeemerPKH === null) {
-            throw new Error(
-                `${redeemerAddress} is not a P2WPKH address. Currently only ` +
-                `P2WPKH addresses are supported for redemption.`
-            )
+        const redeemerOutputScript = BitcoinHelpers.Address.toScript(redeemerAddress)
+        if (redeemerOutputScript === null) {
+            throw new Error(`${redeemerAddress} is not a valid Bitcoin address.`)
         }
 
         const redemptionCost = await this.getRedemptionCost()
@@ -661,7 +658,7 @@ export default class Deposit {
             transaction = await this.factory.vendingMachineContract.tbtcToBtc(
                 this.address,
                 outputValueBytes,
-                redeemerPKH,
+                redeemerOutputScript,
                 thisAccount,
                 { from: thisAccount },
             )
@@ -678,7 +675,7 @@ export default class Deposit {
             console.debug(`Initiating redemption from deposit ${this.address}...`)
             transaction = await this.contract.requestRedemption(
                 outputValueBytes,
-                redeemerPKH,
+                redeemerOutputScript,
                 { from: thisAccount },
             )
         }
@@ -939,7 +936,7 @@ export default class Deposit {
     redemptionDetailsFromEvent(redemptionRequestedEventArgs)/*: RedemptionDetails*/ {
         const {
             _utxoSize,
-            _requesterPKH,
+            _redeemerOutputScript,
             _requestedFee,
             _outpoint,
             _digest,
@@ -948,7 +945,7 @@ export default class Deposit {
         const toBN = this.factory.config.web3.utils.toBN
         return {
             utxoSize: toBN(_utxoSize),
-            requesterPKH: _requesterPKH,
+            redeemerOutputScript: _redeemerOutputScript,
             requestedFee: toBN(_requestedFee),
             outpoint: _outpoint,
             digest: _digest,
