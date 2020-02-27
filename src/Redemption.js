@@ -205,8 +205,15 @@ export default class Redemption {
     /**
      * Fetches the latest redemption details from the chain. These can change
      * after fee bumps.
+     *
+     * @param {RedemptionDetails} existingRedemptionDetails An optional override
+     *        to shortcut explicit redemption detail lookup.
+     *
+     * @return {Promise<RedemptionDetails>} The passed existing redemption
+     *         details, or the result of looking these up on-chain if none were
+     *         past.
      */
-    async getLatestRedemptionDetails(existingRedemptionDetails/*: RedemptionDetails?*/) {
+    async getLatestRedemptionDetails(existingRedemptionDetails) {
         if (existingRedemptionDetails) {
             return existingRedemptionDetails
         }
