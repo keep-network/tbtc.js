@@ -6,8 +6,7 @@ import EthereumHelpers from "./EthereumHelpers.js"
 
 /**
  * Details of a given redemption at a given point in time.
- * @typedef RedemptionDetails
- * @type {Object}
+ * @typedef {Object} RedemptionDetails
  * @property {BN} utxoSize The size of the UTXO size in the redemption.
  * @property {Buffer} requesterPKH The raw requester publicKeyHash bytes.
  * @property {BN} requestedFee The fee for the redemption transaction.
@@ -17,8 +16,7 @@ import EthereumHelpers from "./EthereumHelpers.js"
 
 /**
  * Details of a given unsigned transaction
- * @typedef UnsignedTransactionDetails
- * @type {Object}
+ * @typedef {Object} UnsignedTransactionDetails
  * @property {string} hex The raw transaction hex string.
  * @property {digest} digest The transaction's digest.
  */
