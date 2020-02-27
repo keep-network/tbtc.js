@@ -35,7 +35,7 @@ const FeeRebateTokenContract = TruffleContract(FeeRebateTokenJSON)
 const VendingMachineContract = TruffleContract(VendingMachineJSON)
 /** @type TruffleContract */
 const ECDSAKeepContract = TruffleContract(ECDSAKeepJSON)
-    
+
 /** @typedef { import("bn.js") } BN */
 /** @typedef { import("./TBTC").TBTCConfig } TBTCConfig */
 
@@ -105,12 +105,12 @@ export class DepositFactory {
      * Deposit handle to it. If the lot size is not currently permitted by the
      * tBTC system, throws an error. If a contract issue occurs during the
      * opening of the deposit, throws an issue.
-     * 
+     *
      * To follow along once the deposit is initialized, see the `Deposit` API.
-     * 
+     *
      * @param {BN} satoshiLotSize The lot size, in satoshis, of the deposit.
      *        Must be in the list of allowed lot sizes from `availableLotSizes`.
-     * 
+     *
      * @return {Promise<Deposit>} The new deposit with the given lot size.
      */
     async withSatoshiLotSize(satoshiLotSize) {
@@ -129,9 +129,9 @@ export class DepositFactory {
     /**
      * Looks up an existing deposit at the specified address, and returns a
      * tbtc.js Deposit wrapper for it.
-     * 
+     *
      * @param {string} depositAddress The address of the deposit to resolve.
-     * 
+     *
      * @return {Promise<Deposit>} The deposit at the given address.
      */
     async withAddress(depositAddress) {
@@ -208,12 +208,12 @@ export class DepositFactory {
 
     /**
      * @private
-     * 
+     *
      * INTERNAL USE ONLY
      *
      * Initializes a new deposit and returns a tuple of the deposit contract
      * address and the associated keep address.
-     * 
+     *
      * @param {BN} lotSize The lot size to use, in satoshis.
      */
     async createNewDepositContract(lotSize) {
@@ -274,8 +274,8 @@ export default class Deposit {
     // activeStatePromise/*: Promise<[]>*/; // fulfilled when deposit goes active
 
     /**
-     * @param {DepositFactory} factory 
-     * @param {BN} satoshiLotSize 
+     * @param {DepositFactory} factory
+     * @param {BN} satoshiLotSize
      */
     static async forLotSize(factory, satoshiLotSize) {
         console.debug(
@@ -297,7 +297,7 @@ export default class Deposit {
     }
 
     /**
-     * @param {DepositFactory} factory 
+     * @param {DepositFactory} factory
      * @param {string} address
      */
     static async forAddress(factory, address) {
@@ -324,7 +324,7 @@ export default class Deposit {
     }
 
     /**
-     * @param {DepositFactory} factory 
+     * @param {DepositFactory} factory
      * @param {any | string} tdt
      */
     static async forTDT(factory, tdt) {
@@ -332,7 +332,7 @@ export default class Deposit {
     }
 
     /**
-     * @param {DepositFactory} factory 
+     * @param {DepositFactory} factory
      * @param {TruffleContract} depositContract
      * @param {TruffleContract} keepContract
      */
@@ -402,7 +402,7 @@ export default class Deposit {
      * Registers a handler for notification when a Bitcoin address is available
      * for this deposit. The handler receives the deposit signer wallet's
      * address.
-     * 
+     *
      * @param {BitcoinAddressHandler} bitcoinAddressHandler A function that
      *        takes a bitcoin address corresponding to this deposit's signer
      *        wallet. Note that exceptions in this handler are not managed, so
@@ -416,7 +416,7 @@ export default class Deposit {
      * Registers a handler for notification when the deposit enters the ACTIVE
      * state, when it has been proven funded and becomes eligible for TBTC
      * minting and other uses. The deposit itself is passed to the handler.
-     * 
+     *
      * @param {ActiveHandler} activeHandler A handler called when this deposit
      *        enters the ACTIVE state; receives the deposit as its only
      *        parameter. Note that exceptions in this handler are not managed,
@@ -594,7 +594,7 @@ export default class Deposit {
     }
 
     /**
-     *  
+     *
      * @param {string} redeemerAddress The Bitcoin address where the redeemer
      *        would like to receive the BTC UTXO the deposit holds, less Bitcoin
      *        transaction fees.
@@ -789,7 +789,7 @@ export default class Deposit {
                 transaction,
                 requiredConfirmations,
             )
-            
+
             return { transaction, requiredConfirmations }
         })
 

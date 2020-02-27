@@ -105,7 +105,7 @@ const BitcoinHelpers = {
          * @param {string} pubKeyHash A pubKeyHash as a string.
          * @param {string} network The Bitcoin network for the Bech32 address.
          *
-         * @return {string} A Bech32 address to 
+         * @return {string} A Bech32 address to
          */
         pubKeyHashToBech32: function(pubKeyHash, network) {
             return Script.fromProgram(
@@ -130,7 +130,7 @@ const BitcoinHelpers = {
             const publicKey = secp256k1.publicKeyImport(publicKeyBytes, compress)
             const keyRing = KeyRing.fromKey(publicKey, compress)
             const p2wpkhScript = Script.fromProgram(0, keyRing.getKeyHash())
-        
+
             // Serialize address to a format specific to given network.
             return p2wpkhScript.getAddress().toString(network)
         },

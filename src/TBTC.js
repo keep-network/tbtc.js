@@ -17,13 +17,13 @@ const defaultConfig = {
 }
 
 /**
- * @param {Web3} web3 
+ * @param {Web3} web3
  */
 function isMainnet(web3) {
     return web3.currentProvider['chainId'] == 0x1
 }
 /**
- * @param {Web3} web3 
+ * @param {Web3} web3
  */
 function isTestnet(web3) {
     return ! isMainnet(web3)
@@ -37,10 +37,10 @@ export class TBTC {
     }
 
     /**
-     * 
-     * @param {DepositFactory} depositFactory 
-     * @param {TBTCConfig} config 
-     * @param {boolean} networkMatchCheck 
+     *
+     * @param {DepositFactory} depositFactory
+     * @param {TBTCConfig} config
+     * @param {boolean} networkMatchCheck
      */
     constructor(depositFactory, config, networkMatchCheck = true) {
         if (networkMatchCheck &&
@@ -71,7 +71,7 @@ export class TBTC {
 export default {
     /**
      * @param {TBTCConfig} config
-     * @param {boolean} networkMatchCheck 
+     * @param {boolean} networkMatchCheck
      */
     withConfig: async (config, networkMatchCheck = true) => {
         return await TBTC.withConfig(config, networkMatchCheck)
