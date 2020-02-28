@@ -646,7 +646,7 @@ export default class Deposit {
             console.debug(
                 `Approving transfer of ${redemptionCost} to the vending machine....`,
             )
-            this.factory.tokenContract.approve(
+            await this.factory.tokenContract.approve(
                 this.factory.vendingMachineContract.address,
                 redemptionCost,
                 { from: thisAccount },
