@@ -8,7 +8,7 @@
     "url": "ssh://git@github.com/keep-network/tbtc.js"
   },
   "bugs": {
-    "url": "https://github.com/keep-network/tbtc.js"
+    "url": "https://github.com/keep-network/tbtc.js/issues"
   },
   "homepage": "https://github.com/keep-network/tbtc.js",
   "main": "index.js",
