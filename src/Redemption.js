@@ -91,8 +91,24 @@ export default class Redemption {
                 'SignatureSubmitted',
                 { digest: redemptionDigest },
             )
-            const { r, s } = signatureEvent.args
+            const { r, s, recoveryID } = signatureEvent.args
             const publicKeyPoint = await this.deposit.publicKeyPoint
+
+            // If needed, submit redemption signature to the deposit.
+            if ((await this.deposit.getCurrentState()) != this.deposit.factory.State.AWAITING_WITHDRAWAL_PROOF) {
+              const toBN = this.deposit.factory.config.web3.utils.toBN
+              // A constant in the Ethereum ECDSA signature scheme, used for public key recovery [1]
+              // Value is inherited from Bitcoin's Electrum wallet [2]
+              // [1] https://bitcoin.stackexchange.com/questions/38351/ecdsa-v-r-s-what-is-v/38909#38909
+              // [2] https://github.com/ethereum/EIPs/issues/155#issuecomment-253810938
+              const ETHEREUM_ECDSA_RECOVERY_V = toBN(27)
+              const v = toBN(recoveryID).add(ETHEREUM_ECDSA_RECOVERY_V)
+
+              await this.deposit.contract.provideRedemptionSignature(
+                v, r, s,
+                { from: this.deposit.factory.config.web3.eth.defaultAccount }
+              )
+            }
 
             const signedTransaction = BitcoinHelpers.Transaction.addWitnessSignature(
                 unsignedTransactionDetails.hex,
