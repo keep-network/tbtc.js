@@ -614,7 +614,8 @@ export default class Deposit {
             )
         }
 
-        const redeemerOutputScript = BitcoinHelpers.Address.toScript(redeemerAddress)
+        const rawOutputScript = BitcoinHelpers.Address.toRawScript(redeemerAddress)
+        const redeemerOutputScript = '0x' + Buffer.concat([Buffer.from([rawOutputScript.length]), rawOutputScript]).toString('hex')
         if (redeemerOutputScript === null) {
             throw new Error(`${redeemerAddress} is not a valid Bitcoin address.`)
         }
