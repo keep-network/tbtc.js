@@ -440,7 +440,8 @@ const BitcoinHelpers = {
          *        be able to be replaced in the future. If input sequence is set
          *        to `0xffffffff` the transaction won't be replaceable.
          * @param {number} outputValue Value for the output.
-         * @param {string} outputPKH Public Key Hash for the output.
+	 * @param {string} outputScript Output script for the transaction as an
+	 *        unprefixed hexadecimal string.
          *
          * @return {string} Raw bitcoin transaction in hexadecimal format.
          */
@@ -448,7 +449,7 @@ const BitcoinHelpers = {
             previousOutpoint,
             inputSequence,
             outputValue,
-            outputPKH,
+            outputScript,
         ) {
             // Input
             const prevOutpoint = bcoin.Outpoint.fromRaw(
@@ -461,16 +462,11 @@ const BitcoinHelpers = {
             })
 
             // Output
-            // TODO: When we want to give user a possibility to provide an address instead
-            // of a public key hash we need to change it to `fromAddress`.
-            const outputScript = bcoin.Script.fromProgram(
-                0, // Witness program version
-                Buffer.from(outputPKH, 'hex'),
-            )
+            const rawOutputScript = Buffer.from(outputScript, 'hex')
 
             const output = bcoin.Output.fromOptions({
                 value: outputValue,
-                script: outputScript,
+                script: rawOutputScript,
             })
 
             // Transaction

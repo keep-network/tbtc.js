@@ -62,7 +62,11 @@ export default class Redemption {
                     // https://github.com/summa-tx/bitcoin-spv/blob/2a9d594d9b14080bdbff2a899c16ffbf40d62eef/solidity/contracts/CheckBitcoinSigs.sol#L154
                     0,
                     outputValue.toNumber(),
-                    details.redeemerOutputScript.replace('0x', ''),
+                    // Drop the length prefix that's necessary in
+                    // Ethereum-land, since it's not strictly part of the
+                    // output script. Then drop the 0x prefix if present, since
+                    // bcoin doesn't roll with that.
+                    details.redeemerOutputScript.replace('0x', '').slice(2),
                 )
 
             return {
