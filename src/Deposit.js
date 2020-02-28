@@ -16,7 +16,7 @@ import DepositFactoryJSON from "@keep-network/tbtc/artifacts/DepositFactory.json
 import TBTCTokenJSON from "@keep-network/tbtc/artifacts/TBTCToken.json"
 import FeeRebateTokenJSON from "@keep-network/tbtc/artifacts/FeeRebateToken.json"
 import VendingMachineJSON from "@keep-network/tbtc/artifacts/VendingMachine.json"
-import ECDSAKeepJSON from "@keep-network/tbtc/artifacts/ECDSAKeep.json"
+import BondedECDSAKeepJSON from "@keep-network/tbtc/artifacts/BondedECDSAKeep.json"
 /** @type TruffleContract */
 const TBTCConstants = TruffleContract(TBTCConstantsJSON)
 /** @type TruffleContract */
@@ -34,7 +34,7 @@ const FeeRebateTokenContract = TruffleContract(FeeRebateTokenJSON)
 /** @type TruffleContract */
 const VendingMachineContract = TruffleContract(VendingMachineJSON)
 /** @type TruffleContract */
-const ECDSAKeepContract = TruffleContract(ECDSAKeepJSON)
+const BondedECDSAKeepContract = TruffleContract(BondedECDSAKeepJSON)
 
 /** @typedef { import("bn.js") } BN */
 /** @typedef { import("./TBTC").TBTCConfig } TBTCConfig */
@@ -283,8 +283,8 @@ export default class Deposit {
         )
         const contract = await DepositContract.at(depositAddress)
 
-        ECDSAKeepContract.setProvider(factory.config.web3.currentProvider)
-        const keepContract = await ECDSAKeepContract.at(keepAddress)
+        BondedECDSAKeepContract.setProvider(factory.config.web3.currentProvider)
+        const keepContract = await BondedECDSAKeepContract.at(keepAddress)
 
         return new Deposit(factory, contract, keepContract)
     }
@@ -310,8 +310,8 @@ export default class Deposit {
         }
 
         console.debug(`Found keep address ${createdEvent.args._keepAddress}.`)
-        ECDSAKeepContract.setProvider(factory.config.web3.currentProvider)
-        const keepContract = await ECDSAKeepContract.at(createdEvent.args._keepAddress)
+        BondedECDSAKeepContract.setProvider(factory.config.web3.currentProvider)
+        const keepContract = await BondedECDSAKeepContract.at(createdEvent.args._keepAddress)
 
         return new Deposit(factory, contract, keepContract)
     }
