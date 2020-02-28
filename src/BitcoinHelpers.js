@@ -140,11 +140,24 @@ const BitcoinHelpers = {
          *
          * @param {string} address A Bitcoin address.
          *
-         * @return {string} A Bitcoin script for the given address.
+	 * @return {string} A Bitcoin script for the given address, as an
+	 *         unprefixed hex string.
          */
         toScript: function(address) {
-            return Script.fromAddress(address).toRaw().toString('hex')
-        }
+            return BitcoinHelpers.Address.toRawScript(address).toString('hex')
+        },
+        /**
+         * Converts a Bitcoin ScriptPubKey address string to a raw script
+         * buffer.
+         *
+         * @param {string} address A Bitcoin address.
+         *
+         * @return {string} A Bitcoin script for the given address, as a Buffer
+         *         of bytes.
+         */
+        toRawScript: function(address) {
+            return Script.fromAddress(address).toRaw()
+        },
     },
     /**
      *
