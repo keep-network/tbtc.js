@@ -440,8 +440,8 @@ const BitcoinHelpers = {
          *        be able to be replaced in the future. If input sequence is set
          *        to `0xffffffff` the transaction won't be replaceable.
          * @param {number} outputValue Value for the output.
-	 * @param {string} outputScript Output script for the transaction as an
-	 *        unprefixed hexadecimal string.
+         * @param {string} outputScript Output script for the transaction as an
+         *        unprefixed hexadecimal string.
          *
          * @return {string} Raw bitcoin transaction in hexadecimal format.
          */
