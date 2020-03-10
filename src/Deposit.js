@@ -16,7 +16,7 @@ import DepositFactoryJSON from "@keep-network/tbtc/artifacts/DepositFactory.json
 import TBTCTokenJSON from "@keep-network/tbtc/artifacts/TBTCToken.json"
 import FeeRebateTokenJSON from "@keep-network/tbtc/artifacts/FeeRebateToken.json"
 import VendingMachineJSON from "@keep-network/tbtc/artifacts/VendingMachine.json"
-import ECDSAKeepJSON from "@keep-network/tbtc/artifacts/ECDSAKeep.json"
+import BondedECDSAKeepJSON from "@keep-network/tbtc/artifacts/BondedECDSAKeep.json"
 /** @type TruffleContract */
 const TBTCConstants = TruffleContract(TBTCConstantsJSON)
 /** @type TruffleContract */
@@ -34,8 +34,8 @@ const FeeRebateTokenContract = TruffleContract(FeeRebateTokenJSON)
 /** @type TruffleContract */
 const VendingMachineContract = TruffleContract(VendingMachineJSON)
 /** @type TruffleContract */
-const ECDSAKeepContract = TruffleContract(ECDSAKeepJSON)
-    
+const BondedECDSAKeepContract = TruffleContract(BondedECDSAKeepJSON)
+
 /** @typedef { import("bn.js") } BN */
 /** @typedef { import("./TBTC").TBTCConfig } TBTCConfig */
 
@@ -105,12 +105,12 @@ export class DepositFactory {
      * Deposit handle to it. If the lot size is not currently permitted by the
      * tBTC system, throws an error. If a contract issue occurs during the
      * opening of the deposit, throws an issue.
-     * 
+     *
      * To follow along once the deposit is initialized, see the `Deposit` API.
-     * 
+     *
      * @param {BN} satoshiLotSize The lot size, in satoshis, of the deposit.
      *        Must be in the list of allowed lot sizes from `availableLotSizes`.
-     * 
+     *
      * @return {Promise<Deposit>} The new deposit with the given lot size.
      */
     async withSatoshiLotSize(satoshiLotSize) {
@@ -129,9 +129,9 @@ export class DepositFactory {
     /**
      * Looks up an existing deposit at the specified address, and returns a
      * tbtc.js Deposit wrapper for it.
-     * 
+     *
      * @param {string} depositAddress The address of the deposit to resolve.
-     * 
+     *
      * @return {Promise<Deposit>} The deposit at the given address.
      */
     async withAddress(depositAddress) {
@@ -208,34 +208,27 @@ export class DepositFactory {
 
     /**
      * @private
-     * 
+     *
      * INTERNAL USE ONLY
      *
      * Initializes a new deposit and returns a tuple of the deposit contract
      * address and the associated keep address.
-     * 
+     *
      * @param {BN} lotSize The lot size to use, in satoshis.
      */
     async createNewDepositContract(lotSize) {
-        const funderBondAmount = await this.constantsContract.getFunderBondAmount()
+        const creationCost = await this.systemContract.createNewDepositFeeEstimate()
         const accountBalance = await this.config.web3.eth.getBalance(this.config.web3.eth.defaultAccount)
-        if (funderBondAmount.lt(accountBalance)) {
+        if (creationCost.lt(accountBalance)) {
             throw `Insufficient balance ${accountBalance.toString()} to open ` +
-                `deposit (required: ${funderBondAmount.toString()}).`
+                `deposit (required: ${creationCost.toString()}).`
         }
 
         const result = await this.depositFactoryContract.createDeposit(
-            this.systemContract.address,
-            this.tokenContract.address,
-            this.depositTokenContract.address,
-            this.feeRebateTokenContract.address,
-            this.vendingMachineContract.address,
-            1,
-            1,
             lotSize,
             {
                 from: this.config.web3.eth.defaultAccount,
-                value: funderBondAmount,
+                value: creationCost,
             }
         )
 
@@ -274,8 +267,8 @@ export default class Deposit {
     // activeStatePromise/*: Promise<[]>*/; // fulfilled when deposit goes active
 
     /**
-     * @param {DepositFactory} factory 
-     * @param {BN} satoshiLotSize 
+     * @param {DepositFactory} factory
+     * @param {BN} satoshiLotSize
      */
     static async forLotSize(factory, satoshiLotSize) {
         console.debug(
@@ -290,14 +283,14 @@ export default class Deposit {
         )
         const contract = await DepositContract.at(depositAddress)
 
-        ECDSAKeepContract.setProvider(factory.config.web3.currentProvider)
-        const keepContract = await ECDSAKeepContract.at(keepAddress)
+        BondedECDSAKeepContract.setProvider(factory.config.web3.currentProvider)
+        const keepContract = await BondedECDSAKeepContract.at(keepAddress)
 
         return new Deposit(factory, contract, keepContract)
     }
 
     /**
-     * @param {DepositFactory} factory 
+     * @param {DepositFactory} factory
      * @param {string} address
      */
     static async forAddress(factory, address) {
@@ -317,14 +310,14 @@ export default class Deposit {
         }
 
         console.debug(`Found keep address ${createdEvent.args._keepAddress}.`)
-        ECDSAKeepContract.setProvider(factory.config.web3.currentProvider)
-        const keepContract = await ECDSAKeepContract.at(createdEvent.args._keepAddress)
+        BondedECDSAKeepContract.setProvider(factory.config.web3.currentProvider)
+        const keepContract = await BondedECDSAKeepContract.at(createdEvent.args._keepAddress)
 
         return new Deposit(factory, contract, keepContract)
     }
 
     /**
-     * @param {DepositFactory} factory 
+     * @param {DepositFactory} factory
      * @param {any | string} tdt
      */
     static async forTDT(factory, tdt) {
@@ -332,7 +325,7 @@ export default class Deposit {
     }
 
     /**
-     * @param {DepositFactory} factory 
+     * @param {DepositFactory} factory
      * @param {TruffleContract} depositContract
      * @param {TruffleContract} keepContract
      */
@@ -402,7 +395,7 @@ export default class Deposit {
      * Registers a handler for notification when a Bitcoin address is available
      * for this deposit. The handler receives the deposit signer wallet's
      * address.
-     * 
+     *
      * @param {BitcoinAddressHandler} bitcoinAddressHandler A function that
      *        takes a bitcoin address corresponding to this deposit's signer
      *        wallet. Note that exceptions in this handler are not managed, so
@@ -416,7 +409,7 @@ export default class Deposit {
      * Registers a handler for notification when the deposit enters the ACTIVE
      * state, when it has been proven funded and becomes eligible for TBTC
      * minting and other uses. The deposit itself is passed to the handler.
-     * 
+     *
      * @param {ActiveHandler} activeHandler A handler called when this deposit
      *        enters the ACTIVE state; receives the deposit as its only
      *        parameter. Note that exceptions in this handler are not managed,
@@ -594,7 +587,7 @@ export default class Deposit {
     }
 
     /**
-     *  
+     *
      * @param {string} redeemerAddress The Bitcoin address where the redeemer
      *        would like to receive the BTC UTXO the deposit holds, less Bitcoin
      *        transaction fees.
@@ -621,12 +614,10 @@ export default class Deposit {
             )
         }
 
-        const redeemerPKH = BitcoinHelpers.Address.pubKeyHashFrom(redeemerAddress)
-        if (redeemerPKH === null) {
-            throw new Error(
-                `${redeemerAddress} is not a P2WPKH address. Currently only ` +
-                `P2WPKH addresses are supported for redemption.`
-            )
+        const rawOutputScript = BitcoinHelpers.Address.toRawScript(redeemerAddress)
+        const redeemerOutputScript = '0x' + Buffer.concat([Buffer.from([rawOutputScript.length]), rawOutputScript]).toString('hex')
+        if (redeemerOutputScript === null) {
+            throw new Error(`${redeemerAddress} is not a valid Bitcoin address.`)
         }
 
         const redemptionCost = await this.getRedemptionCost()
@@ -655,7 +646,7 @@ export default class Deposit {
             console.debug(
                 `Approving transfer of ${redemptionCost} to the vending machine....`,
             )
-            this.factory.tokenContract.approve(
+            await this.factory.tokenContract.approve(
                 this.factory.vendingMachineContract.address,
                 redemptionCost,
                 { from: thisAccount },
@@ -668,7 +659,7 @@ export default class Deposit {
             transaction = await this.factory.vendingMachineContract.tbtcToBtc(
                 this.address,
                 outputValueBytes,
-                redeemerPKH,
+                redeemerOutputScript,
                 thisAccount,
                 { from: thisAccount },
             )
@@ -685,7 +676,7 @@ export default class Deposit {
             console.debug(`Initiating redemption from deposit ${this.address}...`)
             transaction = await this.contract.requestRedemption(
                 outputValueBytes,
-                redeemerPKH,
+                redeemerOutputScript,
                 { from: thisAccount },
             )
         }
@@ -789,7 +780,7 @@ export default class Deposit {
                 transaction,
                 requiredConfirmations,
             )
-            
+
             return { transaction, requiredConfirmations }
         })
 
@@ -946,7 +937,7 @@ export default class Deposit {
     redemptionDetailsFromEvent(redemptionRequestedEventArgs)/*: RedemptionDetails*/ {
         const {
             _utxoSize,
-            _requesterPKH,
+            _redeemerOutputScript,
             _requestedFee,
             _outpoint,
             _digest,
@@ -955,7 +946,7 @@ export default class Deposit {
         const toBN = this.factory.config.web3.utils.toBN
         return {
             utxoSize: toBN(_utxoSize),
-            requesterPKH: _requesterPKH,
+            redeemerOutputScript: _redeemerOutputScript,
             requestedFee: toBN(_requestedFee),
             outpoint: _outpoint,
             digest: _digest,

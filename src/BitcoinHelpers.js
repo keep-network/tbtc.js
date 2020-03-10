@@ -105,7 +105,7 @@ const BitcoinHelpers = {
          * @param {string} pubKeyHash A pubKeyHash as a string.
          * @param {string} network The Bitcoin network for the Bech32 address.
          *
-         * @return {string} A Bech32 address to 
+         * @return {string} A Bech32 address to
          */
         pubKeyHashToBech32: function(pubKeyHash, network) {
             return Script.fromProgram(
@@ -130,7 +130,7 @@ const BitcoinHelpers = {
             const publicKey = secp256k1.publicKeyImport(publicKeyBytes, compress)
             const keyRing = KeyRing.fromKey(publicKey, compress)
             const p2wpkhScript = Script.fromProgram(0, keyRing.getKeyHash())
-        
+
             // Serialize address to a format specific to given network.
             return p2wpkhScript.getAddress().toString(network)
         },
@@ -140,11 +140,24 @@ const BitcoinHelpers = {
          *
          * @param {string} address A Bitcoin address.
          *
-         * @return {string} A Bitcoin script for the given address.
+	 * @return {string} A Bitcoin script for the given address, as an
+	 *         unprefixed hex string.
          */
         toScript: function(address) {
-            return Script.fromAddress(address).toRaw().toString('hex')
-        }
+            return BitcoinHelpers.Address.toRawScript(address).toString('hex')
+        },
+        /**
+         * Converts a Bitcoin ScriptPubKey address string to a raw script
+         * buffer.
+         *
+         * @param {string} address A Bitcoin address.
+         *
+         * @return {string} A Bitcoin script for the given address, as a Buffer
+         *         of bytes.
+         */
+        toRawScript: function(address) {
+            return Script.fromAddress(address).toRaw()
+        },
     },
     /**
      *
@@ -187,10 +200,28 @@ const BitcoinHelpers = {
         find: async function(bitcoinAddress, expectedValue) {
             const script = BitcoinHelpers.Address.toScript(bitcoinAddress)
 
+            return await BitcoinHelpers.Transaction.findScript(script, expectedValue)
+        },
+        /**
+         * Finds a transaction to the given `outputScript` of the given
+         * `expectedValue`. If there is more than one such transaction, returns
+         * the most recent one.
+         *
+         * @param {string} outputScript A Bitcoin output script to look for as a
+         *        non-0x-prefixed hex string.
+         * @param {number} expectedValue The expected value of the transaction
+         *        to fetch.
+         *
+         * @return {Promise<FoundTransaction>} A promise to an object of
+         *         transactionID, outputPosition, and value, that resolves with
+         *         either null if such a transaction could not be found, or the
+         *         information about the transaction that was found.
+         */
+        findScript: async function(outputScript, expectedValue) {
             return await BitcoinHelpers.withElectrumClient((electrumClient) => {
                 return BitcoinHelpers.Transaction.findWithClient(
                     electrumClient,
-                    script,
+                    outputScript,
                     expectedValue,
                 )
             })
@@ -409,7 +440,8 @@ const BitcoinHelpers = {
          *        be able to be replaced in the future. If input sequence is set
          *        to `0xffffffff` the transaction won't be replaceable.
          * @param {number} outputValue Value for the output.
-         * @param {string} outputPKH Public Key Hash for the output.
+         * @param {string} outputScript Output script for the transaction as an
+         *        unprefixed hexadecimal string.
          *
          * @return {string} Raw bitcoin transaction in hexadecimal format.
          */
@@ -417,7 +449,7 @@ const BitcoinHelpers = {
             previousOutpoint,
             inputSequence,
             outputValue,
-            outputPKH,
+            outputScript,
         ) {
             // Input
             const prevOutpoint = bcoin.Outpoint.fromRaw(
@@ -430,16 +462,11 @@ const BitcoinHelpers = {
             })
 
             // Output
-            // TODO: When we want to give user a possibility to provide an address instead
-            // of a public key hash we need to change it to `fromAddress`.
-            const outputScript = bcoin.Script.fromProgram(
-                0, // Witness program version
-                Buffer.from(outputPKH, 'hex'),
-            )
+            const rawOutputScript = Buffer.from(outputScript, 'hex')
 
             const output = bcoin.Output.fromOptions({
                 value: outputValue,
-                script: outputScript,
+                script: rawOutputScript,
             })
 
             // Transaction

@@ -1,13 +1,13 @@
 /**
  * From a given transaction result, extracts the first event with the given
  * name from the given source contract.
- * 
+ *
  * @param {Web3} web3 A web3 instance for operating.
  * @param {Result} transaction A web3 transaction result.
  * @param {TruffleContract} sourceContract A TruffleContract instance whose
  *        event is being read.
  * @param {string} eventName The name of the event to be read.
- * 
+ *
  * @return The event as read from the transaction's raw logs; note that this
  *         event has a different structure than the event passed to event
  *         handlers---it returns the equivalent of `event.args` from event
