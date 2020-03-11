@@ -15,6 +15,8 @@
   "bin": "./bin/tbtc.js",
   "scripts": {
     "test": "mocha --timeout 10000",
+    "lint": "npm run lint:js",
+    "lint:fix": "npm run lint:fix:js",
     "lint:js": "eslint .",
     "lint:fix:js": "eslint --fix ."
   },
