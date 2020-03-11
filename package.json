@@ -15,8 +15,8 @@
   "bin": "./bin/tbtc.js",
   "scripts": {
     "test": "mocha --timeout 10000",
-    "js:lint": "eslint .",
-    "js:lint:fix": "eslint --fix ."
+    "lint:js": "eslint .",
+    "lint:fix:js": "eslint --fix ."
   },
   "author": "Antonio Salazar Cardozo <antonio@thesis.co>",
   "license": "MIT",
