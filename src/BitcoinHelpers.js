@@ -107,6 +107,9 @@ const BitcoinHelpers = {
    *
    * @param {string} publicKeyX A hex public key X coordinate.
    * @param {string} publicKeyY A hex public key Y coordinate.
+   *
+   * @return {string} An unprefixed, concatenated hex representation of the two
+   *         given coordinates.
    */
   publicKeyPointToPublicKeyString: function(publicKeyX, publicKeyY) {
     return `${publicKeyX.replace("0x", "")}${publicKeyY.replace("0x", "")}`
@@ -187,13 +190,22 @@ const BitcoinHelpers = {
     }
   },
   /**
+   * Sets up an Electrum client instance and passes it to the passed `block`,
+   * setting the Electrum client to be closed once the promise the block returns
+   * completes. Returns a promise to the block's final result.
    *
-   * @param {(ElectrumClient)=>Promise<T>} block A function to execute with
-   *        the ElectrumClient passed in; it is expected to return a Promise
-   *        that will resolve once the function is finished performing work
-   *        with the client. withElectrumClient returns that promise, but also
-   *        ensures that the client will be closed once the promise completes
-   *        (successfully or unsuccessfully).
+   * Example usage:
+   *
+   *   const value = await BitcoinHelpers.withElectrumClient(async (client) => {
+   *     return client.lookUpValue()
+   *   })
+   *
+   * @param {function(ElectrumClient):Promise<T>} block A function to execute
+   *        with the ElectrumClient passed in; it is expected to return a
+   *        Promise that will resolve once the function is finished performing
+   *        work with the client. withElectrumClient returns that promise, but
+   *        also ensures that the client will be closed once the promise
+   *        completes (successfully or unsuccessfully).
    * @template T
    */
   withElectrumClient: async function(block) {
@@ -326,8 +338,8 @@ const BitcoinHelpers = {
      * @param {number} requiredConfirmations The number of required
      *        confirmations to wait before returning.
      *
-     * @return A promise to the final number of confirmations observed that
-     *         was at least equal to the required confirmations.
+     * @return {Promise<number>} A promise to the final number of confirmations
+     *         observed that was at least equal to the required confirmations.
      */
     waitForConfirmations: async function(transaction, requiredConfirmations) {
       const id = transaction.transactionID
@@ -347,9 +359,15 @@ const BitcoinHelpers = {
     /**
      * Estimates the fee that would be needed for a given transaction.
      *
+     * @param {object} tbtcConstantsContract The TBTCConstants contract that
+     *        provides the stub value for this function.
+     *
      * @warning This is a stub. Currently it takes the TBTCConstants
      *          contract and returns its reported minimum fee, rather than
      *          calling electrumClient.blockchainEstimateFee.
+     *
+     * @return {Promise<number>} The estimated fee to execute the provided
+     *         transaction.
      */
     estimateFee: async function(tbtcConstantsContract) {
       return tbtcConstantsContract.getMinimumRedemptionFee()
@@ -364,7 +382,7 @@ const BitcoinHelpers = {
      * @param {number} confirmations The number of confirmations to include
      *        in the proof.
      *
-     * @return The proof data, plus the parsed transaction for the proof.
+     * @return {SPVProof} The proof data, plus the parsed transaction for the proof.
      */
     getSPVProof: async function(transactionID, confirmations) {
       return await BitcoinHelpers.withElectrumClient(async electrumClient => {

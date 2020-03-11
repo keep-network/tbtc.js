@@ -17,13 +17,17 @@ const defaultConfig = {
 }
 
 /**
- * @param {Web3} web3
+ * @param {Web3} web3 The web3 instance
+ * @return {boolean} True if the web3 instance is aimed at Ethereum mainnet,
+ *         false otherwise.
  */
 function isMainnet(web3) {
   return web3.currentProvider["chainId"] == 0x1
 }
 /**
- * @param {Web3} web3
+ * @param {Web3} web3 The web3 instance
+ * @return {boolean} True if the web3 instance is aimed at an Ethereum testnet,
+ *         false otherwise.
  */
 function isTestnet(web3) {
   return !isMainnet(web3)

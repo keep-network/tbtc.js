@@ -8,10 +8,9 @@
  *        event is being read.
  * @param {string} eventName The name of the event to be read.
  *
- * @return The event as read from the transaction's raw logs; note that this
- *         event has a different structure than the event passed to event
- *         handlers---it returns the equivalent of `event.args` from event
- *         handlers.
+ * @return {Object} The event as read from the transaction's raw logs; note
+ *         that this event has a different structure than the event passed to event
+ *         handlers---it returns the equivalent of `event.args` from event handlers.
  */
 function readEventFromTransaction(
   web3,
@@ -37,8 +36,8 @@ function readEventFromTransaction(
  * @param {object} filter An additional filter to apply to the event being
  *        searched for.
  *
- * @return A promise that will be fulfilled by the event object once it is
- *         received.
+ * @return {Promise<Object>} A promise that will be fulfilled by the event
+ *         object once it is received.
  */
 function getEvent(sourceContract, eventName, filter) {
   return new Promise(resolve => {
