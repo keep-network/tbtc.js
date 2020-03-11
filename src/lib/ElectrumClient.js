@@ -1,5 +1,5 @@
-import ElectrumClient from 'electrum-client-js'
-import sha256 from 'bcrypto/lib/sha256.js'
+import ElectrumClient from "electrum-client-js"
+import sha256 from "bcrypto/lib/sha256.js"
 const { digest } = sha256
 
 /**
@@ -35,19 +35,18 @@ export default class Client {
    * Establish connection with the server.
    */
   async connect() {
-    console.log('Connecting to electrum server...')
+    console.log("Connecting to electrum server...")
 
-    await this.electrumClient.connect('tbtc', '1.4.2')
-      .catch((err) => {
-        throw new Error(`failed to connect: [${err}]`)
-      })
+    await this.electrumClient.connect("tbtc", "1.4.2").catch(err => {
+      throw new Error(`failed to connect: [${err}]`)
+    })
   }
 
   /**
-  * Disconnect from the server.
-  */
+   * Disconnect from the server.
+   */
   async close() {
-    console.log('Closing connection to electrum server...')
+    console.log("Closing connection to electrum server...")
     this.electrumClient.close()
   }
 
@@ -57,8 +56,9 @@ export default class Client {
    */
   async latestBlockHeight() {
     // Get header of the latest mined block.
-    const header = await this.electrumClient.blockchain_headers_subscribe()
-      .catch((err) => {
+    const header = await this.electrumClient
+      .blockchain_headers_subscribe()
+      .catch(err => {
         throw new Error(`failed to get block header: [${err}]`)
       })
     return header.height
@@ -70,8 +70,9 @@ export default class Client {
    * @return {*} Transaction details.
    */
   async getTransaction(txHash) {
-    const tx = await this.electrumClient.blockchain_transaction_get(txHash, true)
-      .catch((err) => {
+    const tx = await this.electrumClient
+      .blockchain_transaction_get(txHash, true)
+      .catch(err => {
         throw new Error(`failed to get transaction: [${err}]`)
       })
 
@@ -79,13 +80,14 @@ export default class Client {
   }
 
   /**
-  * Broadcast a transaction to the network.
-  * @param {string} rawTX The raw transaction as a hexadecimal string.
-  * @return {string} The transaction hash as a hexadecimal string.
-  */
+   * Broadcast a transaction to the network.
+   * @param {string} rawTX The raw transaction as a hexadecimal string.
+   * @return {string} The transaction hash as a hexadecimal string.
+   */
   async broadcastTransaction(rawTX) {
-    const txHash = await this.electrumClient.blockchain_transaction_broadcast(rawTX)
-      .catch((err) => {
+    const txHash = await this.electrumClient
+      .blockchain_transaction_broadcast(rawTX)
+      .catch(err => {
         throw new Error(`failed to broadcast transaction: [${err}]`)
       })
 
@@ -100,8 +102,9 @@ export default class Client {
   async getUnspentToScript(script) {
     const scriptHash = scriptToHash(script)
 
-    const listUnspent = await this.electrumClient.blockchain_scripthash_listunspent(scriptHash)
-      .catch((err) => {
+    const listUnspent = await this.electrumClient
+      .blockchain_scripthash_listunspent(scriptHash)
+      .catch(err => {
         throw new Error(JSON.stringify(err))
       })
 
@@ -116,14 +119,15 @@ export default class Client {
    * @param {string} script ScriptPubKey in a hexadecimal format.
    * @param {function} callback Is an async callback function called when an existing
    * transaction for the script is found or a new transaction is sent to the script.
-     * @return {any} Value resolved by the callback.
+   * @return {any} Value resolved by the callback.
    */
   async onTransactionToScript(script, callback) {
     const scriptHash = scriptToHash(script)
 
     // Check if transaction for script already exists.
-    const initialStatus = await this.electrumClient.blockchain_scripthash_subscribe(scriptHash)
-      .catch((err) => {
+    const initialStatus = await this.electrumClient
+      .blockchain_scripthash_subscribe(scriptHash)
+      .catch(err => {
         throw new Error(`failed to subscribe: ${err}`)
       })
 
@@ -132,8 +136,9 @@ export default class Client {
     if (result) {
       // TODO: We send request directly, because `electrumjs` library doesn't
       // support `blockchain.scripthash.unsubscribe` method.
-      await this.electrumClient.blockchain_scripthash_unsubscribe(scriptHash)
-        .catch((err) => {
+      await this.electrumClient
+        .blockchain_scripthash_unsubscribe(scriptHash)
+        .catch(err => {
           throw new Error(`failed to unsubscribe: ${err}`)
         })
 
@@ -141,9 +146,9 @@ export default class Client {
     }
 
     // If callback have not resolved wait for new transaction notifications.
-    return new Promise(async (resolve) => {
+    return new Promise(async resolve => {
       try {
-        const eventName = 'blockchain.scripthash.subscribe'
+        const eventName = "blockchain.scripthash.subscribe"
         const electrumClient = this.electrumClient
 
         const listener = async function(msg) {
@@ -161,8 +166,9 @@ export default class Client {
 
               // TODO: We send request directly, because `electrumjs` library doesn't
               // support `blockchain.scripthash.unsubscribe` method.
-              await electrumClient.blockchain_scripthash_unsubscribe(scriptHash)
-                .catch((err) => {
+              await electrumClient
+                .blockchain_scripthash_unsubscribe(scriptHash)
+                .catch(err => {
                   throw new Error(`failed to unsubscribe: ${err}`)
                 })
 
@@ -188,8 +194,9 @@ export default class Client {
    */
   async onNewBlock(callback) {
     // Subscribe for new block notifications.
-    const blockHeader = await this.electrumClient.blockchain_headers_subscribe()
-      .catch((err) => {
+    const blockHeader = await this.electrumClient
+      .blockchain_headers_subscribe()
+      .catch(err => {
         throw new Error(`failed to subscribe: ${err}`)
       })
 
@@ -200,9 +207,9 @@ export default class Client {
     }
 
     // If callback have not resolved wait for new blocks notifications.
-    return new Promise(async (resolve) => {
+    return new Promise(async resolve => {
       try {
-        const eventName = 'blockchain.headers.subscribe'
+        const eventName = "blockchain.headers.subscribe"
         const electrumClient = this.electrumClient
 
         const listener = async function(messages) {
@@ -238,8 +245,9 @@ export default class Client {
    * @return {string} Merkle root hash.
    */
   async getMerkleRoot(blockHeight) {
-    const header = await this.electrumClient.blockchain_block_header(blockHeight)
-      .catch((err) => {
+    const header = await this.electrumClient
+      .blockchain_block_header(blockHeight)
+      .catch(err => {
         throw new Error(`failed to get block header: [${err}]`)
       })
 
@@ -254,8 +262,9 @@ export default class Client {
    * @return {string} Concatenation of block headers in a hexadecimal format.
    */
   async getHeadersChain(blockHeight, confirmations) {
-    const headersChain = await this.electrumClient.blockchain_block_headers(blockHeight, confirmations + 1)
-      .catch((err) => {
+    const headersChain = await this.electrumClient
+      .blockchain_block_headers(blockHeight, confirmations + 1)
+      .catch(err => {
         throw new Error(`failed to get block headers: [${err}]`)
       })
     return headersChain.hex
@@ -273,18 +282,18 @@ export default class Client {
   // related to bitcoin-spv. It just gets merkle from electrum and reverses
   // endianess.
   async getMerkleProof(txHash, blockHeight) {
-    const merkle = await this.electrumClient.blockchain_transaction_getMerkle(txHash, blockHeight)
-      .catch((err) => {
+    const merkle = await this.electrumClient
+      .blockchain_transaction_getMerkle(txHash, blockHeight)
+      .catch(err => {
         throw new Error(`failed to get transaction merkle: [${err}]`)
       })
 
-    let proof = Buffer.from('')
+    let proof = Buffer.from("")
 
     // Merkle tree
     merkle.merkle.forEach(function(item) {
       proof = Buffer.concat([proof, fromHex(item).reverse()])
     })
-
 
     return { proof: toHex(proof), position: merkle.pos }
   }
@@ -296,17 +305,16 @@ export default class Client {
    * @return {number} Index of output in the transaction (0-indexed).
    */
   async findOutputForAddress(txHash, address) {
-    const tx = await this.getTransaction(txHash)
-      .catch((err) => {
-        throw new Error(`failed to get transaction: [${err}]`)
-      })
+    const tx = await this.getTransaction(txHash).catch(err => {
+      throw new Error(`failed to get transaction: [${err}]`)
+    })
 
     const outputs = tx.vout
 
     for (let index = 0; index < outputs.length; index++) {
       for (const a of outputs[index].scriptPubKey.addresses) {
         if (a == address) {
-          return (index)
+          return index
         }
       }
     }
@@ -316,11 +324,11 @@ export default class Client {
 }
 
 function fromHex(hex) {
-  return Buffer.from(hex, 'hex')
+  return Buffer.from(hex, "hex")
 }
 
 function toHex(bytes) {
-  return Buffer.from(bytes).toString('hex')
+  return Buffer.from(bytes).toString("hex")
 }
 
 /**

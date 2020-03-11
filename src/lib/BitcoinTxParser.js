@@ -1,15 +1,15 @@
-import BcoinPrimitives from 'bcoin/lib/primitives/index.js'
+import BcoinPrimitives from "bcoin/lib/primitives/index.js"
 const { TX: bcoin_tx } = BcoinPrimitives
-import bufio from 'bufio'
+import bufio from "bufio"
 
 function parse(rawTx) {
-  const tx = bcoin_tx.fromRaw(rawTx, 'hex')
+  const tx = bcoin_tx.fromRaw(rawTx, "hex")
 
   return {
     version: getTxVersion(tx),
     txInVector: getTxInputVector(tx),
     txOutVector: getTxOutputVector(tx),
-    locktime: getTxLocktime(tx),
+    locktime: getTxLocktime(tx)
   }
 }
 
@@ -47,9 +47,9 @@ function vectorToRaw(elements) {
 }
 
 function toHex(buffer) {
-  return buffer.render().toString('hex')
+  return buffer.render().toString("hex")
 }
 
 export const BitcoinTxParser = {
-  parse,
+  parse
 }

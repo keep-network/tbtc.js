@@ -1,11 +1,11 @@
-const secp256k1 = require('bcrypto/lib/secp256k1')
-const KeyRing = require('bcoin/lib/primitives').KeyRing
-const Script = require('bcoin/lib/script').Script
+const secp256k1 = require("bcrypto/lib/secp256k1")
+const KeyRing = require("bcoin/lib/primitives").KeyRing
+const Script = require("bcoin/lib/script").Script
 
 /**
  * Network type enumeration.
  */
-const Network = Object.freeze({ 'mainnet': 1, 'testnet': 2 })
+const Network = Object.freeze({ mainnet: 1, testnet: 2 })
 
 /**
  * Converts public key to bitcoin Witness Public Key Hash Address according to
@@ -19,7 +19,7 @@ function publicKeyToP2WPKHaddress(publicKey, network) {
   // Witness program requires usage of compressed public keys.
   const compress = true
 
-  const publicKeyBytes = Buffer.from(publicKey, 'hex')
+  const publicKeyBytes = Buffer.from(publicKey, "hex")
   const publicKeyBCOIN = secp256k1.publicKeyImport(publicKeyBytes, compress)
 
   const keyRing = KeyRing.fromKey(publicKeyBCOIN, compress)
@@ -38,9 +38,10 @@ function publicKeyToP2WPKHaddress(publicKey, network) {
  * @return {string} Script.
  */
 function addressToScript(address) {
-  return Script.fromAddress(address).toRaw().toString('hex')
+  return Script.fromAddress(address)
+    .toRaw()
+    .toString("hex")
 }
-
 
 /**
  * Converts network type from enumeration to a respective value used in `bcoin`
@@ -50,20 +51,23 @@ function addressToScript(address) {
  */
 function networkToBCOINvalue(network) {
   switch (network) {
-  case Network.mainnet:
-    return 'main'
-  case Network.testnet:
-    return 'testnet'
-  default:
-    throw new Error(
-      `unsupported network [${networkType}], use one of: [${Object.keys(network)
-        .map((key) => {
-          return 'Network.' + key
+    case Network.mainnet:
+      return "main"
+    case Network.testnet:
+      return "testnet"
+    default:
+      throw new Error(
+        `unsupported network [${networkType}], use one of: [${Object.keys(
+          network
+        ).map(key => {
+          return "Network." + key
         })}]`
-    )
+      )
   }
 }
 
 module.exports = {
-  Network, publicKeyToP2WPKHaddress, addressToScript,
+  Network,
+  publicKeyToP2WPKHaddress,
+  addressToScript
 }
