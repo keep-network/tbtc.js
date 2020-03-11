@@ -355,16 +355,6 @@ const BitcoinHelpers = {
       return tbtcConstantsContract.getMinimumRedemptionFee()
     },
     /**
-     * Takes a raw hexadecimal Bitcoin transaction and returns a parsed
-     * version with relevant properties.
-     *
-     * @param {string} rawTransaction Raw Bitcoin transaction in hexadecimal
-     *        format.
-     */
-    parseRaw: function(rawTransaction) {
-      return BitcoinTxParser.parse(rawTransaction)
-    },
-    /**
      * For the given `transactionID`, constructs an SPV proof that proves it
      * has at least `confirmations` confirmations on the Bitcoin chain.
      * Returns data for this proof, as well as the parsed Bitcoin
@@ -386,7 +376,7 @@ const BitcoinHelpers = {
 
         return {
           ...proof,
-          parsedTransaction: BitcoinHelpers.Transaction.parseRaw(proof.tx)
+          parsedTransaction: BitcoinTxParser.parse(proof.tx)
         }
       })
     },
