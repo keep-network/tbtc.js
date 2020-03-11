@@ -13,6 +13,8 @@ import ElectrumClient from "./lib/ElectrumClient.js"
 
 import BN from "bn.js"
 
+/** @typedef { import("./lib/BitcoinSPV.js").Proof } Proof */
+
 /** @enum {string} */
 const BitcoinNetwork = {
   TESTNET: "testnet",
@@ -26,6 +28,26 @@ const BitcoinNetwork = {
  * @property {string} transactionID Transaction ID.
  * @property {number} outputPosition Position of output in the transaction.
  * @property {number} value Value of the output (satoshis).
+ */
+
+/**
+ * @typedef {Object} ParsedTransaction
+ * @property {string} version The transaction version as an unprefixed hex
+ *           string.
+ * @property {string} txInVector The transaction input vector as an unprefixed
+ *           (i.e. without leading 0x), length-prefixed raw hex string.
+ * @property {string} txOutVector The transaction output vector as an
+ *           unprefixed (i.e. without leading 0x), length-prefixed raw hex
+ *           string.
+ * @property {string} locktime The transaction locktime as an unprefixed hex
+ *           string.
+ */
+
+/**
+ * @typedef {Object} SPVProof
+ * @extends {Proof}
+ * @property {ParsedTransaction} parsedTransaction Parsed transaction with
+ *           additional data useful in submitting SPV proofs, stored as buffers.
  */
 
 const BitcoinHelpers = {
