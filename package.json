@@ -31,8 +31,9 @@
   "devDependencies": {
     "@truffle/hdwallet-provider": "^1.0.30",
     "chai": "^4.2.0",
-    "eslint": "^5.16.0",
-    "eslint-config-keep": "git+https://github.com/keep-network/eslint-config-keep.git#0.2.0",
+    "eslint": "^6.8.0",
+    "eslint-config-keep": "git+https://github.com/keep-network/eslint-config-keep.git#65aa2a813a8a6d88f25e2339e15391616a891f5a",
+    "prettier": "^1.19.1",
     "fs": "0.0.1-security",
     "mocha": "^6.2.0",
     "web3": "^1.2.0"
