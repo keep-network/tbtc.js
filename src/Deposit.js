@@ -17,6 +17,8 @@ import TBTCTokenJSON from "@keep-network/tbtc/artifacts/TBTCToken.json"
 import FeeRebateTokenJSON from "@keep-network/tbtc/artifacts/FeeRebateToken.json"
 import VendingMachineJSON from "@keep-network/tbtc/artifacts/VendingMachine.json"
 import BondedECDSAKeepJSON from "@keep-network/tbtc/artifacts/BondedECDSAKeep.json"
+/* We don't like TruffleContract with a new, we HATES IT. */
+/* eslint-disable */
 /** @type TruffleContract */
 const TBTCConstants = TruffleContract(TBTCConstantsJSON)
 /** @type TruffleContract */
@@ -35,6 +37,7 @@ const FeeRebateTokenContract = TruffleContract(FeeRebateTokenJSON)
 const VendingMachineContract = TruffleContract(VendingMachineJSON)
 /** @type TruffleContract */
 const BondedECDSAKeepContract = TruffleContract(BondedECDSAKeepJSON)
+/* eslint-enable */
 
 /** @typedef { import("bn.js") } BN */
 /** @typedef { import("./TBTC").TBTCConfig } TBTCConfig */
@@ -222,8 +225,10 @@ export class DepositFactory {
       this.config.web3.eth.defaultAccount
     )
     if (creationCost.lt(accountBalance)) {
-      throw `Insufficient balance ${accountBalance.toString()} to open ` +
-        `deposit (required: ${creationCost.toString()}).`
+      throw new Error(
+        `Insufficient balance ${accountBalance.toString()} to open ` +
+          `deposit (required: ${creationCost.toString()}).`
+      )
     }
 
     const result = await this.depositFactoryContract.createDeposit(lotSize, {
@@ -335,7 +340,7 @@ export default class Deposit {
    */
   constructor(factory, depositContract, keepContract) {
     if (!keepContract) {
-      throw "Keep contract required for Deposit instantiation."
+      throw new Error("Keep contract required for Deposit instantiation.")
     }
 
     this.factory = factory
@@ -538,9 +543,8 @@ export default class Deposit {
     )
     proofArgs.unshift(this.address)
     proofArgs.push({ from: this.factory.config.web3.eth.defaultAccount })
-    const transaction = await this.factory.vendingMachineContract.unqualifiedDepositToTbtc.apply(
-      this.factory.vendingMachineContract,
-      proofArgs
+    const transaction = await this.factory.vendingMachineContract.unqualifiedDepositToTbtc(
+      ...proofArgs
     )
 
     // return TBTC minted amount
@@ -811,10 +815,7 @@ export default class Deposit {
         )
         proofArgs.push({ from: this.factory.config.web3.eth.defaultAccount })
 
-        return this.contract.provideBTCFundingProof.apply(
-          this.contract,
-          proofArgs
-        )
+        return this.contract.provideBTCFundingProof(...proofArgs)
       }
     )
 

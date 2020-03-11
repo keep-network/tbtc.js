@@ -220,14 +220,13 @@ export default class Redemption {
     proofArgs.push({
       from: this.deposit.factory.config.web3.eth.defaultAccount
     })
-    await this.deposit.contract.provideRedemptionProof.apply(
-      this.deposit.contract,
+    await this.deposit.contract.provideRedemptionProof(
       // Redemption proof does not take the output position as a
       // parameter, as all redemption transactions are one-input-one-output
       // However, constructFundingProof includes it for deposit funding
       // proofs. Here, we filter it out to produce the right set of
       // parameters.
-      proofArgs.filter(_ => _ != "output position")
+      ...proofArgs.filter(_ => _ != "output position")
     )
 
     this.withdrawnEmitter.emit("withdrawn", transactionID)

@@ -1,9 +1,8 @@
-import BcoinPrimitives from "bcoin/lib/primitives/index.js"
-const { TX: bcoin_tx } = BcoinPrimitives
+import { TX } from "bcoin/lib/primitives/index.js"
 import bufio from "bufio"
 
 function parse(rawTx) {
-  const tx = bcoin_tx.fromRaw(rawTx, "hex")
+  const tx = TX.fromRaw(rawTx, "hex")
 
   return {
     version: getTxVersion(tx),
