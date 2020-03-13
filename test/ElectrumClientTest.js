@@ -1,3 +1,4 @@
+/*
 const ElectrumClient = require("../src/ElectrumClient")
 const fs = require("fs")
 const chai = require("chai")
@@ -283,4 +284,4 @@ describe("ElectrumClient", async () => {
       console.log("result", result)
     })
   })
-})
+})*/
