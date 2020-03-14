@@ -1,6 +1,6 @@
 {
   "name": "@keep-network/tbtc.js",
-  "version": "0.8.0-pre.0",
+  "version": "0.10.0-pre",
   "type": "module",
   "description": "tbtc.js provides JS bindings to the tBTC system that establishes a TBTC ERC20 token supply-pegged to BTC.",
   "repository": {
@@ -15,13 +15,15 @@
   "bin": "./bin/tbtc.js",
   "scripts": {
     "test": "mocha --timeout 10000",
-    "js:lint": "eslint .",
-    "js:lint:fix": "eslint --fix ."
+    "lint": "npm run lint:js",
+    "lint:fix": "npm run lint:fix:js",
+    "lint:js": "eslint .",
+    "lint:fix:js": "eslint --fix ."
   },
   "author": "Antonio Salazar Cardozo <antonio@thesis.co>",
   "license": "MIT",
   "dependencies": {
-    "@keep-network/tbtc": ">0.8.0-pre <0.8.0-rc",
+    "@keep-network/tbtc": ">0.10.0-pre <0.10.0-rc",
     "@truffle/contract": "^4.1.8",
     "bcoin": "git+https://github.com/bcoin-org/bcoin.git#8851582",
     "bcrypto": "^4.1.0",
@@ -31,8 +33,9 @@
   "devDependencies": {
     "@truffle/hdwallet-provider": "^1.0.30",
     "chai": "^4.2.0",
-    "eslint": "^5.16.0",
-    "eslint-config-keep": "git+https://github.com/keep-network/eslint-config-keep.git#0.2.0",
+    "eslint": "^6.8.0",
+    "eslint-config-keep": "git+https://github.com/keep-network/eslint-config-keep.git#0.3.0",
+    "prettier": "^1.19.1",
     "fs": "0.0.1-security",
     "mocha": "^6.2.0",
     "web3": "^1.2.0"
