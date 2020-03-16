@@ -213,9 +213,12 @@ export class DepositFactory {
      * @param {BN} lotSize The lot size to use, in satoshis.
      */
     async createNewDepositContract(lotSize) {
-        // const creationCost = await this.systemContract.methods.createNewDepositFeeEstimate().call()
-        let creationCost = this.config.web3.utils.toBN('100')
+        const creationCost = this.config.web3.utils.toBN(
+          await this.systemContract.methods.createNewDepositFeeEstimate().call()
+        )
+        
         const accountBalance = await this.config.web3.eth.getBalance(this.config.web3.eth.defaultAccount)
+
         if (creationCost.lt(accountBalance)) {
             throw `Insufficient balance ${accountBalance.toString()} to open ` +
                 `deposit (required: ${creationCost.toString()}).`
