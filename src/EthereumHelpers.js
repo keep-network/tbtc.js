@@ -18,13 +18,19 @@ function readEventFromTransaction(
   sourceContract,
   eventName
 ) {
-  const inputsABI = sourceContract.abi.find(
+  const eventABI = sourceContract.options.jsonInterface.find(
     entry => entry.type == "event" && entry.name == eventName
-  ).inputs
+  )
 
-  return transaction.receipt.rawLogs
-    .filter(_ => _.address == sourceContract.address)
-    .map(_ => web3.eth.abi.decodeLog(inputsABI, _.data, _.topics.slice(1)))[0]
+  return Object.values(transaction.events)
+    .filter(
+      _ =>
+        _.address == sourceContract.options.address &&
+        _.raw.topics[0] == eventABI.signature
+    )
+    .map(_ =>
+      web3.eth.abi.decodeLog(eventABI.inputs, _.raw.data, _.raw.topics.slice(1))
+    )[0]
 }
 
 /**
@@ -40,12 +46,7 @@ function readEventFromTransaction(
  *         object once it is received.
  */
 function getEvent(sourceContract, eventName, filter) {
-  return new Promise(resolve => {
-    sourceContract[eventName](filter).once("data", event => {
-      clearInterval(handle)
-      resolve(event)
-    })
-
+  return new Promise((resolve, reject) => {
     // As a workaround for a problem with MetaMask version 7.1.1 where subscription
     // for events doesn't work correctly we pull past events in a loop until
     // we find our event. This is a temporary solution which should be removed
@@ -63,6 +64,12 @@ function getEvent(sourceContract, eventName, filter) {
       },
       3000 // every 3 seconds
     )
+
+    sourceContract.once(eventName, { filter }, (error, event) => {
+      clearInterval(handle)
+      if (error) reject(error)
+      else resolve(event)
+    })
   })
 }
 
