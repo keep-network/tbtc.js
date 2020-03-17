@@ -3,9 +3,6 @@ import BitcoinHelpers from "./BitcoinHelpers.js"
 
 import EthereumHelpers from "./EthereumHelpers.js"
 
-import TruffleContract from "@truffle/contract"
-/** @typedef { import("@truffle/contract").default.Contract } TruffleContract */
-
 /** @typedef { import("web3").default.Web3.eth.Contract } Contract */
 
 import Redemption from "./Redemption.js"
@@ -18,7 +15,7 @@ import DepositFactoryJSON from "@keep-network/tbtc/artifacts/DepositFactory.json
 import TBTCTokenJSON from "@keep-network/tbtc/artifacts/TBTCToken.json"
 import FeeRebateTokenJSON from "@keep-network/tbtc/artifacts/FeeRebateToken.json"
 import VendingMachineJSON from "@keep-network/tbtc/artifacts/VendingMachine.json"
-// import BondedECDSAKeepJSON from "@keep-network/tbtc/artifacts/BondedECDSAKeep.json"
+import BondedECDSAKeepJSON from "@keep-network/tbtc/artifacts/BondedECDSAKeep.json"
 
 
 /** @typedef { import("bn.js") } BN */
@@ -133,8 +130,9 @@ export class DepositFactory {
 
         function lookupAddress(artifact) {
             let deploymentInfo = artifact.networks[networkId]
-            if(!deploymentInfo) 
-                throw new Error(`No deployment info found for contract ${artifact.contractName}, network ID ${networkId}`)
+            if(!deploymentInfo) {
+              throw new Error(`No deployment info found for contract ${artifact.contractName}, network ID ${networkId}`)
+            }
             return deploymentInfo.address
         }
 
@@ -286,7 +284,9 @@ export default class Deposit {
         )
         const web3 = factory.config.web3
         const contract = new web3.eth.Contract(DepositJSON.abi, depositAddress)
-        const keepContract = new web3.eth.Contract(BondedECDSAKeepJSON, keepAddress)
+        contract.options.from = web3.eth.defaultAccount
+        const keepContract = new web3.eth.Contract(BondedECDSAKeepJSON.abi, keepAddress)
+        keepContract.options.from = web3.eth.defaultAccount
 
         return new Deposit(factory, contract, keepContract)
     }
@@ -312,8 +312,10 @@ export default class Deposit {
             )
         }
 
-        console.debug(`Found keep address ${createdEvent.args._keepAddress}.`)
-        const keepContract = new web3.eth.Contract(BondedECDSAKeepJSON, keepAddress)
+        const keepAddress = createdEvent.returnValues._keepAddress
+        console.debug(`Found keep address ${keepAddress}.`)
+        const keepContract = new web3.eth.Contract(BondedECDSAKeepJSON.abi, keepAddress)
+        keepContract.options.from = web3.eth.defaultAccount
 
         return new Deposit(factory, contract, keepContract)
     }
@@ -352,7 +354,7 @@ export default class Deposit {
      * @type TruffleContract
      */
     async getSatoshiLotSize() {
-        return await this.contract.methods.lotSizeSatoshis.call()
+        return await this.contract.methods.lotSizeSatoshis().call()
     }
 
     /**
@@ -732,7 +734,7 @@ export default class Deposit {
             return null
         }
 
-        return this.redemptionDetailsFromEvent(redemptionRequest.args)
+        return this.redemptionDetailsFromEvent(redemptionRequest.returnValues)
     }
 
     ///------------------------------- Helpers ---------------------------------
@@ -783,7 +785,7 @@ export default class Deposit {
         })
 
         state.fundingConfirmations = state.fundingTransaction.then(async (transaction) => {
-            const requiredConfirmations = (await this.factory.constantsContract.methods.getTxProofDifficultyFactor().call())
+            const requiredConfirmations = await this.factory.constantsContract.methods.getTxProofDifficultyFactor().call()
 
             console.debug(
                 `Waiting for ${requiredConfirmations} confirmations for ` +
@@ -828,8 +830,8 @@ export default class Deposit {
                 `Found existing Bitcoin address for deposit ${this.address}...`,
             )
             return {
-                x: signerPubkeyEvent.args._signingGroupPubkeyX,
-                y: signerPubkeyEvent.args._signingGroupPubkeyY,
+                x: signerPubkeyEvent.returnValues._signingGroupPubkeyX,
+                y: signerPubkeyEvent.returnValues._signingGroupPubkeyY,
             }
         }
 
