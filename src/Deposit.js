@@ -223,23 +223,16 @@ export class DepositFactory {
             throw `Insufficient balance ${accountBalance.toString()} to open ` +
                 `deposit (required: ${creationCost.toString()}).`
         }
-        
-        // const result = await this.depositFactoryContract.methods.createDeposit(
-        //     lotSize
-        // ).send({
-        //     value: creationCost,
-        // })
 
+        const gasEstimate = await this.depositFactoryContract.methods
+          .createDeposit(lotSize)
+          .estimateGas({
+            value: creationCost
+          })
         
-        const createDeposit_call = await this.depositFactoryContract.methods.createDeposit(
-            lotSize
-        )
-
-        const createDeposit_gasEstimate = await createDeposit_call.estimateGas()
-        
-        await createDeposit_call.send({
+        const result = await this.depositFactoryContract.methods.createDeposit(lotSize).send({
             value: creationCost,
-            gas: createDeposit_gasEstimate
+            gas: gasEstimate
         })
 
         const createdEvent = EthereumHelpers.readEventFromTransaction(
@@ -810,7 +803,8 @@ export default class Deposit {
                 `Bitcoin transaction ${transaction.transactionID}...`
             )
             const proofArgs = await this.constructFundingProof(transaction, requiredConfirmations)
-            return this.contract.methods.provideBTCFundingProof(...proofArgs).send()
+            const gasEstimate = await this.contract.methods.provideBTCFundingProof(...proofArgs).estimateGas()
+            return this.contract.methods.provideBTCFundingProof(...proofArgs).send({ gas: gasEstimate })
         })
 
         return state
@@ -846,7 +840,8 @@ export default class Deposit {
 
         console.debug(`Waiting for deposit ${this.address} to retrieve public key...`)
         // Ask the deposit to fetch and store the signer pubkey.
-        const pubkeyTransaction = await this.contract.methods.retrieveSignerPubkey().send()
+        const gasEstimate = await this.contract.methods.retrieveSignerPubkey().estimateGas()
+        const pubkeyTransaction = await this.contract.methods.retrieveSignerPubkey().send({ gas: gasEstimate })
 
         console.debug(`Found public key for deposit ${this.address}...`)
         const {
