@@ -4,13 +4,11 @@
  *
  * @param {Web3} web3 A web3 instance for operating.
  * @param {Result} transaction A web3 transaction result.
- * @param {TruffleContract} sourceContract A TruffleContract instance whose
+ * @param {Contract} sourceContract A web3 Contract instance whose
  *        event is being read.
  * @param {string} eventName The name of the event to be read.
  *
- * @return {Object} The event as read from the transaction's raw logs; note
- *         that this event has a different structure than the event passed to event
- *         handlers---it returns the equivalent of `event.args` from event handlers.
+ * @return The event as decoded from the transaction's raw logs.
  */
 function readEventFromTransaction(
   web3,
@@ -37,7 +35,7 @@ function readEventFromTransaction(
  * Waits until `source` emits the given `event`, including searching past blocks
  * for such `event`, then returns it.
  *
- * @param {TruffleContract} sourceContract The TruffleContract that emits the event.
+ * @param {Contract} sourceContract The web3 Contract that emits the event.
  * @param {string} eventName The name of the event to wait on.
  * @param {object} filter An additional filter to apply to the event being
  *        searched for.

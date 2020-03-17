@@ -367,7 +367,7 @@ export default class Deposit {
      * @type TruffleContract
      */
     async getCurrentState() {
-        return (await this.contract.methods.getCurrentState().call())
+        return await this.contract.methods.getCurrentState().call()
     }
 
     async getTDT()/*: Promise<TBTCDepositToken>*/ {
@@ -383,7 +383,7 @@ export default class Deposit {
     }
 
     async inVendingMachine()/*: Promise<boolean>*/ {
-        return (await this.getOwner()) == this.factory.vendingMachineContract.methods.options.address
+        return (await this.getOwner()) == this.factory.vendingMachineContract.options.address
     }
 
     ///---------------------------- Event Handlers -----------------------------
@@ -467,7 +467,7 @@ export default class Deposit {
         console.debug(
             `Approving transfer of deposit ${this.address} TDT to Vending Machine...`
         )
-        await this.factory.methods.depositTokenContract.approve(
+        await this.factory.depositTokenContract.methods.approve(
             this.factory.vendingMachineContract.options.address,
             this.address,
         ).send()
@@ -476,7 +476,7 @@ export default class Deposit {
           `Waiting for ${requiredConfirmations} confirmations for ` +
             `Bitcoin transaction ${transaction.transactionID}...`
         )
-        const transaction = await this.factory.methods.vendingMachineContract.tdtToTbtc(
+        const transaction = await this.factory.vendingMachineContract.methods.tdtToTbtc(
             this.address
         ).send()
 
@@ -516,7 +516,7 @@ export default class Deposit {
             )
         }
 
-        const requiredConfirmations = (await this.factory.constantsContract.methods.getTxProofDifficultyFactor().call())
+        const requiredConfirmations = parseInt(await this.factory.constantsContract.methods.getTxProofDifficultyFactor().call())
         const confirmations =
             await BitcoinHelpers.Transaction.checkForConfirmations(
                 tx,
