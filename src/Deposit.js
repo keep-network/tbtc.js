@@ -480,10 +480,8 @@ export default class Deposit {
           `Waiting for ${requiredConfirmations} confirmations for ` +
             `Bitcoin transaction ${transaction.transactionID}...`
         )
-        const gasEstimate = await this.factory.vendingMachineContract.methods.tdtToTbtc(this.address).estimateGas()
-        const transaction = await this.factory.vendingMachineContract.methods.tdtToTbtc(
-            this.address
-        ).send({ gas: gasEstimate })
+        const call = await this.factory.vendingMachineContract.methods.tdtToTbtc(this.address)
+        await call.send({ gas: await call.estimateGas() })
 
         // return TBTC minted amount
         const transferEvent = EthereumHelpers.readEventFromTransaction(
@@ -491,7 +489,7 @@ export default class Deposit {
             transaction,
             this.factory.tokenContract,
             'Transfer',
-        ) // TODO
+        )
 
         console.debug(`Found Transfer event for`, transferEvent.value, `TBTC.`)
         return transferEvent.value
@@ -677,19 +675,13 @@ export default class Deposit {
                 `Initiating redemption of deposit ${this.address} from ` +
                 `vending machine...`,
             )
-            const gasEstimate = await this.factory.vendingMachineContract.methods.tbtcToBtc(
+            const call = await this.factory.vendingMachineContract.methods.tbtcToBtc(
                 this.address,
                 outputValueBytes,
                 redeemerOutputScript,
                 thisAccount,
-            ).estimateGas()
-
-            transaction = await this.factory.vendingMachineContract.methods.tbtcToBtc(
-                this.address,
-                outputValueBytes,
-                redeemerOutputScript,
-                thisAccount,
-            ).send({ gas: gasEstimate })
+            )
+            await call.send({ gas: await call.estimateGas() })
         } else {
             console.debug(
                 `Approving transfer of ${redemptionCost} to the deposit...`,
@@ -815,8 +807,8 @@ export default class Deposit {
                 `Bitcoin transaction ${transaction.transactionID}...`
             )
             const proofArgs = await this.constructFundingProof(transaction, requiredConfirmations)
-            const gasEstimate = await this.contract.methods.provideBTCFundingProof(...proofArgs).estimateGas()
-            return this.contract.methods.provideBTCFundingProof(...proofArgs).send({ gas: gasEstimate })
+            const call = await this.contract.methods.provideBTCFundingProof(...proofArgs)
+            return call.send({ gas: await call.estimateGas() })
         })
 
         return state
@@ -852,8 +844,8 @@ export default class Deposit {
 
         console.debug(`Waiting for deposit ${this.address} to retrieve public key...`)
         // Ask the deposit to fetch and store the signer pubkey.
-        const gasEstimate = await this.contract.methods.retrieveSignerPubkey().estimateGas()
-        const pubkeyTransaction = await this.contract.methods.retrieveSignerPubkey().send({ gas: gasEstimate })
+        const call = await this.contract.methods.retrieveSignerPubkey()
+        const pubkeyTransaction = await call.send({ gas: await call.estimateGas() })
 
         console.debug(`Found public key for deposit ${this.address}...`)
         const {
