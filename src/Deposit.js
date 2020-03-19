@@ -17,6 +17,9 @@ import FeeRebateTokenJSON from "@keep-network/tbtc/artifacts/FeeRebateToken.json
 import VendingMachineJSON from "@keep-network/tbtc/artifacts/VendingMachine.json"
 import BondedECDSAKeepJSON from "@keep-network/tbtc/artifacts/BondedECDSAKeep.json"
 
+import web3Utils from "web3-utils";
+const { toBN } = web3Utils
+
 
 /** @typedef { import("bn.js") } BN */
 /** @typedef { import("./TBTC").TBTCConfig } TBTCConfig */
@@ -79,7 +82,7 @@ export class DepositFactory {
      *         as BN instances.
      */
     async availableSatoshiLotSizes() {
-        return await this.systemContract.methods.getAllowedLotSizes().call()
+        return (await this.systemContract.methods.getAllowedLotSizes().call()).map(toBN)
     }
 
     /**
@@ -211,7 +214,7 @@ export class DepositFactory {
      * @param {BN} lotSize The lot size to use, in satoshis.
      */
     async createNewDepositContract(lotSize) {
-        const creationCost = this.config.web3.utils.toBN(
+        const creationCost = toBN(
           await this.systemContract.methods.createNewDepositFeeEstimate().call()
         )
         
@@ -355,7 +358,7 @@ export default class Deposit {
      * @type TruffleContract
      */
     async getSatoshiLotSize() {
-        return this.factory.config.web3.utils.toBN(await this.contract.methods.lotSizeSatoshis().call())
+        return toBN(await this.contract.methods.lotSizeSatoshis().call())
     }
 
     /**
@@ -562,7 +565,7 @@ export default class Deposit {
             'Transfer',
         )
 
-        return transferEvent.value.div(this.factory.config.web3.utils.toBN(10).pow(18))
+        return transferEvent.value.div(toBN(10).pow(18))
     }
 
     /**
@@ -575,7 +578,6 @@ export default class Deposit {
      */
     async getRedemptionCost() {
         if (await this.inVendingMachine()) {
-            const toBN = this.factory.config.web3.utils.toBN
             const ownerRedemptionRequirement =
                 toBN(await this.contract.methods.getOwnerRedemptionTbtcRequirement(
                     this.factory.config.web3.eth.defaultAccount
@@ -623,7 +625,6 @@ export default class Deposit {
     async requestRedemption(redeemerAddress) {
         const inVendingMachine = await this.inVendingMachine()
         const thisAccount = this.factory.config.web3.eth.defaultAccount
-        const toBN = this.factory.config.web3.utils.toBN
         const owner = await this.getOwner()
         const belongsToThisAccount = owner == thisAccount
 
@@ -962,98 +963,22 @@ export default class Deposit {
       return true
     }
 
-    console.debug(
-      `Monitoring deposit ${this.address} for transition to ACTIVE.`
-    )
+    redemptionDetailsFromEvent(redemptionRequestedEventArgs)/*: RedemptionDetails*/ {
+        const {
+            _utxoSize,
+            _redeemerOutputScript,
+            _requestedFee,
+            _outpoint,
+            _digest,
+        } = redemptionRequestedEventArgs
 
-    // If we weren't active, wait for Funded, then mark as active.
-    // FIXME/NOTE: We could be inactive due to being outside of the funding
-    // FIXME/NOTE: path, e.g. in liquidation or courtesy call.
-    await EthereumHelpers.getEvent(this.factory.systemContract, "Funded", {
-      _depositContractAddress: this.address
-    })
-
-    console.debug(`Deposit ${this.address} transitioned to ACTIVE.`)
-
-    return true
-  }
-
-  async readPublishedPubkeyEvent() {
-    return EthereumHelpers.getExistingEvent(
-      this.factory.systemContract,
-      "RegisteredPubkey",
-      { _depositContractAddress: this.address }
-    )
-  }
-
-  async publicKeyPointToBitcoinAddress(publicKeyPoint) {
-    return BitcoinHelpers.Address.publicKeyPointToP2WPKHAddress(
-      publicKeyPoint.x,
-      publicKeyPoint.y,
-      this.factory.config.bitcoinNetwork
-    )
-  }
-
-  // Given a Bitcoin transaction and the number of confirmations that need to
-  // be proven constructs an SPV proof and returns the raw parameters that
-  // would be given to an on-chain contract.
-  //
-  // These are:
-  // - version
-  // - txInVector
-  // - txOutVector
-  // - locktime
-  // - outputPosition
-  // - merkleProof
-  // - txInBlockIndex
-  // - chainHeaders
-  //
-  // Constructed this way to serve both qualify + mint and simple
-  // qualification flows.
-  async constructFundingProof(bitcoinTransaction, confirmations) {
-    const { transactionID, outputPosition } = bitcoinTransaction
-    const {
-      parsedTransaction,
-      merkleProof,
-      chainHeaders,
-      txInBlockIndex
-    } = await BitcoinHelpers.Transaction.getSPVProof(
-      transactionID,
-      confirmations
-    )
-
-    const { version, txInVector, txOutVector, locktime } = parsedTransaction
-
-    return [
-      Buffer.from(version, "hex"),
-      Buffer.from(txInVector, "hex"),
-      Buffer.from(txOutVector, "hex"),
-      Buffer.from(locktime, "hex"),
-      outputPosition,
-      Buffer.from(merkleProof, "hex"),
-      txInBlockIndex,
-      Buffer.from(chainHeaders, "hex")
-    ]
-  }
-
-  redemptionDetailsFromEvent(
-    redemptionRequestedEventArgs
-  ) /* : RedemptionDetails*/ {
-    const {
-      _utxoSize,
-      _redeemerOutputScript,
-      _requestedFee,
-      _outpoint,
-      _digest
-    } = redemptionRequestedEventArgs
-
-    const toBN = this.factory.config.web3.utils.toBN
-    return {
-      utxoSize: toBN(_utxoSize),
-      redeemerOutputScript: _redeemerOutputScript,
-      requestedFee: toBN(_requestedFee),
-      outpoint: _outpoint,
-      digest: _digest
+        return {
+            utxoSize: toBN(_utxoSize),
+            redeemerOutputScript: _redeemerOutputScript,
+            requestedFee: toBN(_requestedFee),
+            outpoint: _outpoint,
+            digest: _digest,
+        }
     }
   }
 }

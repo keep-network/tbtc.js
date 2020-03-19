@@ -4,6 +4,9 @@ import BitcoinHelpers from "./BitcoinHelpers.js"
 
 import EthereumHelpers from "./EthereumHelpers.js"
 
+import web3Utils from "web3-utils";
+const { toBN } = web3Utils
+
 /**
  * Details of a given redemption at a given point in time.
  * @typedef {Object} RedemptionDetails
@@ -60,7 +63,6 @@ export default class Redemption {
 
             // If needed, submit redemption signature to the deposit.
             if ((await this.deposit.getCurrentState()) != this.deposit.factory.State.AWAITING_WITHDRAWAL_PROOF) {
-              const toBN = this.deposit.factory.config.web3.utils.toBN
               // A constant in the Ethereum ECDSA signature scheme, used for public key recovery [1]
               // Value is inherited from Bitcoin's Electrum wallet [2]
               // [1] https://bitcoin.stackexchange.com/questions/38351/ecdsa-v-r-s-what-is-v/38909#38909
