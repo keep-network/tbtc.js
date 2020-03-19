@@ -114,26 +114,50 @@ export default class Redemption {
             from: this.deposit.factory.config.web3.eth.defaultAccount
           })
         }
+        this.autoSubmitPromise = this.signedTransaction.then(async (signedTransaction) => {
+            console.debug(
+                `Looking for existing signed redemption transaction on Bitcoin ` +
+                `chain for deposit ${this.deposit.address}...`
+            )
 
-        const signedTransaction = BitcoinHelpers.Transaction.addWitnessSignature(
-          unsignedTransactionDetails.hex,
-          0,
-          r.replace("0x", ""),
-          s.replace("0x", ""),
-          BitcoinHelpers.publicKeyPointToPublicKeyString(
-            publicKeyPoint.x,
-            publicKeyPoint.y
-          )
-        )
+            const { utxoSize, requestedFee, redeemerOutputScript } = await this.redemptionDetails
+            const expectedValue = utxoSize.sub(requestedFee).toNumber()
+            // FIXME Check that the transaction spends the right UTXO, not just
+            // FIXME that it's the right amount to the right address. outpoint
+            // FIXME compared against vin is probably the move here.
+            let transaction = await BitcoinHelpers.Transaction.findScript(
+                redeemerOutputScript.replace('0x', '').slice(2),
+                expectedValue,
+            )
 
-        return signedTransaction
-      }
-    )
-  }
+            if (! transaction) {
+                console.debug(
+                    `Broadcasting signed redemption transaction to Bitcoin chain ` +
+                    `for deposit ${this.deposit.address}...`
+                )
+                transaction = await BitcoinHelpers.Transaction.broadcast(
+                    signedTransaction,
+                )
+            }
 
-  autoSubmit() {
-    if (this.autoSubmitPromise) {
-      return this.autoSubmitPromise
+            const requiredConfirmations = (await this.deposit.factory.constantsContract.getTxProofDifficultyFactor()).toNumber()
+
+            console.debug(
+                `Waiting for ${requiredConfirmations} confirmations for ` +
+                `Bitcoin transaction ${transaction.transactionID}...`
+            )
+            await BitcoinHelpers.Transaction.waitForConfirmations(
+                transaction,
+                requiredConfirmations,
+            )
+
+            console.debug(
+                `Transaction is sufficiently confirmed; submitting redemption ` +
+                `proof to deposit ${this.deposit.address}...`
+            )
+            return this.proveWithdrawal(transaction.transactionID, requiredConfirmations)
+        })
+        // TODO bumpFee if needed
     }
     this.autoSubmitPromise = this.signedTransaction.then(
       async signedTransaction => {
