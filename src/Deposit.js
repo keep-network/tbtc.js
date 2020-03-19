@@ -299,6 +299,7 @@ export default class Deposit {
         console.debug(`Looking up Deposit contract at address ${address}...`)
         const web3 = factory.config.web3
         const contract = new web3.eth.Contract(DepositJSON.abi, address)
+        contract.options.from = web3.eth.defaultAccount
 
         console.debug(`Looking up Created event for deposit ${address}...`)
         const createdEvent = await EthereumHelpers.getExistingEvent(
@@ -354,7 +355,7 @@ export default class Deposit {
      * @type TruffleContract
      */
     async getSatoshiLotSize() {
-        return await this.contract.methods.lotSizeSatoshis().call()
+        return this.factory.config.web3.utils.toBN(await this.contract.methods.lotSizeSatoshis().call())
     }
 
     /**
@@ -476,9 +477,10 @@ export default class Deposit {
           `Waiting for ${requiredConfirmations} confirmations for ` +
             `Bitcoin transaction ${transaction.transactionID}...`
         )
+        const gasEstimate = await this.factory.vendingMachineContract.methods.tdtToTbtc(this.address).estimateGas()
         const transaction = await this.factory.vendingMachineContract.methods.tdtToTbtc(
             this.address
-        ).send()
+        ).send({ gas: gasEstimate })
 
         // return TBTC minted amount
         const transferEvent = EthereumHelpers.readEventFromTransaction(
@@ -508,7 +510,7 @@ export default class Deposit {
      */
     async qualifyAndMintTBTC() {
         const address = await this.bitcoinAddress
-        const expectedValue = (await this.getSatoshiLotSize())
+        const expectedValue = parseInt(await this.getSatoshiLotSize())
         const tx = await BitcoinHelpers.Transaction.find(address, expectedValue)
         if (! tx) {
             throw new Error(
@@ -546,7 +548,7 @@ export default class Deposit {
             tx,
             confirmations,
         )
-        const proofArgs = await this.constructFundingProof(tx, requiredConfirmations)
+        const proofArgs = await this.constructFundingProof(tx, parseInt(requiredConfirmations))
         proofArgs.unshift(this.address)
         const transaction = await this.factory.vendingMachineContract.methods.unqualifiedDepositToTbtc(
             ...proofArgs
@@ -573,13 +575,13 @@ export default class Deposit {
      */
     async getRedemptionCost() {
         if (await this.inVendingMachine()) {
+            const toBN = this.factory.config.web3.utils.toBN
             const ownerRedemptionRequirement =
-                await this.contract.methods.getOwnerRedemptionTbtcRequirement(
+                toBN(await this.contract.methods.getOwnerRedemptionTbtcRequirement(
                     this.factory.config.web3.eth.defaultAccount
-                ).call()
+                ).call())
             const lotSize = await this.getSatoshiLotSize()
 
-            const toBN = this.factory.config.web3.utils.toBN
             return lotSize.mul(toBN(10).pow(toBN(10))).add(
                 ownerRedemptionRequirement
             )
@@ -621,6 +623,7 @@ export default class Deposit {
     async requestRedemption(redeemerAddress) {
         const inVendingMachine = await this.inVendingMachine()
         const thisAccount = this.factory.config.web3.eth.defaultAccount
+        const toBN = this.factory.config.web3.utils.toBN
         const owner = await this.getOwner()
         const belongsToThisAccount = owner == thisAccount
 
@@ -640,7 +643,7 @@ export default class Deposit {
         }
 
         const redemptionCost = await this.getRedemptionCost()
-        const availableBalance = await this.factory.tokenContract.methods.balanceOf(thisAccount).call()
+        const availableBalance = toBN(await this.factory.tokenContract.methods.balanceOf(thisAccount).call())
         if (redemptionCost.gt(availableBalance)) {
             throw new Error(
                 `Account ${thisAccount} does not have the required balance of ` +
@@ -649,7 +652,6 @@ export default class Deposit {
             )
         }
 
-        const toBN = this.factory.config.web3.utils.toBN
         console.debug(
             `Looking up UTXO size and transaction fee for redemption transaction...`,
         )
@@ -665,21 +667,28 @@ export default class Deposit {
             console.debug(
                 `Approving transfer of ${redemptionCost} to the vending machine....`,
             )
-            await this.factory.tokenContract.approve(
+            await this.factory.tokenContract.methods.approve(
                 this.factory.vendingMachineContract.options.address,
-                redemptionCost
+                redemptionCost.toString()
             ).send()
 
             console.debug(
                 `Initiating redemption of deposit ${this.address} from ` +
                 `vending machine...`,
             )
+            const gasEstimate = await this.factory.vendingMachineContract.methods.tbtcToBtc(
+                this.address,
+                outputValueBytes,
+                redeemerOutputScript,
+                thisAccount,
+            ).estimateGas()
+
             transaction = await this.factory.vendingMachineContract.methods.tbtcToBtc(
                 this.address,
                 outputValueBytes,
                 redeemerOutputScript,
                 thisAccount,
-            ).send()
+            ).send({ gas: gasEstimate })
         } else {
             console.debug(
                 `Approving transfer of ${redemptionCost} to the deposit...`,
@@ -720,7 +729,7 @@ export default class Deposit {
         // be generalized to a state check that the contract is either
         // AWAITING_WITHDRAWAL_SIGNATURE or AWAITING_WITHDRAWAL_PROOF, but let's
         // hold on that for now.
-        if (await this.contract.inActive()) {
+        if (await this.contract.methods.inActive().call()) {
             return null
         }
 

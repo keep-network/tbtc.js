@@ -524,6 +524,279 @@ const BitcoinHelpers = {
 
       return transaction.toRaw().toString("hex")
     },
+    Transaction: {
+        /**
+         * Finds a transaction to the given `bitcoinAddress` of the given
+         * `expectedValue`. If there is more than one such transaction, returns
+         * the most recent one.
+         *
+         * @param {string} bitcoinAddress A receiving Bitcoin address.
+         * @param {number} expectedValue The expected value of the transaction
+         *        to fetch.
+         *
+         * @return {Promise<FoundTransaction>} A promise to an object of
+         *         transactionID, outputPosition, and value, that resolves with
+         *         either null if such a transaction could not be found, or the
+         *         information about the transaction that was found.
+         */
+        find: async function(bitcoinAddress, expectedValue) {
+            const script = BitcoinHelpers.Address.toScript(bitcoinAddress)
+
+            return await BitcoinHelpers.Transaction.findScript(script, expectedValue)
+        },
+        /**
+         * Finds a transaction to the given `outputScript` of the given
+         * `expectedValue`. If there is more than one such transaction, returns
+         * the most recent one.
+         *
+         * @param {string} outputScript A Bitcoin output script to look for as a
+         *        non-0x-prefixed hex string.
+         * @param {number} expectedValue The expected value of the transaction
+         *        to fetch.
+         *
+         * @return {Promise<FoundTransaction>} A promise to an object of
+         *         transactionID, outputPosition, and value, that resolves with
+         *         either null if such a transaction could not be found, or the
+         *         information about the transaction that was found.
+         */
+        findScript: async function(outputScript, expectedValue) {
+            return await BitcoinHelpers.withElectrumClient((electrumClient) => {
+                return BitcoinHelpers.Transaction.findWithClient(
+                    electrumClient,
+                    outputScript,
+                    expectedValue,
+                )
+            })
+        },
+        /**
+         * Watches the Bitcoin chain for a transaction of value `expectedValue`
+         * to address `bitcoinAddress`.
+         *
+         * @param {string} bitcoinAddress Bitcoin address to watch.
+         * @param {number} expectedValue The expected value to watch for.
+         *
+         * @return {Promise<FoundTransaction>} A promise to the found
+         *         transaction once it is seen on the chain.
+         */
+        findOrWaitFor: async function(bitcoinAddress, expectedValue) {
+            return await BitcoinHelpers.withElectrumClient(async (electrumClient) => {
+                const script = BitcoinHelpers.Address.toScript(bitcoinAddress)
+
+                // This function is used as a callback to electrum client. It is
+                // invoked when an existing or a new transaction is found.
+                const checkTransactions = async function(status) {
+                    // If the status is set, transactions were seen for the
+                    // script.
+                    if (status) {
+                        const result =  BitcoinHelpers.Transaction.findWithClient(
+                            electrumClient,
+                            script,
+                            expectedValue,
+                        )
+
+                        return result
+                    }
+                }
+
+                return electrumClient.onTransactionToScript(
+                    script,
+                    checkTransactions,
+                )
+            })
+        },
+        /**
+         * Checks the given Bitcoin `transaction` to ensure it has at least
+         * `requiredConfirmations` on-chain. If it does, resolves the returned
+         * promise with the current number of on-chain confirmations. If it does
+         * not, fulfills the promise with `null`.
+         *
+         * @param {FoundTransaction} transaction A transaction object whose
+         *        confirmations will be checked.
+         * @param {number} requiredConfirmations A number of required
+         *        confirmations below which this function will return null.
+         *
+         * @return {Promise<number>} A promise to the current number of
+         *         confirmations for the given `transaction`, iff that transaction has
+         *         at least `requiredConfirmations` confirmations.
+         */
+        checkForConfirmations: async function(transaction, requiredConfirmations) {
+            const id = transaction.transactionID
+
+            return BitcoinHelpers.withElectrumClient(async (electrumClient) => {
+                return await BitcoinHelpers.Transaction.checkForConfirmationsWithClient(
+                    electrumClient,
+                    id,
+                    requiredConfirmations,
+                )
+            })
+        },
+        /**
+         * Watches the Bitcoin chain until the given `transaction` has the given
+         * number of `requiredConfirmations`.
+         *
+         * @param {FoundTransaction} transaction Transaction object from Electrum.
+         * @param {number} requiredConfirmations The number of required
+         *        confirmations to wait before returning.
+         *
+         * @return A promise to the final number of confirmations observed that
+         *         was at least equal to the required confirmations.
+         */
+        waitForConfirmations: async function(transaction, requiredConfirmations) {
+            const id = transaction.transactionID
+
+            return BitcoinHelpers.withElectrumClient(async (electrumClient) => {
+                const checkConfirmations = async function() {
+                    return await BitcoinHelpers.Transaction.checkForConfirmationsWithClient(
+                        electrumClient,
+                        id,
+                        requiredConfirmations,
+                    )
+                }
+
+                return electrumClient.onNewBlock(checkConfirmations)
+            })
+        },
+        /**
+         * Estimates the fee that would be needed for a given transaction.
+         *
+         * @warning This is a stub. Currently it takes the TBTCConstants
+         *          contract and returns its reported minimum fee, rather than
+         *          calling electrumClient.blockchainEstimateFee.
+         */
+        estimateFee: async function(tbtcConstantsContract) {
+            return tbtcConstantsContract.methods.getMinimumRedemptionFee().call()
+        },
+        /**
+         * Takes a raw hexadecimal Bitcoin transaction and returns a parsed
+         * version with relevant properties.
+         *
+         * @param {string} rawTransaction Raw Bitcoin transaction in hexadecimal
+         *        format.
+         */
+        parseRaw: function(rawTransaction) {
+            return BitcoinTxParser.parse(rawTransaction)
+        },
+        /**
+         * For the given `transactionID`, constructs an SPV proof that proves it
+         * has at least `confirmations` confirmations on the Bitcoin chain.
+         * Returns data for this proof, as well as the parsed Bitcoin
+         * transaction data.
+         *
+         * @param {string} transactionID A hex Bitcoin transaction id hash.
+         * @param {number} confirmations The number of confirmations to include
+         *        in the proof.
+         *
+         * @return The proof data, plus the parsed transaction for the proof.
+         */
+        getSPVProof: async function(transactionID, confirmations) {
+            return await BitcoinHelpers.withElectrumClient(async (electrumClient) => {
+                const spv = new BitcoinSPV(electrumClient)
+                const proof = await spv.getTransactionProof(transactionID, confirmations)
+
+                return {
+                    ...proof,
+                    parsedTransaction: BitcoinHelpers.Transaction.parseRaw(proof.tx)
+                }
+            })
+        },
+        /**
+         * Broadcasts the given signed transaction to the Bitcoin chain.
+         *
+         * @param {string} signedTransaction The signed transaction in
+         *        hexadecimal format.
+         *
+         * @return {Promise<FoundTransaction>} A partial FoundTransaction with
+         *         the transactionID field set.
+         */
+        broadcast: async function(signedTransaction) {
+            return await BitcoinHelpers.withElectrumClient(async (electrumClient) => {
+                const transactionID = await electrumClient.broadcastTransaction(
+                    signedTransaction,
+                )
+
+                return {
+                    transactionID: transactionID,
+                }
+            })
+        },
+        /**
+         * Adds a witness signature for an input in a transaction.
+         *
+         * @param {string} unsignedTransaction Unsigned raw bitcoin transaction
+         *        in hexadecimal format.
+         * @param {uint32} inputIndex Index number of input to be signed.
+         * @param {string} r Signature's `r` value in hexadecimal format.
+         * @param {string} s Signature's `s` value in hexadecimal format.
+         * @param {string} publicKey 64-byte signer's public key's concatenated
+         *        x and y coordinates in hexadecimal format.
+         *
+         * @return {string} Raw transaction in a hexadecimal format with witness
+         *         signature.
+         */
+        addWitnessSignature: function(unsignedTransaction, inputIndex, r, s, publicKey) {
+            // Signature
+            let signatureDER
+            try {
+                signatureDER = BitcoinHelpers.signatureDER(r, s)
+            } catch (err) {
+                throw new Error(`failed to convert signature to DER format: [${err}]`)
+            }
+
+            const hashType = Buffer.from([bcoin.Script.hashType.ALL])
+            const sig = Buffer.concat([signatureDER, hashType])
+
+            // Public Key
+            let compressedPublicKey
+            try {
+                const publicKeyBytes = Buffer.from(publicKey, 'hex')
+                compressedPublicKey = secp256k1.publicKeyImport(publicKeyBytes, true)
+            } catch (err) {
+                throw new Error(`failed to import public key: [${err}]`)
+            }
+
+            // Combine witness
+            let signedTransaction
+            try {
+                signedTransaction = bcoin.TX.fromRaw(unsignedTransaction, 'hex').clone()
+            } catch (err) {
+                throw new Error(`failed to import transaction: [${err}]`)
+            }
+
+            signedTransaction.inputs[inputIndex].witness.fromItems([
+                sig,
+                compressedPublicKey,
+            ])
+
+            return signedTransaction.toRaw().toString('hex')
+        },
+        /**
+         * Constructs a Bitcoin SegWit transaction with one input and one
+         * output. Difference between previous output's value and current's
+         * output value will be taken as a transaction fee.
+         *
+         * @param {string} previousOutpoint Previous transaction's output to be
+         *        used as an input. Provided in hexadecimal format, consists of
+         *        32-byte transaction ID and 4-byte output index number.
+         * @param {uint32} inputSequence Input's sequence number. As per
+         *        BIP-125 the value is used to indicate that transaction should
+         *        be able to be replaced in the future. If input sequence is set
+         *        to `0xffffffff` the transaction won't be replaceable.
+         * @param {number} outputValue Value for the output.
+         * @param {string} outputScript Output script for the transaction as an
+         *        unprefixed hexadecimal string.
+         *
+         * @return {string} Raw bitcoin transaction in hexadecimal format.
+         */
+        constructOneInputOneOutputWitnessTransaction(
+            previousOutpoint,
+            inputSequence,
+            outputValue,
+            outputScript,
+        ) {
+            // Input
+            const prevOutpoint = bcoin.Outpoint.fromRaw(
+                Buffer.from(previousOutpoint, 'hex')
+            )
 
     // Raw helpers.
     /**
