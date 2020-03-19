@@ -99,7 +99,7 @@ export class DepositFactory {
      * @return {Promise<Deposit>} The new deposit with the given lot size.
      */
     async withSatoshiLotSize(satoshiLotSize) {
-        if (! await this.systemContract.methods.isAllowedLotSize(satoshiLotSize).call()) {
+        if (! await this.systemContract.methods.isAllowedLotSize(satoshiLotSize.toString()).call()) {
             throw new Error(
                 `Lot size ${satoshiLotSize} is not permitted; only ` +
                 `one of ${(await this.availableSatoshiLotSizes()).join(',')} ` +
@@ -226,12 +226,12 @@ export class DepositFactory {
         }
 
         const gasEstimate = await this.depositFactoryContract.methods
-          .createDeposit(lotSize)
+          .createDeposit(lotSize.toString())
           .estimateGas({
             value: creationCost
           })
         
-        const result = await this.depositFactoryContract.methods.createDeposit(lotSize).send({
+        const result = await this.depositFactoryContract.methods.createDeposit(lotSize.toString()).send({
             value: creationCost,
             gas: gasEstimate
         })
@@ -277,7 +277,7 @@ export default class Deposit {
     static async forLotSize(factory, satoshiLotSize) {
         console.debug(
             'Creating new deposit contract with lot size',
-            satoshiLotSize,
+            satoshiLotSize.toString(),
             'satoshis...',
         )
         const { depositAddress, keepAddress } = await factory.createNewDepositContract(satoshiLotSize)
@@ -354,8 +354,7 @@ export default class Deposit {
     ///------------------------------- Accessors -------------------------------
 
     /**
-     * @package
-     * @type TruffleContract
+     * @return {Promise<BN>} the lot size of the deposit, in satoshis.
      */
     async getSatoshiLotSize() {
         return toBN(await this.contract.methods.lotSizeSatoshis().call())
@@ -371,7 +370,7 @@ export default class Deposit {
      * @type TruffleContract
      */
     async getCurrentState() {
-        return await this.contract.methods.getCurrentState().call()
+        return parseInt(await this.contract.methods.getCurrentState().call())
     }
 
     async getTDT()/*: Promise<TBTCDepositToken>*/ {
@@ -563,7 +562,7 @@ export default class Deposit {
             'Transfer',
         )
 
-        return transferEvent.value.div(toBN(10).pow(18))
+        return toBN(transferEvent.value).div(toBN(10).pow(18))
     }
 
     /**
@@ -787,7 +786,7 @@ export default class Deposit {
         })
 
         state.fundingConfirmations = state.fundingTransaction.then(async (transaction) => {
-            const requiredConfirmations = await this.factory.constantsContract.methods.getTxProofDifficultyFactor().call()
+            const requiredConfirmations = parseInt(await this.factory.constantsContract.methods.getTxProofDifficultyFactor().call())
 
             console.debug(
                 `Waiting for ${requiredConfirmations} confirmations for ` +
