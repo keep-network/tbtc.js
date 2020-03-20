@@ -48,11 +48,11 @@ export class TBTC {
    */
   constructor(depositFactory, config, networkMatchCheck = true) {
     if (
-      (networkMatchCheck &&
-        isMainnet(config.web3) &&
+      networkMatchCheck &&
+      ((isMainnet(config.web3) &&
         config.bitcoinNetwork == BitcoinHelpers.Network.TESTNET) ||
-      (isTestnet(config.web3) &&
-        config.bitcoinNetwork == BitcoinHelpers.Network.MAINNET)
+        (isTestnet(config.web3) &&
+          config.bitcoinNetwork == BitcoinHelpers.Network.MAINNET))
     ) {
       throw new Error(
         `Ethereum network ${config.web3.currentProvider.chainId} ` +

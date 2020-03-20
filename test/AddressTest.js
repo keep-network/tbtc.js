@@ -1,3 +1,4 @@
+/*
 const BitcoinAddress = require("../src/Address")
 const Network = BitcoinAddress.Network
 

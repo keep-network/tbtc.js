@@ -359,7 +359,7 @@ export default class Deposit {
    */
   constructor(factory, depositContract, keepContract) {
     if (!keepContract) {
-      throw "Keep contract required for Deposit instantiation."
+      throw new Error("Keep contract required for Deposit instantiation.")
     }
 
     this.factory = factory
