@@ -1,4 +1,3 @@
-/*
 const BitcoinTxParser = require("../src/BitcoinTxParser.js")
 
 const chai = require("chai")

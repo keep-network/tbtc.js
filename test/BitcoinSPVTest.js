@@ -1,4 +1,3 @@
-/*
 const BitcoinSPV = require("../src/BitcoinSPV").BitcoinSPV
 const ElectrumClient = require("../src/ElectrumClient")
 const config = require("../../../src/config/config.json")

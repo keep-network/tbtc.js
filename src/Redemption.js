@@ -4,7 +4,7 @@ import BitcoinHelpers from "./BitcoinHelpers.js"
 
 import EthereumHelpers from "./EthereumHelpers.js"
 
-import web3Utils from "web3-utils";
+import web3Utils from "web3-utils"
 const { toBN } = web3Utils
 
 /**
@@ -49,31 +49,12 @@ export default class Redemption {
 
   // withdrawnEmitter/*: EventEmitter*/
 
-            console.debug(
-                `Finding or waiting for transaction signature for deposit ` +
-                `${this.deposit.address}...`
-            )
-            const signatureEvent = await EthereumHelpers.getEvent(
-                this.deposit.keepContract,
-                'SignatureSubmitted',
-                { digest: redemptionDigest },
-            )
-            const { r, s, recoveryID } = signatureEvent.returnValues
-            const publicKeyPoint = await this.deposit.publicKeyPoint
-
-            // If needed, submit redemption signature to the deposit.
-            if ((await this.deposit.getCurrentState()) != this.deposit.factory.State.AWAITING_WITHDRAWAL_PROOF) {
-              // A constant in the Ethereum ECDSA signature scheme, used for public key recovery [1]
-              // Value is inherited from Bitcoin's Electrum wallet [2]
-              // [1] https://bitcoin.stackexchange.com/questions/38351/ecdsa-v-r-s-what-is-v/38909#38909
-              // [2] https://github.com/ethereum/EIPs/issues/155#issuecomment-253810938
-              const ETHEREUM_ECDSA_RECOVERY_V = toBN(27)
-              const v = toBN(recoveryID).add(ETHEREUM_ECDSA_RECOVERY_V)
-
-              await this.deposit.contract.methods.provideRedemptionSignature(
-                v.toString(), r.toString(), s.toString()
-              ).send()
-            }
+  constructor(
+    deposit /* : Deposit*/,
+    redemptionDetails /* : RedemptionDetails?*/
+  ) {
+    this.deposit = deposit
+    this.withdrawnEmitter = new EventEmitter()
 
     this.redemptionDetails = this.getLatestRedemptionDetails(redemptionDetails)
 
@@ -116,7 +97,7 @@ export default class Redemption {
           "SignatureSubmitted",
           { digest: redemptionDigest }
         )
-        const { r, s, recoveryID } = signatureEvent.args
+        const { r, s, recoveryID } = signatureEvent.returnValues
         const publicKeyPoint = await this.deposit.publicKeyPoint
 
         // If needed, submit redemption signature to the deposit.
@@ -124,7 +105,6 @@ export default class Redemption {
           (await this.deposit.getCurrentState()) !=
           this.deposit.factory.State.AWAITING_WITHDRAWAL_PROOF
         ) {
-          const toBN = this.deposit.factory.config.web3.utils.toBN
           // A constant in the Ethereum ECDSA signature scheme, used for public key recovery [1]
           // Value is inherited from Bitcoin's Electrum wallet [2]
           // [1] https://bitcoin.stackexchange.com/questions/38351/ecdsa-v-r-s-what-is-v/38909#38909
@@ -132,54 +112,34 @@ export default class Redemption {
           const ETHEREUM_ECDSA_RECOVERY_V = toBN(27)
           const v = toBN(recoveryID).add(ETHEREUM_ECDSA_RECOVERY_V)
 
-          await this.deposit.contract.provideRedemptionSignature(v, r, s, {
-            from: this.deposit.factory.config.web3.eth.defaultAccount
-          })
+          await this.deposit.contract.methods
+            .provideRedemptionSignature(
+              v.toString(),
+              r.toString(),
+              s.toString()
+            )
+            .send()
         }
-        this.autoSubmitPromise = this.signedTransaction.then(async (signedTransaction) => {
-            console.debug(
-                `Looking for existing signed redemption transaction on Bitcoin ` +
-                `chain for deposit ${this.deposit.address}...`
-            )
 
-            const { utxoSize, requestedFee, redeemerOutputScript } = await this.redemptionDetails
-            const expectedValue = utxoSize.sub(requestedFee).toNumber()
-            // FIXME Check that the transaction spends the right UTXO, not just
-            // FIXME that it's the right amount to the right address. outpoint
-            // FIXME compared against vin is probably the move here.
-            let transaction = await BitcoinHelpers.Transaction.findScript(
-                redeemerOutputScript.replace('0x', '').slice(2),
-                expectedValue,
-            )
+        const signedTransaction = BitcoinHelpers.Transaction.addWitnessSignature(
+          unsignedTransactionDetails.hex,
+          0,
+          r.replace("0x", ""),
+          s.replace("0x", ""),
+          BitcoinHelpers.publicKeyPointToPublicKeyString(
+            publicKeyPoint.x,
+            publicKeyPoint.y
+          )
+        )
 
-            if (! transaction) {
-                console.debug(
-                    `Broadcasting signed redemption transaction to Bitcoin chain ` +
-                    `for deposit ${this.deposit.address}...`
-                )
-                transaction = await BitcoinHelpers.Transaction.broadcast(
-                    signedTransaction,
-                )
-            }
+        return signedTransaction
+      }
+    )
+  }
 
-            const requiredConfirmations = parseInt(await this.deposit.factory.constantsContract.methods.getTxProofDifficultyFactor().call())
-
-            console.debug(
-                `Waiting for ${requiredConfirmations} confirmations for ` +
-                `Bitcoin transaction ${transaction.transactionID}...`
-            )
-            await BitcoinHelpers.Transaction.waitForConfirmations(
-                transaction,
-                requiredConfirmations,
-            )
-
-            console.debug(
-                `Transaction is sufficiently confirmed; submitting redemption ` +
-                `proof to deposit ${this.deposit.address}...`
-            )
-            return this.proveWithdrawal(transaction.transactionID, requiredConfirmations)
-        })
-        // TODO bumpFee if needed
+  autoSubmit() {
+    if (this.autoSubmitPromise) {
+      return this.autoSubmitPromise
     }
     this.autoSubmitPromise = this.signedTransaction.then(
       async signedTransaction => {
@@ -195,7 +155,7 @@ export default class Redemption {
         // FIXME that it's the right amount to the right address. outpoint
         // FIXME compared against vin is probably the move here.
         let transaction = await BitcoinHelpers.Transaction.findScript(
-          redeemerOutputScript.replace("0x", ""),
+          redeemerOutputScript.replace("0x", "").slice(2),
           expectedValue
         )
 
@@ -209,9 +169,11 @@ export default class Redemption {
           )
         }
 
-        const requiredConfirmations = (
-          await this.deposit.factory.constantsContract.getTxProofDifficultyFactor()
-        ).toNumber()
+        const requiredConfirmations = parseInt(
+          await this.deposit.factory.constantsContract.methods
+            .getTxProofDifficultyFactor()
+            .call()
+        )
 
         console.debug(
           `Waiting for ${requiredConfirmations} confirmations for ` +
@@ -222,16 +184,18 @@ export default class Redemption {
           requiredConfirmations
         )
 
-        const call = await this.deposit.contract.methods.provideRedemptionProof(
-            // Redemption proof does not take the output position as a
-            // parameter, as all redemption transactions are one-input-one-output
-            // However, constructFundingProof includes it for deposit funding
-            // proofs. Here, we filter it out to produce the right set of
-            // parameters.
-            ...(proofArgs.filter((_) => _ != 'output position')),
+        console.debug(
+          `Transaction is sufficiently confirmed; submitting redemption ` +
+            `proof to deposit ${this.deposit.address}...`
         )
-        const gasEstimate = await call.estimateGas()
-        await call.send({ gas: gasEstimate })
+        return this.proveWithdrawal(
+          transaction.transactionID,
+          requiredConfirmations
+        )
+      }
+    )
+    // TODO bumpFee if needed
+  }
 
   /**
    * Proves the withdrawal of the BTC in this deposit via the Bitcoin
@@ -261,10 +225,7 @@ export default class Redemption {
       confirmations
     )
 
-    proofArgs.push({
-      from: this.deposit.factory.config.web3.eth.defaultAccount
-    })
-    await this.deposit.contract.provideRedemptionProof(
+    const call = await this.deposit.contract.methods.provideRedemptionProof(
       // Redemption proof does not take the output position as a
       // parameter, as all redemption transactions are one-input-one-output
       // However, constructFundingProof includes it for deposit funding
@@ -272,6 +233,8 @@ export default class Redemption {
       // parameters.
       ...proofArgs.filter(_ => _ != "output position")
     )
+    const gasEstimate = await call.estimateGas()
+    await call.send({ gas: gasEstimate })
 
     this.withdrawnEmitter.emit("withdrawn", transactionID)
   }
