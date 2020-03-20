@@ -8,7 +8,7 @@
  *        event is being read.
  * @param {string} eventName The name of the event to be read.
  *
- * @return The event as decoded from the transaction's raw logs.
+ * @return {Object} The event as decoded from the transaction's raw logs.
  */
 function readEventFromTransaction(
   web3,

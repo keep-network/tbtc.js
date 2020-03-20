@@ -230,8 +230,10 @@ export class DepositFactory {
     )
 
     if (creationCost.lt(accountBalance)) {
-      throw `Insufficient balance ${accountBalance.toString()} to open ` +
-        `deposit (required: ${creationCost.toString()}).`
+      throw new Error(
+        `Insufficient balance ${accountBalance.toString()} to open ` +
+          `deposit (required: ${creationCost.toString()}).`
+      )
     }
 
     const gasEstimate = await this.depositFactoryContract.methods
