@@ -231,8 +231,8 @@ export class DepositFactory {
 
     if (creationCost.lt(accountBalance)) {
       throw new Error(
-        `Insufficient balance ${accountBalance.toString()} to open ` +
-          `deposit (required: ${creationCost.toString()}).`
+        `Insufficient balance ${accountBalance.toNumber()} to open ` +
+          `deposit (required: ${creationCost.toNumber()}).`
       )
     }
 
@@ -290,7 +290,7 @@ export default class Deposit {
   static async forLotSize(factory, satoshiLotSize) {
     console.debug(
       "Creating new deposit contract with lot size",
-      satoshiLotSize.toString(),
+      satoshiLotSize.toNumber(),
       "satoshis..."
     )
     const {
@@ -674,8 +674,8 @@ export default class Deposit {
     if (redemptionCost.gt(availableBalance)) {
       throw new Error(
         `Account ${thisAccount} does not have the required balance of ` +
-          `${redemptionCost.toString()} to redeem; it only has ` +
-          `${availableBalance.toString()} available.`
+          `${redemptionCost.toNumber()} to redeem; it only has ` +
+          `${availableBalance.toNumber()} available.`
       )
     }
 
