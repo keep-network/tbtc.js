@@ -100,11 +100,11 @@ export class DepositFactory {
    * @return {Promise<Deposit>} The new deposit with the given lot size.
    */
   async withSatoshiLotSize(satoshiLotSize) {
-    if (
-      !(await this.systemContract.methods
-        .isAllowedLotSize(satoshiLotSize.toString())
-        .call())
-    ) {
+    const isLotSizeAllowed = await this.systemContract.methods
+      .isAllowedLotSize(satoshiLotSize.toString())
+      .call()
+
+    if (!isLotSizeAllowed) {
       throw new Error(
         `Lot size ${satoshiLotSize} is not permitted; only ` +
           `one of ${(await this.availableSatoshiLotSizes()).join(",")} ` +
