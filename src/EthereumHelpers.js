@@ -8,7 +8,7 @@
  *        event is being read.
  * @param {string} eventName The name of the event to be read.
  *
- * @return {Object} The event as decoded from the transaction's raw logs.
+ * @return {Object} A key-value dictionary of the event's parameters.
  */
 function readEventFromTransaction(
   web3,
@@ -22,9 +22,9 @@ function readEventFromTransaction(
 
   return Object.values(transaction.events)
     .filter(
-      _ =>
-        _.address == sourceContract.options.address &&
-        _.raw.topics[0] == eventABI.signature
+      event =>
+        event.address == sourceContract.options.address &&
+        event.raw.topics[0] == eventABI.signature
     )
     .map(_ =>
       web3.eth.abi.decodeLog(eventABI.inputs, _.raw.data, _.raw.topics.slice(1))

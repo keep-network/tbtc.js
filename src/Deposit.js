@@ -140,7 +140,7 @@ export class DepositFactory {
       const deploymentInfo = artifact.networks[networkId]
       if (!deploymentInfo) {
         throw new Error(
-          `No deployment info found for contract ${artifact.contractName}, network ID ${networkId}`
+          `No deployment info found for contract ${artifact.contractName}, network ID ${networkId}.`
         )
       }
       return deploymentInfo.address
@@ -382,7 +382,7 @@ export default class Deposit {
   // /------------------------------- Accessors -------------------------------
 
   /**
-   * @return {Promise<BN>} the lot size of the deposit, in satoshis.
+   * @return {Promise<BN>} A promise to the lot size of the deposit, in satoshis.
    */
   async getSatoshiLotSize() {
     return toBN(await this.contract.methods.lotSizeSatoshis().call())
