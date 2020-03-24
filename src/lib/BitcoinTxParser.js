@@ -1,4 +1,5 @@
-import { TX } from "bcoin/lib/primitives/index.js"
+import BcoinPrimitives from "bcoin/lib/primitives/index.js"
+const { TX } = BcoinPrimitives
 import bufio from "bufio"
 
 function parse(rawTx) {

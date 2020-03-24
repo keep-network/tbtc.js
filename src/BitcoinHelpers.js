@@ -370,7 +370,7 @@ const BitcoinHelpers = {
      *         transaction.
      */
     estimateFee: async function(tbtcConstantsContract) {
-      return tbtcConstantsContract.getMinimumRedemptionFee()
+      return tbtcConstantsContract.methods.getMinimumRedemptionFee().call()
     },
     /**
      * For the given `transactionID`, constructs an SPV proof that proves it

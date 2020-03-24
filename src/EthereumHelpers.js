@@ -4,13 +4,11 @@
  *
  * @param {Web3} web3 A web3 instance for operating.
  * @param {Result} transaction A web3 transaction result.
- * @param {TruffleContract} sourceContract A TruffleContract instance whose
+ * @param {Contract} sourceContract A web3 Contract instance whose
  *        event is being read.
  * @param {string} eventName The name of the event to be read.
  *
- * @return {Object} The event as read from the transaction's raw logs; note
- *         that this event has a different structure than the event passed to event
- *         handlers---it returns the equivalent of `event.args` from event handlers.
+ * @return {Object} A key-value dictionary of the event's parameters.
  */
 function readEventFromTransaction(
   web3,
@@ -18,20 +16,26 @@ function readEventFromTransaction(
   sourceContract,
   eventName
 ) {
-  const inputsABI = sourceContract.abi.find(
+  const eventABI = sourceContract.options.jsonInterface.find(
     entry => entry.type == "event" && entry.name == eventName
-  ).inputs
+  )
 
-  return transaction.receipt.rawLogs
-    .filter(_ => _.address == sourceContract.address)
-    .map(_ => web3.eth.abi.decodeLog(inputsABI, _.data, _.topics.slice(1)))[0]
+  return Object.values(transaction.events)
+    .filter(
+      event =>
+        event.address == sourceContract.options.address &&
+        event.raw.topics[0] == eventABI.signature
+    )
+    .map(_ =>
+      web3.eth.abi.decodeLog(eventABI.inputs, _.raw.data, _.raw.topics.slice(1))
+    )[0]
 }
 
 /**
  * Waits until `source` emits the given `event`, including searching past blocks
  * for such `event`, then returns it.
  *
- * @param {TruffleContract} sourceContract The TruffleContract that emits the event.
+ * @param {Contract} sourceContract The web3 Contract that emits the event.
  * @param {string} eventName The name of the event to wait on.
  * @param {object} filter An additional filter to apply to the event being
  *        searched for.
@@ -40,12 +44,7 @@ function readEventFromTransaction(
  *         object once it is received.
  */
 function getEvent(sourceContract, eventName, filter) {
-  return new Promise(resolve => {
-    sourceContract[eventName](filter).once("data", event => {
-      clearInterval(handle)
-      resolve(event)
-    })
-
+  return new Promise((resolve, reject) => {
     // As a workaround for a problem with MetaMask version 7.1.1 where subscription
     // for events doesn't work correctly we pull past events in a loop until
     // we find our event. This is a temporary solution which should be removed
@@ -63,6 +62,12 @@ function getEvent(sourceContract, eventName, filter) {
       },
       3000 // every 3 seconds
     )
+
+    sourceContract.once(eventName, { filter }, (error, event) => {
+      clearInterval(handle)
+      if (error) reject(error)
+      else resolve(event)
+    })
   })
 }
 
