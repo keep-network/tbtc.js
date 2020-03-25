@@ -81,8 +81,19 @@ async function getExistingEvent(source, eventName, filter) {
   return events[0]
 }
 
+/**
+ * Converts an Ethereum `bytes` value into the raw bytes it represents.
+ * Drops the 0x prefix, and the length prefix.
+ * @param {string} bytesString An Ethereum-encoded `bytes` string
+ * @return {string} The hexadecimal string.
+ */
+function bytesToRaw(bytesString) {
+  return bytesString.replace("0x", "").slice(2)
+}
+
 export default {
   getEvent,
   getExistingEvent,
-  readEventFromTransaction
+  readEventFromTransaction,
+  bytesToRaw
 }
