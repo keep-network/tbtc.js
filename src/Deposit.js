@@ -389,6 +389,14 @@ export default class Deposit {
   }
 
   /**
+   * Get the signer fee, to be paid at redemption.
+   * @return {Promise<BN>} A promise to the signer fee for this deposit, in TBTC.
+   */
+  async getSignerFee() {
+    return toBN(await this.contract.methods.signerFee().call())
+  }
+
+  /**
    * Returns a promise that resolves to the Bitcoin address for the wallet
    * backing this deposit. May take an extended amount of time if this deposit
    * has just been created.
