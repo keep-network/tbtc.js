@@ -723,7 +723,7 @@ export default class Deposit {
     } else {
       console.debug(`Approving transfer of ${redemptionCost} to the deposit...`)
       this.factory.tokenContract.methods
-        .approve(this.address, redemptionCost)
+        .approve(this.address, redemptionCost.toString())
         .send()
 
       console.debug(`Initiating redemption from deposit ${this.address}...`)
