@@ -392,7 +392,7 @@ export default class Deposit {
    * Get the signer fee, to be paid at redemption.
    * @return {Promise<BN>} A promise to the signer fee for this deposit, in TBTC.
    */
-  async getSignerFee() {
+  async getSignerFeeTBTC() {
     return toBN(await this.contract.methods.signerFee().call())
   }
 
