@@ -389,6 +389,14 @@ export default class Deposit {
   }
 
   /**
+   * Get the signer fee, to be paid at redemption.
+   * @return {Promise<BN>} A promise to the signer fee for this deposit, in TBTC.
+   */
+  async getSignerFeeTBTC() {
+    return toBN(await this.contract.methods.signerFee().call())
+  }
+
+  /**
    * Returns a promise that resolves to the Bitcoin address for the wallet
    * backing this deposit. May take an extended amount of time if this deposit
    * has just been created.
@@ -715,7 +723,7 @@ export default class Deposit {
     } else {
       console.debug(`Approving transfer of ${redemptionCost} to the deposit...`)
       this.factory.tokenContract.methods
-        .approve(this.address, redemptionCost)
+        .approve(this.address, redemptionCost.toString())
         .send()
 
       console.debug(`Initiating redemption from deposit ${this.address}...`)
