@@ -13,6 +13,11 @@
   "homepage": "https://github.com/keep-network/tbtc.js",
   "main": "index.js",
   "bin": "./bin/tbtc.js",
+  "files": [
+    "bin/",
+    "src/",
+    "index.js"
+  ],
   "scripts": {
     "test": "mocha --timeout 10000",
     "lint": "npm run lint:js",
