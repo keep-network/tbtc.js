@@ -6,7 +6,7 @@
    hooks:
     - id: lint-js
       name: 'lint js'
-      entry: npm run lint:js
+      entry: /usr/bin/env npm run lint:js
       files: '\.js$'
       language: script
       description: "Checks JS code according to the package's linter configuration"
