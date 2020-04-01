@@ -8,6 +8,8 @@ on:
     branches: [ master ]
   pull_request:
     branches: [ master ]
+  repository_dispatch:
+    types: redeploy
 
 jobs:
   build:
@@ -29,7 +31,7 @@ jobs:
     - run: npm test
       env:
         CI: true
-    - if: github.event_name == 'push'
+    - if: github.event_name == 'push' || github.event_name == 'repository_dispatch'
       name: Bump and publish npm package
       env:
         NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
