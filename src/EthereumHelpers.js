@@ -91,9 +91,64 @@ function bytesToRaw(bytesString) {
   return bytesString.replace("0x", "").slice(2)
 }
 
+/**
+ * Takes a bound web3 contract method (e.g. `myContract.methods.doSomething(param)`
+ * and sends it with proper gas estimation and error handling. In particular,
+ * runs a gas estimate beforehand to attach an appropriate gas spend, and, if
+ * the gas estimation fails due to an always-failing transaction, `call`s the
+ * method to get the proper underlying error message. Otherwise, sends the
+ * signed transaction normally.
+ *
+ * @param {*} boundContractMethod A bound web3 contract method with
+ *        `estimateGas`, `send`, and `call` variants available.
+ * @param {*} sendParams The parameters to pass to `estimateGas` and `send` for
+ *        transaction processing.
+ * @param {boolean} forceSend Force the transaction send through even if gas
+ *        estimation fails.
+ *
+ * @return {Promise<any>} A promise to the result of sending the bound contract
+ *         method. Fails the promise if gas estimation fails, extracting an
+ *         on-chain error if possible.
+ */
+async function sendSafely(boundContractMethod, sendParams, forceSend) {
+  try {
+    const gasEstimate = await boundContractMethod.estimateGas(sendParams)
+
+    return boundContractMethod.send({
+      gas: gasEstimate,
+      ...sendParams
+    })
+  } catch (exception) {
+    // If we're not forcibly sending, try to resolve the true error by using
+    // `call`.
+    if (exception.message.match(/always failing transaction/)) {
+      let callResult
+      try {
+        // FIXME Something more is needed here to properly resolve this error...
+        callResult = await boundContractMethod.call(sendParams)
+      } catch (trueError) {
+        if (forceSend) {
+          console.error(callResult, trueError)
+        } else {
+          throw trueError
+        }
+      }
+
+      if (forceSend) {
+        return boundContractMethod.send(sendParams)
+      } else {
+        // If we weren't able to get a better error from `call`, throw the
+        // original exception.
+        throw exception
+      }
+    }
+  }
+}
+
 export default {
   getEvent,
   getExistingEvent,
   readEventFromTransaction,
-  bytesToRaw
+  bytesToRaw,
+  sendSafely
 }

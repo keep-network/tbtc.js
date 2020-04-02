@@ -108,13 +108,13 @@ export default class Redemption {
           const ETHEREUM_ECDSA_RECOVERY_V = toBN(27)
           const v = toBN(recoveryID).add(ETHEREUM_ECDSA_RECOVERY_V)
 
-          await this.deposit.contract.methods
-            .provideRedemptionSignature(
+          await EthereumHelpers.sendSafely(
+            this.deposit.contract.methods.provideRedemptionSignature(
               v.toString(),
               r.toString(),
               s.toString()
             )
-            .send()
+          )
         }
 
         const signedTransaction = BitcoinHelpers.Transaction.addWitnessSignature(
@@ -221,16 +221,16 @@ export default class Redemption {
       confirmations
     )
 
-    const call = await this.deposit.contract.methods.provideRedemptionProof(
-      // Redemption proof does not take the output position as a
-      // parameter, as all redemption transactions are one-input-one-output
-      // However, constructFundingProof includes it for deposit funding
-      // proofs. Here, we filter it out to produce the right set of
-      // parameters.
-      ...proofArgs.filter(_ => _ != "output position")
+    await EthereumHelpers.sendSafely(
+      this.deposit.contract.methods.provideRedemptionProof(
+        // Redemption proof does not take the output position as a
+        // parameter, as all redemption transactions are one-input-one-output
+        // However, constructFundingProof includes it for deposit funding
+        // proofs. Here, we filter it out to produce the right set of
+        // parameters.
+        ...proofArgs.filter(_ => _ != "output position")
+      )
     )
-    const gasEstimate = await call.estimateGas()
-    await call.send({ gas: gasEstimate })
 
     this.withdrawnEmitter.emit("withdrawn", transactionID)
   }

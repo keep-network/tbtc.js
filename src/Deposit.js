@@ -235,18 +235,11 @@ export class DepositFactory {
       )
     }
 
-    const gasEstimate = await this.depositFactoryContract.methods
-      .createDeposit(lotSize.toString())
-      .estimateGas({
-        value: creationCost
-      })
-
-    const result = await this.depositFactoryContract.methods
-      .createDeposit(lotSize.toString())
-      .send({
-        value: creationCost,
-        gas: gasEstimate
-      })
+    const result = await EthereumHelpers.sendSafely(
+      this.depositFactoryContract.methods.createDeposit(lotSize.toString()),
+      { value: creationCost },
+      true
+    )
 
     const createdEvent = EthereumHelpers.readEventFromTransaction(
       this.config.web3,
@@ -498,10 +491,9 @@ export default class Deposit {
       .send()
 
     console.debug(`Minting TBTC...`)
-    const call = await this.factory.vendingMachineContract.methods.tdtToTbtc(
-      this.address
+    const transaction = await EthereumHelpers.sendSafely(
+      this.factory.vendingMachineContract.methods.tdtToTbtc(this.address)
     )
-    await call.send({ gas: await call.estimateGas() })
 
     // return TBTC minted amount
     const transferEvent = EthereumHelpers.readEventFromTransaction(
@@ -714,23 +706,32 @@ export default class Deposit {
         `Initiating redemption of deposit ${this.address} from ` +
           `vending machine...`
       )
-      const call = await this.factory.vendingMachineContract.methods.tbtcToBtc(
-        this.address,
-        outputValueBytes,
-        redeemerOutputScript,
-        thisAccount
+      transaction = await EthereumHelpers.sendSafely(
+        this.factory.vendingMachineContract.methods.tbtcToBtc(
+          this.address,
+          outputValueBytes,
+          redeemerOutputScript,
+          thisAccount
+        )
       )
-      await call.send({ gas: await call.estimateGas() })
     } else {
       console.debug(`Approving transfer of ${redemptionCost} to the deposit...`)
-      this.factory.tokenContract.methods
-        .approve(this.address, redemptionCost.toString())
-        .send()
+      await EthereumHelpers.sendSafely(
+        this.factory.tokenContract.methods.approve(
+          this.address,
+          redemptionCost.toString()
+        )
+      )
 
       console.debug(`Initiating redemption from deposit ${this.address}...`)
-      transaction = await this.contract.methods
-        .requestRedemption(outputValueBytes, redeemerOutputScript)
-        .send()
+      transaction = await EthereumHelpers.sendSafely(
+        this.contract.methods.requestRedemption(
+          outputValueBytes,
+          redeemerOutputScript
+        ),
+        {},
+        true
+      )
     }
 
     const redemptionRequest = EthereumHelpers.readEventFromTransaction(
@@ -851,10 +852,11 @@ export default class Deposit {
           transaction,
           requiredConfirmations
         )
-        const call = await this.contract.methods.provideBTCFundingProof(
-          ...proofArgs
+        return EthereumHelpers.sendSafely(
+          this.contract.methods.provideBTCFundingProof(...proofArgs),
+          {},
+          true
         )
-        return call.send({ gas: await call.estimateGas() })
       }
     )
 
@@ -893,8 +895,9 @@ export default class Deposit {
       `Waiting for deposit ${this.address} to retrieve public key...`
     )
     // Ask the deposit to fetch and store the signer pubkey.
-    const call = await this.contract.methods.retrieveSignerPubkey()
-    const pubkeyTransaction = await call.send({ gas: await call.estimateGas() })
+    const pubkeyTransaction = await EthereumHelpers.sendSafely(
+      this.contract.methods.retrieveSignerPubkey()
+    )
 
     console.debug(`Found public key for deposit ${this.address}...`)
     const {
