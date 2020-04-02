@@ -29,6 +29,7 @@
   "license": "MIT",
   "dependencies": {
     "@keep-network/tbtc": ">0.12.0-pre <0.12.0-rc",
+    "@keep-network/keep-ecdsa": ">0.12.0-pre <0.12.0-rc",
     "@truffle/contract": "^4.1.8",
     "bcoin": "git+https://github.com/bcoin-org/bcoin.git#8851582",
     "bcrypto": "^4.1.0",
