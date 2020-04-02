@@ -15,7 +15,7 @@ import DepositFactoryJSON from "@keep-network/tbtc/artifacts/DepositFactory.json
 import TBTCTokenJSON from "@keep-network/tbtc/artifacts/TBTCToken.json"
 import FeeRebateTokenJSON from "@keep-network/tbtc/artifacts/FeeRebateToken.json"
 import VendingMachineJSON from "@keep-network/tbtc/artifacts/VendingMachine.json"
-import IBondedECDSAKeepJSON from "@keep-network/tbtc/artifacts/IBondedECDSAKeep.json"
+import BondedECDSAKeepJSON from "@keep-network/keep-ecdsa/artifacts/BondedECDSAKeep.json"
 
 import web3Utils from "web3-utils"
 const { toBN } = web3Utils
@@ -305,7 +305,7 @@ export default class Deposit {
     const contract = new web3.eth.Contract(DepositJSON.abi, depositAddress)
     contract.options.from = web3.eth.defaultAccount
     const keepContract = new web3.eth.Contract(
-      IBondedECDSAKeepJSON.abi,
+      BondedECDSAKeepJSON.abi,
       keepAddress
     )
     keepContract.options.from = web3.eth.defaultAccount
@@ -338,7 +338,7 @@ export default class Deposit {
     const keepAddress = createdEvent.returnValues._keepAddress
     console.debug(`Found keep address ${keepAddress}.`)
     const keepContract = new web3.eth.Contract(
-      IBondedECDSAKeepJSON.abi,
+      BondedECDSAKeepJSON.abi,
       keepAddress
     )
     keepContract.options.from = web3.eth.defaultAccount
