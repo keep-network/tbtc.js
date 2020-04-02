@@ -121,7 +121,10 @@ async function sendSafely(boundContractMethod, sendParams, forceSend) {
   } catch (exception) {
     // If we're not forcibly sending, try to resolve the true error by using
     // `call`.
-    if (exception.message && exception.message.match(/always failing transaction/)) {
+    if (
+      exception.message &&
+      exception.message.match(/always failing transaction/)
+    ) {
       let callResult
       try {
         // FIXME Something more is needed here to properly resolve this error...
