@@ -612,11 +612,13 @@ export default class Deposit {
 
       return lotSize.mul(toBN(10).pow(toBN(10))).add(ownerRedemptionRequirement)
     } else {
-      return await this.contract.methods
-        .getRedemptionTbtcRequirement(
-          this.factory.config.web3.eth.defaultAccount
-        )
-        .call()
+      return toBN(
+        await this.contract.methods
+          .getRedemptionTbtcRequirement(
+            this.factory.config.web3.eth.defaultAccount
+          )
+          .call()
+      )
     }
   }
 
