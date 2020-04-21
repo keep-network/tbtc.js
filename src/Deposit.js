@@ -221,7 +221,7 @@ export class DepositFactory {
    */
   async createNewDepositContract(lotSize) {
     const creationCost = toBN(
-      await this.systemContract.methods.createNewDepositFeeEstimate().call()
+      await this.systemContract.methods.getNewDepositFeeEstimate().call()
     )
 
     const accountBalance = await this.config.web3.eth.getBalance(
