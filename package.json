@@ -37,6 +37,7 @@
     "electrum-client-js": "git+https://github.com/keep-network/electrum-client-js.git#v0.1.0"
   },
   "devDependencies": {
+    "@0x/subproviders": "^6.0.8",
     "@truffle/hdwallet-provider": "^1.0.30",
     "chai": "^4.2.0",
     "eslint": "^6.8.0",
@@ -44,6 +45,7 @@
     "prettier": "^1.19.1",
     "fs": "0.0.1-security",
     "mocha": "^6.2.0",
-    "web3": "^1.2.0"
+    "web3": "^1.2.0",
+    "web3-provider-engine": "^15.0.7"
   }
 }

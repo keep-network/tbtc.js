@@ -1,17 +1,25 @@
 import Web3 from "web3"
 import TBTC from "./src/TBTC.js"
 
-import HDWalletProvider from "@truffle/hdwallet-provider"
-const mnemonic =
-  "egg dune news grocery detail frog kiwi hidden tuna noble speak over"
-
-const provider = new HDWalletProvider(
-  mnemonic,
-  "https://:e18ef5ef295944928dd87411bc678f19@ropsten.infura.io/v3/59fb36a36fa4474b890c13dd30038be5"
-)
+import ProviderEngine from "web3-provider-engine"
+import Subproviders from "@0x/subproviders"
 
 async function runExample() {
-  const web3 = new Web3(provider)
+  const engine = new ProviderEngine({ pollingInterval: 1000 })
+  engine.addProvider(
+    // For address 0x420ae5d973e58bc39822d9457bf8a02f127ed473.
+    new Subproviders.PrivateKeyWalletSubprovider(
+      "b6252e08d7a11ab15a4181774fdd58689b9892fe9fb07ab4f026df9791966990"
+    )
+  )
+  engine.addProvider(
+    new Subproviders.RPCSubprovider(
+      "https://:e18ef5ef295944928dd87411bc678f19@ropsten.infura.io/v3/59fb36a36fa4474b890c13dd30038be5"
+    )
+  )
+  const web3 = new Web3(engine)
+  engine.start()
+
   web3.eth.defaultAccount = (await web3.eth.getAccounts())[0]
 
   const tbtc = await TBTC.withConfig({
