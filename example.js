@@ -30,8 +30,8 @@ async function runExample() {
       },
       testnetWS: {
         server: "electrumx-server.test.tbtc.network",
-        port: 50003,
-        protocol: "ws"
+        port: 8443,
+        protocol: "wss"
       }
     }
   })
