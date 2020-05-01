@@ -112,7 +112,8 @@ function bytesToRaw(bytesString) {
  */
 async function sendSafely(boundContractMethod, sendParams, forceSend) {
   try {
-    const gasEstimate = await boundContractMethod.estimateGas(sendParams)
+    // Clone `sendParams` so we aren't exposed to providers that modify `sendParams`.
+    const gasEstimate = await boundContractMethod.estimateGas({ ...sendParams })
 
     return boundContractMethod.send({
       ...sendParams,
