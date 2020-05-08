@@ -937,6 +937,7 @@ export default class Deposit {
           this.factory.tokenContract,
           "Transfer"
         )
+        console.debug(`Minted`, transferEvent.value, `TBTC.`)
 
         return toBN(transferEvent.value).div(toBN(10).pow(18))
       }
