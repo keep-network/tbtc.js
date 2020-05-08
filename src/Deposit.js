@@ -606,16 +606,6 @@ export default class Deposit {
     }
 
     console.debug(
-      `Approving transfer of deposit ${this.address} TDT to Vending Machine...`
-    )
-    await this.factory.depositTokenContract.methods
-      .approve(
-        this.factory.vendingMachineContract.options.address,
-        this.address
-      )
-      .send()
-
-    console.debug(
       `Qualifying and minting off of deposit ${this.address} for ` +
         `Bitcoin transaction ${tx.transactionID}...`,
       tx,
