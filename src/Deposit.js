@@ -623,7 +623,7 @@ export default class Deposit {
       .encodeABI()
 
     const transaction = await EthereumHelpers.sendSafely(
-      this.factory.tokenContract.methods.approveAndCall(
+      this.factory.depositTokenContract.methods.approveAndCall(
         this.factory.fundingScriptContract.options.address,
         this.address,
         unqualifiedDepositToTbtcCall
