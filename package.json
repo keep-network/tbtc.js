@@ -29,7 +29,7 @@
   "license": "MIT",
   "dependencies": {
     "@keep-network/tbtc": ">0.15.0-rc <0.15.0",
-    "@keep-network/keep-ecdsa": ">0.15.0-rc <0.15.0",
+    "@keep-network/keep-ecdsa": ">0.16.0-rc <0.16.0",
     "bcoin": "git+https://github.com/bcoin-org/bcoin.git#8851582",
     "bcrypto": "^4.1.0",
     "bufio": "^1.0.6",
