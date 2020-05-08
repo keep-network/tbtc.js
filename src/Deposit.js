@@ -849,6 +849,7 @@ export default class Deposit {
    * @prop {Promise<BitcoinTransaction>} fundingTransaction
    * @prop {Promise<{ transaction: FoundTransaction, requiredConfirmations: Number }>} fundingConfirmations
    * @prop {Promise<EthereumTransaction>} proofTransaction
+   * @prop {Promise<number>} mintedTBTC
    */
   /**
    * This method enables the deposit's auto-submission capabilities. In
@@ -882,7 +883,7 @@ export default class Deposit {
     state.fundingTransaction = this.fundingTransaction
     state.fundingConfirmations = this.fundingConfirmations
 
-    state.proofTransaction = this.state.fundingConfirmations.then(
+    state.proofTransaction = state.fundingConfirmations.then(
       async ({ transaction, requiredConfirmations }) => {
         console.debug(
           `Submitting funding proof to deposit ${this.address} for ` +
@@ -906,14 +907,14 @@ export default class Deposit {
 
   autoMint() {
     // Only enable auto-submitting once.
-    if (this.autoMintingState) {
-      return this.autoMintingState
+    if (this.autoSubmittingState) {
+      return this.autoSubmittingState
     }
-
-    /** @type {AutoMintState} */
-    const state = (this.autoMintingState = {})
+    /** @type {AutoSubmitState} */
+    const state = (this.autoSubmittingState = {})
     state.fundingTransaction = this.fundingTransaction
     state.fundingConfirmations = this.fundingConfirmations
+
     state.mintedTBTC = state.fundingConfirmations.then(
       async ({ transaction: bitcoinTransaction, requiredConfirmations }) => {
         console.debug(
