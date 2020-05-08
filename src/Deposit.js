@@ -935,7 +935,7 @@ export default class Deposit {
         const transaction = await EthereumHelpers.sendSafely(
           this.factory.depositTokenContract.methods.approveAndCall(
             this.factory.fundingScriptContract.options.address,
-            toBN(this.address),
+            this.address,
             unqualifiedDepositToTbtcCall
           )
         )
