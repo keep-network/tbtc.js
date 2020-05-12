@@ -683,9 +683,7 @@ export default class Deposit {
     console.debug(
       `Looking up UTXO size and transaction fee for redemption transaction...`
     )
-    const transactionFee = await BitcoinHelpers.Transaction.estimateFee(
-      this.factory.constantsContract
-    )
+    const transactionFee = await this.constantsContract.methods.getMinimumRedemptionFee().call()
     const utxoSize = await this.contract.methods.utxoSize().call()
     const outputValue = toBN(utxoSize).sub(toBN(transactionFee))
     const outputValueBytes = outputValue.toArrayLike(Buffer, "le", 8)
