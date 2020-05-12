@@ -196,7 +196,7 @@ async function doTheThing() {
   // Actually let's check its existing balance eh?
 
   // Fund enough for 3 hours.
-  const fundAmount = (lowestLotSize.toNumber() + maxFee) * 1 // 90
+  const fundAmount = (lowestLotSize.toNumber() + maxFee) * 90
   console.log(`Please fund address with ${fundAmount} sats: ${addr.toString()}`)
   console.log("Waiting...")
   latestFundingInfo = await BitcoinHelpers.Transaction.findOrWaitFor(
