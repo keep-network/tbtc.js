@@ -28,8 +28,8 @@
   "author": "Antonio Salazar Cardozo <antonio@thesis.co>",
   "license": "MIT",
   "dependencies": {
-    "@keep-network/tbtc": ">0.15.0-pre <0.15.0-rc",
-    "@keep-network/keep-ecdsa": ">0.15.0-pre <0.15.0-rc",
+    "@keep-network/tbtc": ">0.15.0-rc <0.15.0",
+    "@keep-network/keep-ecdsa": ">0.15.0-rc <0.15.0",
     "bcoin": "git+https://github.com/bcoin-org/bcoin.git#8851582",
     "bcrypto": "^4.1.0",
     "bufio": "^1.0.6",
@@ -41,9 +41,8 @@
     "eslint": "^6.8.0",
     "eslint-config-keep": "git+https://github.com/keep-network/eslint-config-keep.git#0.3.0",
     "prettier": "^1.19.1",
-    "fs": "0.0.1-security",
     "mocha": "^6.2.0",
-    "web3": "^1.2.0",
+    "web3": "^1.2.6",
     "web3-provider-engine": "^15.0.7"
   }
 }
