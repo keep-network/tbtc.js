@@ -373,20 +373,25 @@ const BitcoinHelpers = {
       })
     },
     /**
-     * Estimates the fee that would be needed for a given transaction.
+     * Estimates the fee to have a transaction included within the sepcified
+     * number of blocks.
      *
-     * @param {object} tbtcConstantsContract The TBTCConstants contract that
-     *        provides the stub value for this function.
-     *
-     * @warning This is a stub. Currently it takes the TBTCConstants
-     *          contract and returns its reported minimum fee, rather than
-     *          calling electrumClient.blockchainEstimateFee.
+     * @param {number} [includeWithinBlocks=1] - The estimate is based on having the
+     *        transaction included within this number of blocks. Defaults to
+     *        trying to include the transaction within 1 block.
      *
      * @return {Promise<number>} The estimated fee to execute the provided
-     *         transaction.
+     *         transaction. Fails if the fee cannot be estimated.
      */
-    estimateFee: async function(tbtcConstantsContract) {
-      return tbtcConstantsContract.methods.getMinimumRedemptionFee().call()
+    estimateFeePerKb: async function(includeWithinBlocks) {
+      includeWithinBlocks = includeWithinBlocks || 1
+      return BitcoinHelpers.withElectrumClient(async electrumClient => {
+        const feePerKb = await electrumClient.getFeeEstimate(1)
+        if (feePerKb < 0) {
+          throw new Error(`Fee cannot be estimated; Electrum returned ${feePerKb}.`)
+        }
+        return feePerKb
+      })
     },
     /**
      * For the given `transactionID`, constructs an SPV proof that proves it
