@@ -8,6 +8,7 @@ import BN from "bn.js"
  * @typedef {Object} TBTCConfig
  * @prop {BitcoinNetwork} bitcoinNetwork
  * @prop {Web3} web3
+ * @prop {ElectrumConfig} electrum
  */
 
 /** @type {TBTCConfig} */

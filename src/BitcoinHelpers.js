@@ -1,3 +1,4 @@
+// @ts-check
 import secp256k1 from "bcrypto/lib/secp256k1.js"
 import BcoinPrimitives from "bcoin/lib/primitives/index.js"
 import BcoinScript from "bcoin/lib/script/index.js"
@@ -22,9 +23,15 @@ const BitcoinNetwork = {
 }
 
 /**
+ * Configuration for Electrum connections.
+ * @typedef {Object} ElectrumConfig
+ * @property {string} testnetWS A WebSocket URL to an Electrum server connected
+ *           to Bitcoin testnet.
+ */
+
+/**
  * Found transaction details.
- * @typedef FoundTransaction
- * @type {Object}
+ * @typedef {Object} FoundTransaction
  * @property {string} transactionID Transaction ID.
  * @property {number} outputPosition Position of output in the transaction.
  * @property {number} value Value of the output (satoshis).
@@ -45,9 +52,17 @@ const BitcoinNetwork = {
 
 /**
  * @typedef {Object} SPVProof
- * @extends {Proof}
  * @property {ParsedTransaction} parsedTransaction Parsed transaction with
  *           additional data useful in submitting SPV proofs, stored as buffers.
+ * @mixes {Proof}
+ */
+
+/**
+ * Description of a single transaction output.
+ * @typedef {Object} TransactionOutput
+ * @property {number} value The value of the output.
+ * @property {string} script The output script that will receive the specified
+ *           value.
  */
 
 const BitcoinHelpers = {
@@ -55,6 +70,7 @@ const BitcoinHelpers = {
 
   Network: BitcoinNetwork,
 
+  /** @type {ElectrumConfig} */
   electrumConfig: null,
   /**
    * Updates the config to use for Electrum client connections. Electrum is
@@ -423,7 +439,8 @@ const BitcoinHelpers = {
      *
      * @param {string} unsignedTransaction Unsigned raw bitcoin transaction
      *        in hexadecimal format.
-     * @param {uint32} inputIndex Index number of input to be signed.
+     * @param {number} inputIndex 32-bit index number of the input to be signed.
+     *        If more than 32 bits, an exception will be thrown.
      * @param {string} r Signature's `r` value in hexadecimal format.
      * @param {string} s Signature's `s` value in hexadecimal format.
      * @param {string} publicKey 64-byte signer's public key's concatenated
@@ -431,6 +448,7 @@ const BitcoinHelpers = {
      *
      * @return {string} Raw transaction in a hexadecimal format with witness
      *         signature.
+     * @throws If inputIndex is not representable in 32 bits.
      */
     addWitnessSignature: function(
       unsignedTransaction,
