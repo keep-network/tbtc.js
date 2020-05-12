@@ -1,4 +1,28 @@
 #!/usr/bin/env node --experimental-modules
+// @ts-check
+const commandHelp = `
+Usage: tbtc.js <subcommand>
+  <subcommand> is one of:
+
+    deposit <lot-size-satoshis> [--no-mint]
+        Initiates a deposit funding flow. Takes the lot size in satoshis.
+        Will prompt with a Bitcoin address when funding needs to be
+        submitted.
+
+        --no-mint
+            specifies not to mint TBTC once the deposit is qualified.
+
+    resume <deposit-address> [--no-mint]
+        Resumes a deposit funding flow that did not complete. An existing
+        funding transaction can exist, but this can also be run before the
+        funding transaction is submitted.
+
+        --no-mint
+            specifies not to mint TBTC once the deposit is qualified.
+
+    redeem <deposit-address>
+        Attempts to redeem a tBTC deposit.
+`
 import Web3 from "web3"
 import TBTC from "../index.js"
 
@@ -62,27 +86,7 @@ switch (args[0]) {
 }
 
 if (!action) {
-  console.log(`
-Unknown command ${args[0]} or bad parameters. Supported commands:
-    deposit <lot-size-satoshis> [--no-mint]
-        Initiates a deposit funding flow. Takes the lot size in satoshis.
-        Will prompt with a Bitcoin address when funding needs to be
-        submitted.
-
-        --no-mint
-            specifies not to mint TBTC once the deposit is qualified.
-
-    resume <deposit-address> [--no-mint]
-        Resumes a deposit funding flow that did not complete. An existing
-        funding transaction can exist, but this can also be run before the
-        funding transaction is submitted.
-
-        --no-mint
-            specifies not to mint TBTC once the deposit is qualified.
-
-    redeem <deposit-address>
-        Attempts to redeem a tBTC deposit.
-    `)
+  console.log(`Unknown command ${args[0]} or bad parameters.${commandHelp}`)
 
   process.exit(1)
 }
