@@ -64,6 +64,8 @@ export class TBTC {
       )
     }
 
+    config.web3.eth.Contract.handleRevert = true
+
     /** @package */
     this.depositFactory = depositFactory
     /** @package */
