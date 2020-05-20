@@ -112,11 +112,12 @@ function bytesToRaw(bytesString) {
  */
 async function sendSafely(boundContractMethod, sendParams, forceSend) {
   try {
-    const gasEstimate = await boundContractMethod.estimateGas(sendParams)
+    // Clone `sendParams` so we aren't exposed to providers that modify `sendParams`.
+    const gasEstimate = await boundContractMethod.estimateGas({ ...sendParams })
 
     return boundContractMethod.send({
-      gas: gasEstimate,
-      ...sendParams
+      ...sendParams,
+      gas: gasEstimate
     })
   } catch (exception) {
     // If we're not forcibly sending, try to resolve the true error by using
