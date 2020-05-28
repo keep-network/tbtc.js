@@ -5,7 +5,7 @@ const Script = require("bcoin/lib/script").Script
 /**
  * Network type enumeration.
  */
-const Network = Object.freeze({ mainnet: 1, testnet: 2 })
+const Network = Object.freeze({ mainnet: 1, testnet: 2, simnet: 4 })
 
 /**
  * Converts public key to bitcoin Witness Public Key Hash Address according to
@@ -55,6 +55,8 @@ function networkToBCOINvalue(network) {
       return "main"
     case Network.testnet:
       return "testnet"
+    case Network.simnet:
+      return "simnet"
     default:
       throw new Error(
         `unsupported network [${networkType}], use one of: [${Object.keys(
