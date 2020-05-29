@@ -52,6 +52,8 @@ export class TBTC {
       networkMatchCheck &&
       ((isMainnet(config.web3) &&
         config.bitcoinNetwork == BitcoinHelpers.Network.TESTNET) ||
+        (isMainnet(config.web3) &&
+          config.bitcoinNetwork == BitcoinHelpers.Network.SIMNET) ||
         (isTestnet(config.web3) &&
           config.bitcoinNetwork == BitcoinHelpers.Network.MAINNET))
     ) {
