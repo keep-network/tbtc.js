@@ -18,7 +18,8 @@ import BN from "bn.js"
 /** @enum {string} */
 const BitcoinNetwork = {
   TESTNET: "testnet",
-  MAINNET: "mainnet"
+  MAINNET: "mainnet",
+  SIMNET: "simnet"
 }
 
 /**

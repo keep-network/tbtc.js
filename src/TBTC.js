@@ -1,6 +1,7 @@
 import { DepositFactory } from "./Deposit.js"
 import BitcoinHelpers from "./BitcoinHelpers.js"
 import BN from "bn.js"
+import bcoin from "bcoin"
 /** @typedef { import("./BitcoinHelpers.js").BitcoinNetwork } BitcoinNetwork
 
 
@@ -51,6 +52,8 @@ export class TBTC {
       networkMatchCheck &&
       ((isMainnet(config.web3) &&
         config.bitcoinNetwork == BitcoinHelpers.Network.TESTNET) ||
+        (isMainnet(config.web3) &&
+          config.bitcoinNetwork == BitcoinHelpers.Network.SIMNET) ||
         (isTestnet(config.web3) &&
           config.bitcoinNetwork == BitcoinHelpers.Network.MAINNET))
     ) {
@@ -69,6 +72,9 @@ export class TBTC {
     this.config = config
 
     this.satoshisPerTbtc = new BN(10).pow(new BN(10))
+    // Set default bcoin network.
+    // This affects how addresses are encoded and displayed.
+    bcoin.set(config.bitcoinNetwork)
   }
 
   get Deposit() /* : DepositFactory*/ {
