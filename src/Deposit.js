@@ -1013,4 +1013,214 @@ export default class Deposit {
       digest: _digest
     }
   }
+
+  // /--------------------- Liquidation helpers -------------------------
+
+  /**
+   * Get the current collateralization level for this Deposit.
+   * Collateralization will be 0% if the deposit is in liquidation.
+   * @return {BN} Percentage collateralization, as an integer. eg. 149%
+   */
+  async getCollateralizationPercentage() {
+    return toBN(
+      await this.contract.methods.getCollateralizationPercentage().call()
+    )
+  }
+
+  /**
+   * Get the initial collateralization level for this Deposit.
+   * @return {BN} Percentage collateralization, as an integer. eg. 150%
+   */
+  async getInitialCollateralizedPercentage() {
+    return toBN(
+      await this.contract.methods.getInitialCollateralizedPercent().call()
+    )
+  }
+
+  /**
+   * Get the first threshold for deposit undercollateralization.
+   * If the collateralization level falls below this percentage, the Deposit can
+   * get courtesy-called.
+   * The deposit can be courtesy called using `Deposit.notifyCourtesyCall`.
+   * @return {BN} Percentage collateralization, as an integer. eg. 125%
+   */
+  async getUndercollateralizedThresholdPercent() {
+    return toBN(
+      await this.contract.methods
+        .getUndercollateralizedThresholdPercent()
+        .call()
+    )
+  }
+
+  /**
+   * Get the threshold for severe deposit undercollateralization.
+   * If the collateralization level falls below this percentage, the Deposit
+   * can be liquidated.
+   * Liquidation can be initiated using `Deposit.notifyUndercollateralizedLiquidation`.
+   * @return {BN} Percentage collateralization, as an integer. eg. 110%
+   */
+  async getSeverelyUndercollateralizedThresholdPercent() {
+    return toBN(
+      await this.contract.methods
+        .getSeverelyUndercollateralizedThresholdPercent()
+        .call()
+    )
+  }
+
+  /**
+   * Notify the contract that the signers are undercollateralized,
+   * and move the deposit into a pre-liquidation state.
+   */
+  async notifyCourtesyCall() {
+    await EthereumHelpers.sendSafely(this.contract.methods.notifyCourtesyCall())
+  }
+
+  /**
+   * Exit the courtesy call state.
+   * Only callable if the deposit is sufficiently collateralised.
+   */
+  async exitCourtesyCall() {
+    await EthereumHelpers.sendSafely(this.contract.methods.exitCourtesyCall())
+  }
+
+  /**
+   * Notify the contract that the deposit is severely undercollateralised,
+   * and begin liquidation of the signer bonds.
+   *
+   * The bonds are auctioned in a falling-price auction. The value of
+   * the bonds can be queried using `Deposit.auctionValue`, and bids placed
+   * using `Deposit.purchaseSignerBondsAtAuction`.
+   */
+  async notifyUndercollateralizedLiquidation() {
+    await EthereumHelpers.sendSafely(
+      this.contract.methods.notifyUndercollateralizedLiquidation()
+    )
+  }
+
+  /**
+   * Purchases the signer bonds and closes the liquidation auction.
+   *
+   * Note: The caller must approve the Deposit contract to spend
+   * `lotSize` amount of TBTC.
+   */
+  async purchaseSignerBondsAtAuction() {
+    await EthereumHelpers.sendSafely(
+      this.contract.methods.purchaseSignerBondsAtAuction()
+    )
+  }
+
+  /**
+   * Gets the current value of signer bonds at auction.
+   * Only callable if the deposit is in the liqudation state.
+   * @return {BN} auction value in wei.
+   */
+  async auctionValue() {
+    return toBN(await this.contract.methods.auctionValue().call())
+  }
+
+  // /--------------------- Timeout helpers -------------------------
+
+  /**
+   * Notify the contract that signing group setup has timed out.
+   * Only applicable during funding.
+   */
+  async notifySignerSetupFailure() {
+    await EthereumHelpers.sendSafely(
+      this.contract.methods.notifySignerSetupFailure()
+    )
+  }
+
+  /**
+   * Notify the contract that the funder has failed to send BTC.
+   * Only applicable during funding.
+   */
+  async notifyFundingTimeout() {
+    await EthereumHelpers.sendSafely(
+      this.contract.methods.notifyFundingTimeout()
+    )
+  }
+
+  /**
+   * Notifies the contract that the courtesy period has elapsed.
+   */
+  async notifyCourtesyTimeout() {
+    await EthereumHelpers.sendSafely(
+      this.contract.methods.notifyCourtesyTimeout()
+    )
+  }
+
+  /**
+   * Notify the contract that the signers have failed to produce a signature.
+   * This is considered fraud, and moves the deposit into liquidation.
+   * Only applicable during redemption.
+   */
+  async notifySignatureTimeout() {
+    await EthereumHelpers.sendSafely(
+      this.contract.methods.notifySignatureTimeout()
+    )
+  }
+
+  /**
+   * Notify the contract that the signers have failed to produce a redemption proof.
+   */
+  async notifyRedemptionProofTimeout() {
+    await EthereumHelpers.sendSafely(
+      this.contract.methods.notifyRedemptionProofTimeout()
+    )
+  }
+
+  /**
+   * Checks if signature was requested via the Keep.
+   * @param {string} digest Digest to check approval for.
+   * @return {boolean} True if signature approved, false if not (fraud).
+   */
+  async wasSignatureApproved(digest) {
+    const events = await this.keepContract.getPastEvents("SignatureRequested", {
+      fromBlock: 0,
+      toBlock: "latest",
+      filter: { digest }
+    })
+
+    return events.length > 0
+  }
+
+  /**
+   * Provide a signature that was not requested to prove fraud during funding.
+   * @param {*} v Signature recovery value.
+   * @param {*} r Signature R value.
+   * @param {*} s Signature S value.
+   * @param {*} signedDigest The digest signed by the signature vrs tuple.
+   * @param {*} preimage The sha256 preimage of the digest.
+   */
+  async provideFundingECDSAFraudProof(v, r, s, signedDigest, preimage) {
+    await EthereumHelpers.sendSafely(
+      this.contract.methods.provideFundingECDSAFraudProof(
+        v,
+        r,
+        s,
+        signedDigest,
+        preimage
+      )
+    )
+  }
+
+  /**
+   * Provide a signature that was not requested to prove fraud.
+   * @param {*} v Signature recovery value.
+   * @param {*} r Signature R value.
+   * @param {*} s Signature S value.
+   * @param {*} signedDigest The digest signed by the signature vrs tuple.
+   * @param {*} preimage The sha256 preimage of the digest.
+   */
+  async provideECDSAFraudProof(v, r, s, signedDigest, preimage) {
+    await EthereumHelpers.sendSafely(
+      this.contract.methods.provideECDSAFraudProof(
+        v,
+        r,
+        s,
+        signedDigest,
+        preimage
+      )
+    )
+  }
 }
