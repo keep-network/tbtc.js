@@ -24,7 +24,7 @@ const { toBN } = web3Utils
 /** @typedef { import("./TBTC").TBTCConfig } TBTCConfig */
 
 /** @enum {number} */
-const DepositStates = {
+export const DepositStates = {
   // Not initialized.
   START: 0,
 
