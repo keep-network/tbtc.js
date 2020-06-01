@@ -1,0 +1,49 @@
+tBTC Mini Maintainer
+====================
+
+= Overview
+
+The mini-maintainer is a software that maintains aspects of 
+the tBTC system, including:
+
+* Initiating liquidation of undercollateralised deposits.
+* Participating in signer bond liquidation auctions.
+* Notifying the smart contracts of protocol timeouts.
+* Detecting signer fraud on the Bitcoin blockchain,
+  and proving it to the Ethereum smart contracts.
+
+It is built entirely atop tbtc.js as a self-contained
+Node.js program.
+
+Please note: the maintainer is still ALPHA-quality software.
+
+== Running
+
+Quick run - `WATCH_AUCTIONS=1 node --experimental-json-modules examples/mini-maintainer/index.js`.
+
+Some notes:
+
+ * The mini-maintainer uses `accounts[0]` for transacting. 
+ * By default, it will monitor and maintain ALL deposits of a TBTCSystem. You can tweak 
+   `depositsToMonitor` to only watch a certain subset, for testing purposes.
+ * You can set the flag `WATCH_AUCTIONS=1` to enable maintainer participation in signer
+   bond auctions. This is disabled by default. The maintainer will bid the highest amount
+   as soon as the auction begins.
+
+== Smart contract endpoints.
+
+The Deposit needs maintainers to call these methods, in
+order to maintain a healthy tBTC network. They are all
+implemented by the mini-maintainer.
+
+* [x] notifySignerSetupFailure
+* [x] notifyFundingTimeout
+* [x] notifySignatureTimeout
+* [x] notifyRedemptionProofTimeout
+* [x] notifyUndercollateralizedLiquidation
+* [x] notifyCourtesyCall
+* [x] notifyCourtesyTimeout
+* [x] exitCourtesyCall
+* [x] purchaseSignerBondsAtAuction
+* [x] provideECDSAFraudProof
+* [x] provideFundingECDSAFraudProof
