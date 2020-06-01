@@ -321,6 +321,27 @@ export default class Client {
 
     throw new Error(`output for address ${address} not found`)
   }
+
+  /**
+   * Gets a history of all transactions the script is involved in.
+   * @param {string} script The script in raw hexadecimal format.
+   * @return {*} A list of transactions.
+   */
+  async getTransactionsForScript(script) {
+    const scriptHash = scriptToHash(script)
+    const history = await this.electrumClient.blockchain_scripthash_getHistory(
+      scriptHash
+    )
+
+    // Get all transactions for script.
+    const transactions = await Promise.all(
+      history
+        .map(confirmedTx => confirmedTx.tx_hash)
+        .map(txHash => this.getTransaction(txHash))
+    )
+
+    return transactions
+  }
 }
 
 function fromHex(hex) {
