@@ -1099,11 +1099,20 @@ export default class Deposit {
 
   /**
    * Purchases the signer bonds and closes the liquidation auction.
-   *
-   * Note: The caller must approve the Deposit contract to spend
-   * `lotSize` amount of TBTC.
    */
   async purchaseSignerBondsAtAuction() {
+    const owner = this.factory.config.web3.eth.defaultAccount
+    const allowance = await this.factory.tokenContract.methods
+      .allowance(owner, deposit.address)
+      .call()
+
+    const lotSize = await this.getLotSizeTBTC()
+    if (toBN(allowance).lt(lotSize)) {
+      await this.factory.tokenContract.methods
+        .approve(this.address, lotSize.toString())
+        .send()
+    }
+
     await EthereumHelpers.sendSafely(
       this.contract.methods.purchaseSignerBondsAtAuction()
     )
