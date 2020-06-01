@@ -376,8 +376,15 @@ export default class Deposit {
   /**
    * @return {Promise<BN>} A promise to the lot size of the deposit, in satoshis.
    */
-  async getSatoshiLotSize() {
+  async getLotSizeSatoshis() {
     return toBN(await this.contract.methods.lotSizeSatoshis().call())
+  }
+
+  /**
+   * @return {Promise<BN>} A promise to the lot size of the deposit, in TBTC tokens.
+   */
+  async getLotSizeTBTC() {
+    return toBN(await this.contract.methods.lotSizeTbtc().call())
   }
 
   /**
@@ -523,7 +530,7 @@ export default class Deposit {
    */
   async qualifyAndMintTBTC() {
     const address = await this.bitcoinAddress
-    const expectedValue = parseInt(await this.getSatoshiLotSize())
+    const expectedValue = (await this.getLotSizeSatoshis()).toNumber()
     const tx = await BitcoinHelpers.Transaction.find(address, expectedValue)
     if (!tx) {
       throw new Error(
@@ -546,16 +553,6 @@ export default class Deposit {
           `expected ${requiredConfirmations}.`
       )
     }
-
-    console.debug(
-      `Approving transfer of deposit ${this.address} TDT to Vending Machine...`
-    )
-    await this.factory.depositTokenContract.methods
-      .approve(
-        this.factory.vendingMachineContract.options.address,
-        this.address
-      )
-      .send()
 
     console.debug(
       `Qualifying and minting off of deposit ${this.address} for ` +
@@ -600,7 +597,7 @@ export default class Deposit {
           )
           .call()
       )
-      const lotSize = await this.getSatoshiLotSize()
+      const lotSize = await this.getLotSizeSatoshis()
 
       return lotSize.mul(toBN(10).pow(toBN(10))).add(ownerRedemptionRequirement)
     } else {
@@ -813,7 +810,7 @@ export default class Deposit {
     const state = (this.autoSubmittingState = {})
 
     state.fundingTransaction = this.bitcoinAddress.then(async address => {
-      const expectedValue = await this.getSatoshiLotSize()
+      const expectedValue = (await this.getLotSizeSatoshis()).toNumber()
 
       console.debug(
         `Monitoring Bitcoin for transaction to address ${address}...`

@@ -50,7 +50,7 @@ async function runExample() {
   const deposit = await tbtc.Deposit.withSatoshiLotSize(lotSizes[0])
   deposit.autoSubmit()
   deposit.onBitcoinAddressAvailable(async address => {
-    const lotSize = await deposit.getSatoshiLotSize()
+    const lotSize = await deposit.getLotSizeSatoshis()
     console.log(
       "\tGot deposit address:",
       address,

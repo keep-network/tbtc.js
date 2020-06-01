@@ -68,7 +68,7 @@ async function runExample() {
   // console.log("Initiating deposit...")
   // const deposit = await DepositFactory.withSatoshiLotSize(lotSizes[0])
   // deposit.onBitcoinAddressAvailable(async (address, cancelAutoMonitor) => {
-  //     const lotSize = await deposit.getSatoshiLotSize()
+  //     const lotSize = await deposit.getLotSizeSatoshis()
   //     console.log(
   //         "\tGot deposit address:", address,
   //         "; fund with:", lotSize.toString(), "satoshis please.",
