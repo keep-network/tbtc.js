@@ -2,6 +2,7 @@ import { DepositFactory } from "./Deposit.js"
 import BitcoinHelpers from "./BitcoinHelpers.js"
 import BN from "bn.js"
 import bcoin from "bcoin"
+import { Constants } from "./Constants.js"
 /** @typedef { import("./BitcoinHelpers.js").BitcoinNetwork } BitcoinNetwork
 
 
@@ -37,17 +38,18 @@ function isTestnet(web3) {
 export class TBTC {
   static async withConfig(config = defaultConfig, networkMatchCheck = true) {
     const depositFactory = await DepositFactory.withConfig(config)
-
-    return new TBTC(depositFactory, config, networkMatchCheck)
+    const constants = await Constants.withConfig(config)
+    return new TBTC(depositFactory, constants, config, networkMatchCheck)
   }
 
   /**
    *
    * @param {DepositFactory} depositFactory
+   * @param {Constants} constants
    * @param {TBTCConfig} config
    * @param {boolean} networkMatchCheck
    */
-  constructor(depositFactory, config, networkMatchCheck = true) {
+  constructor(depositFactory, constants, config, networkMatchCheck = true) {
     if (
       networkMatchCheck &&
       ((isMainnet(config.web3) &&
@@ -69,6 +71,8 @@ export class TBTC {
     /** @package */
     this.depositFactory = depositFactory
     /** @package */
+    this.constants = constants
+    /** @package */
     this.config = config
 
     this.satoshisPerTbtc = new BN(10).pow(new BN(10))
@@ -77,8 +81,14 @@ export class TBTC {
     bcoin.set(config.bitcoinNetwork)
   }
 
-  get Deposit() /* : DepositFactory*/ {
+  /** @return {DepositFactory} */
+  get Deposit() {
     return this.depositFactory
+  }
+
+  /** @return {Constants} */
+  get Constants() {
+    return this.constants
   }
 }
 
