@@ -131,19 +131,8 @@ export class DepositFactory {
   /** @private */
   async resolveContracts() {
     const web3 = this.config.web3
-
     // Get the net_version
     const networkId = await this.config.web3.eth.net.getId()
-
-    function lookupAddress(artifact) {
-      const deploymentInfo = artifact.networks[networkId]
-      if (!deploymentInfo) {
-        throw new Error(
-          `No deployment info found for contract ${artifact.contractName}, network ID ${networkId}.`
-        )
-      }
-      return deploymentInfo.address
-    }
 
     const contracts = [
       [TBTCConstantsJSON, "constantsContract"],
@@ -155,10 +144,12 @@ export class DepositFactory {
       [VendingMachineJSON, "vendingMachineContract"]
     ]
 
-    contracts.map(([artifact, propertyName, deployed]) => {
-      const contract = new web3.eth.Contract(artifact.abi)
-      contract.options.address = lookupAddress(artifact)
-      contract.options.from = web3.eth.defaultAccount
+    contracts.map(([artifact, propertyName]) => {
+      const contract = EthereumHelpers.getDeployedContract(
+        artifact,
+        web3,
+        networkId
+      )
       this[propertyName] = contract
     })
 
