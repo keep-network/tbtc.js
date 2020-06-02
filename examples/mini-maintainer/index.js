@@ -25,6 +25,7 @@ async function timer(seconds) {
 }
 
 let web3
+/** @type {import("../../index.js").TBTC} */
 let tbtc
 
 let ethBalance
@@ -450,8 +451,8 @@ async function watchTimeout({ deposit, state }) {
   }
 
   // Funding.
-  const FORMATION_TIMEOUT = 3 * 60 * 60 // seconds
-  const FUNDING_PROOF_TIMEOUT = 3 * 60 * 60 // seconds
+  const FORMATION_TIMEOUT = tbtc.Constants.SIGNING_GROUP_FORMATION_TIMEOUT.toNumber() // seconds
+  const FUNDING_PROOF_TIMEOUT = tbtc.Constants.FUNDING_PROOF_TIMEOUT.toNumber() // seconds
   if (state == DepositStates.AWAITING_SIGNER_SETUP) {
     // notifySignerSetupFailure - keep signer group failed to form.
     const createdAt = await getTimerStartFromEvent("Created", deposit)
@@ -480,8 +481,8 @@ async function watchTimeout({ deposit, state }) {
   }
 
   // Redemption.
-  const REDEMPTION_SIGNATURE_TIMEOUT = 2 * 60 * 60 // seconds
-  const REDEMPTION_PROOF_TIMEOUT = 6 * 60 * 60 // seconds
+  const REDEMPTION_SIGNATURE_TIMEOUT = tbtc.Constants.REDEMPTION_SIGNATURE_TIMEOUT.toNumber() // seconds
+  const REDEMPTION_PROOF_TIMEOUT = tbtc.Constants.REDEMPTION_PROOF_TIMEOUT.toNumber() // seconds
   if (state == DepositStates.AWAITING_WITHDRAWAL_SIGNATURE) {
     // notifySignatureTimeout - failed to produce signature
     // There can be multiple RedemptionRequested events.
@@ -520,7 +521,7 @@ async function watchTimeout({ deposit, state }) {
   }
 
   // Courtesy
-  const COURTESY_CALL_DURATION = 6 * 60 * 60 // seconds
+  const COURTESY_CALL_DURATION = tbtc.Constants.COURTESY_CALL_DURATION.toNumber() // seconds
   if (state == DepositStates.COURTESY_CALL) {
     // Deposit can enter in and out of the COURTESY_CALL state.
     // So we select the most recent one.
