@@ -133,11 +133,31 @@ export default class Redemption {
     )
   }
 
+  /**
+   * @typedef {Object} AutoSubmitState
+   * @prop {Promise<BitcoinTransaction>} signedTransaction
+   * @prop {Promise<{ transaction: FoundTransaction, requiredConfirmations: Number }>} confirmations
+   * @prop {Promise<EthereumTransaction>} proofTransaction
+   */
+  /**
+   * This method enables the redemption's auto-submission capabilities.
+   *
+   * Calling this function more than once will return the existing state of
+   * the first auto submission process, rather than restarting the process.
+   *
+   * @return {AutoSubmitState} An object with promises to various stages of
+   *         the auto-submit lifetime. Each promise can be fulfilled or
+   *         rejected, and they are in a sequence where later promises will be
+   *         rejected by earlier ones.
+   */
   autoSubmit() {
-    if (this.autoSubmitPromise) {
-      return this.autoSubmitPromise
+    if (this.autoSubmittingState) {
+      return this.autoSubmittingState
     }
-    this.autoSubmitPromise = this.signedTransaction.then(
+
+    const state = (this.autoSubmittingState = {})
+
+    state.signedTransaction = this.signedTransaction.then(
       async signedTransaction => {
         console.debug(
           `Looking for existing signed redemption transaction on Bitcoin ` +
@@ -165,21 +185,31 @@ export default class Redemption {
           )
         }
 
-        const requiredConfirmations = parseInt(
-          await this.deposit.factory.constantsContract.methods
-            .getTxProofDifficultyFactor()
-            .call()
-        )
+        return transaction
+      }
+    )
 
-        console.debug(
-          `Waiting for ${requiredConfirmations} confirmations for ` +
-            `Bitcoin transaction ${transaction.transactionID}...`
-        )
-        await BitcoinHelpers.Transaction.waitForConfirmations(
-          transaction,
-          requiredConfirmations
-        )
+    state.confirmations = state.signedTransaction.then(async transaction => {
+      const requiredConfirmations = parseInt(
+        await this.deposit.factory.constantsContract.methods
+          .getTxProofDifficultyFactor()
+          .call()
+      )
 
+      console.debug(
+        `Waiting for ${requiredConfirmations} confirmations for ` +
+          `Bitcoin transaction ${transaction.transactionID}...`
+      )
+      await BitcoinHelpers.Transaction.waitForConfirmations(
+        transaction,
+        requiredConfirmations
+      )
+
+      return { transaction, requiredConfirmations }
+    })
+
+    state.proofTransaction = state.confirmations.then(
+      async ({ transaction, requiredConfirmations }) => {
         console.debug(
           `Transaction is sufficiently confirmed; submitting redemption ` +
             `proof to deposit ${this.deposit.address}...`
@@ -191,6 +221,8 @@ export default class Redemption {
       }
     )
     // TODO bumpFee if needed
+
+    return state
   }
 
   /**
