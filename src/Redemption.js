@@ -184,40 +184,38 @@ export default class Redemption {
             signedTransaction
           )
         }
-
-        return transaction
+        return transaction.transactionID
       }
     )
 
-    state.confirmations = state.broadcastTransactionID.then(async transaction => {
-      const requiredConfirmations = parseInt(
-        await this.deposit.factory.constantsContract.methods
-          .getTxProofDifficultyFactor()
-          .call()
-      )
+    state.confirmations = state.broadcastTransactionID.then(
+      async transactionID => {
+        const requiredConfirmations = parseInt(
+          await this.deposit.factory.constantsContract.methods
+            .getTxProofDifficultyFactor()
+            .call()
+        )
 
-      console.debug(
-        `Waiting for ${requiredConfirmations} confirmations for ` +
-          `Bitcoin transaction ${transaction.transactionID}...`
-      )
-      await BitcoinHelpers.Transaction.waitForConfirmations(
-        transaction,
-        requiredConfirmations
-      )
+        console.debug(
+          `Waiting for ${requiredConfirmations} confirmations for ` +
+            `Bitcoin transaction ${transactionID}...`
+        )
+        await BitcoinHelpers.Transaction.waitForConfirmations(
+          transactionID,
+          requiredConfirmations
+        )
 
-      return { transaction, requiredConfirmations }
-    })
+        return { transactionID, requiredConfirmations }
+      }
+    )
 
     state.proofTransaction = state.confirmations.then(
-      async ({ transaction, requiredConfirmations }) => {
+      async ({ transactionID, requiredConfirmations }) => {
         console.debug(
           `Transaction is sufficiently confirmed; submitting redemption ` +
             `proof to deposit ${this.deposit.address}...`
         )
-        return this.proveWithdrawal(
-          transaction.transactionID,
-          requiredConfirmations
-        )
+        return this.proveWithdrawal(transactionID, requiredConfirmations)
       }
     )
     // TODO bumpFee if needed

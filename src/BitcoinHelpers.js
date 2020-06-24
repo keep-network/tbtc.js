@@ -332,24 +332,22 @@ const BitcoinHelpers = {
       })
     },
     /**
-     * Watches the Bitcoin chain until the given `transaction` has the given
+     * Watches the Bitcoin chain until the given `transactionID` has the given
      * number of `requiredConfirmations`.
      *
-     * @param {FoundTransaction} transaction Transaction object from Electrum.
+     * @param {string} transactionID A hex Bitcoin transaction id hash.
      * @param {number} requiredConfirmations The number of required
      *        confirmations to wait before returning.
      *
      * @return {Promise<number>} A promise to the final number of confirmations
      *         observed that was at least equal to the required confirmations.
      */
-    waitForConfirmations: async function(transaction, requiredConfirmations) {
-      const id = transaction.transactionID
-
+    waitForConfirmations: async function(transactionID, requiredConfirmations) {
       return BitcoinHelpers.withElectrumClient(async electrumClient => {
         const checkConfirmations = async function() {
           return await BitcoinHelpers.Transaction.checkForConfirmationsWithClient(
             electrumClient,
-            id,
+            transactionID,
             requiredConfirmations
           )
         }
