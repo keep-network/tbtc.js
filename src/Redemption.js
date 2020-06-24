@@ -157,7 +157,7 @@ export default class Redemption {
 
     const state = (this.autoSubmittingState = {})
 
-    state.signedTransaction = this.signedTransaction.then(
+    state.broadcastTransactionID = this.signedTransaction.then(
       async signedTransaction => {
         console.debug(
           `Looking for existing signed redemption transaction on Bitcoin ` +
@@ -189,7 +189,7 @@ export default class Redemption {
       }
     )
 
-    state.confirmations = state.signedTransaction.then(async transaction => {
+    state.confirmations = state.broadcastTransactionID.then(async transaction => {
       const requiredConfirmations = parseInt(
         await this.deposit.factory.constantsContract.methods
           .getTxProofDifficultyFactor()
