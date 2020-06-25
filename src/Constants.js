@@ -60,7 +60,7 @@ class Constants {
     const results = await Promise.all(calls)
 
     const constants = {}
-    results.map(constantEntry => {
+    results.forEach(constantEntry => {
       Object.assign(constants, constantEntry)
     })
 
