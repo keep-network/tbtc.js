@@ -3,7 +3,6 @@ import BitcoinHelpers from "./BitcoinHelpers.js"
 import BN from "bn.js"
 /** @typedef { import("./BitcoinHelpers.js").BitcoinNetwork } BitcoinNetwork
 
-
 /**
  * @typedef {Object} TBTCConfig
  * @prop {BitcoinNetwork} bitcoinNetwork
