@@ -72,9 +72,6 @@ export class TBTC {
     this.config = config
 
     this.satoshisPerTbtc = new BN(10).pow(new BN(10))
-    // Set default bcoin network.
-    // This affects how addresses are encoded and displayed.
-    bcoin.set(config.bitcoinNetwork)
   }
 
   get Deposit() /* : DepositFactory*/ {
