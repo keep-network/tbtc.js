@@ -155,7 +155,7 @@ async function sendSafely(boundContractMethod, sendParams, forceSend) {
  * Gets the Web3 Contract for a Truffle artifact and Web3 instance.
  * @param {JSON} artifact
  * @param {*} web3
- * @param {*} networkId
+ * @param {string} networkId
  * @return {Contract}
  */
 function getDeployedContract(artifact, web3, networkId) {
