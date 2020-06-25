@@ -1,7 +1,6 @@
 import { DepositFactory } from "./Deposit.js"
 import BitcoinHelpers from "./BitcoinHelpers.js"
 import BN from "bn.js"
-import bcoin from "bcoin"
 /** @typedef { import("./BitcoinHelpers.js").BitcoinNetwork } BitcoinNetwork
 
 
