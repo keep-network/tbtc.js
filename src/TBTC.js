@@ -1,10 +1,8 @@
 import { DepositFactory } from "./Deposit.js"
 import BitcoinHelpers from "./BitcoinHelpers.js"
 import BN from "bn.js"
-import bcoin from "bcoin"
 import { Constants } from "./Constants.js"
 /** @typedef { import("./BitcoinHelpers.js").BitcoinNetwork } BitcoinNetwork
-
 
 /**
  * @typedef {Object} TBTCConfig
@@ -76,9 +74,6 @@ export class TBTC {
     this.config = config
 
     this.satoshisPerTbtc = new BN(10).pow(new BN(10))
-    // Set default bcoin network.
-    // This affects how addresses are encoded and displayed.
-    bcoin.set(config.bitcoinNetwork)
   }
 
   /** @return {DepositFactory} */
