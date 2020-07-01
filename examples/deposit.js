@@ -1,5 +1,5 @@
 import Web3 from "web3"
-import TBTC from "./src/TBTC.js"
+import TBTC from "../index.js"
 
 import ProviderEngine from "web3-provider-engine"
 import Subproviders from "@0x/subproviders"
