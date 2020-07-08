@@ -39,7 +39,6 @@ class Constants {
       ["getSigningGroupFormationTimeout", "SIGNING_GROUP_FORMATION_TIMEOUT"],
       ["getCourtesyCallTimeout", "COURTESY_CALL_DURATION"],
       ["getAuctionDuration", "AUCTION_DURATION"],
-      ["getPermittedFeeBumps", "PERMITTED_FEE_BUMPS"]
     ]
 
     const calls = members.map(([constantGetter, constantName]) => {
