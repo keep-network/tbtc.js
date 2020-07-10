@@ -677,8 +677,8 @@ export default class Deposit {
     const transactionFee = await BitcoinHelpers.Transaction.estimateFee(
       this.factory.constantsContract
     )
-    const utxoSize = await this.contract.methods.utxoSize().call()
-    const outputValue = toBN(utxoSize).sub(toBN(transactionFee))
+    const utxoValue = await this.contract.methods.utxoValue().call()
+    const outputValue = toBN(utxoValue).sub(toBN(transactionFee))
     const outputValueBytes = outputValue.toArrayLike(Buffer, "le", 8)
 
     let transaction
@@ -993,7 +993,7 @@ export default class Deposit {
     redemptionRequestedEventArgs
   ) /* : RedemptionDetails*/ {
     const {
-      _utxoSize,
+      _utxoValue,
       _redeemerOutputScript,
       _requestedFee,
       _outpoint,
@@ -1001,7 +1001,7 @@ export default class Deposit {
     } = redemptionRequestedEventArgs
 
     return {
-      utxoSize: toBN(_utxoSize),
+      utxoValue: toBN(_utxoValue),
       redeemerOutputScript: _redeemerOutputScript,
       requestedFee: toBN(_requestedFee),
       outpoint: _outpoint,
