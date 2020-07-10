@@ -701,8 +701,7 @@ export default class Deposit {
         this.factory.vendingMachineContract.methods.tbtcToBtc(
           this.address,
           outputValueBytes,
-          redeemerOutputScript,
-          thisAccount
+          redeemerOutputScript
         )
       )
     } else {
