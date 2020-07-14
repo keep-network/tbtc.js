@@ -10,7 +10,7 @@ const { toBN } = web3Utils
 /**
  * Details of a given redemption at a given point in time.
  * @typedef {Object} RedemptionDetails
- * @property {BN} utxoSize The size of the UTXO size in the redemption.
+ * @property {BN} utxoValue The value of the UTXO in the redemption.
  * @property {Buffer} redeemerOutputScript The raw redeemer output script bytes.
  * @property {BN} requestedFee The fee for the redemption transaction.
  * @property {Buffer} outpoint The raw outpoint bytes.
@@ -59,7 +59,7 @@ export default class Redemption {
     this.redemptionDetails = this.getLatestRedemptionDetails(redemptionDetails)
 
     this.unsignedTransactionDetails = this.redemptionDetails.then(details => {
-      const outputValue = details.utxoSize.sub(details.requestedFee)
+      const outputValue = details.utxoValue.sub(details.requestedFee)
       const unsignedTransaction = BitcoinHelpers.Transaction.constructOneInputOneOutputWitnessTransaction(
         details.outpoint.replace("0x", ""),
         // We set sequence to `0` to be able to replace by fee. It reflects
@@ -164,9 +164,9 @@ export default class Redemption {
             `chain for deposit ${this.deposit.address}...`
         )
 
-        const { utxoSize, requestedFee, redeemerOutputScript } = await this
+        const { utxoValue, requestedFee, redeemerOutputScript } = await this
           .redemptionDetails
-        const expectedValue = utxoSize.sub(requestedFee).toNumber()
+        const expectedValue = utxoValue.sub(requestedFee).toNumber()
         // FIXME Check that the transaction spends the right UTXO, not just
         // FIXME that it's the right amount to the right address. outpoint
         // FIXME compared against vin is probably the move here.
