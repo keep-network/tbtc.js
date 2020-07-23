@@ -5,9 +5,9 @@ name: Node.js CI
 
 on:
   push:
-    branches: [ releases/ropsten/1.0.3-rc ]
+    branches: [ releases/ropsten/0.17.0-rc ]
   pull_request:
-    branches: [ releases/ropsten/1.0.3-rc ]
+    branches: [ releases/ropsten/0.17.0-rc ]
   repository_dispatch:
     types: redeploy
 
