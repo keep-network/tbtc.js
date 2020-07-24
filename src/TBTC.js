@@ -2,6 +2,7 @@ import { DepositFactory } from "./Deposit.js"
 import BitcoinHelpers from "./BitcoinHelpers.js"
 import BN from "bn.js"
 import { Constants } from "./Constants.js"
+import TBTCSystemJSON from "@keep-network/tbtc/artifacts/TBTCSystem.json"
 /** @typedef { import("./BitcoinHelpers.js").BitcoinNetwork } BitcoinNetwork
 
 /**
@@ -96,4 +97,14 @@ export default {
     return await TBTC.withConfig(config, networkMatchCheck)
   },
   BitcoinNetwork: BitcoinHelpers.Network
+}
+
+/**
+ * Returns the network ID from the artifact.
+ * Artifacts from @keep-network/tbtc for a given build only support a single network id.
+ * 
+ * @return {string} network ID
+ */
+export const getNetworkIdFromArtifact = () => {
+  return Object.keys(TBTCSystemJSON.networks)[0]
 }
