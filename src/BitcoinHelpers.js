@@ -523,6 +523,55 @@ const BitcoinHelpers = {
 
       return transaction.toRaw().toString("hex")
     },
+    /**
+     * Finds all transactions containing unspent outputs received
+     * by the `bitcoinAddress`.
+     *
+     * @param {string} bitcoinAddress Bitcoin address to check.
+     *
+     * @return {Promise<Array>} A promise to the found array of transactions.
+     */
+    findAllUnspent: async function(bitcoinAddress) {
+      return await BitcoinHelpers.withElectrumClient(async electrumClient => {
+        const script = BitcoinHelpers.Address.toScript(bitcoinAddress)
+        return BitcoinHelpers.Transaction.findAllUnspentWithClient(electrumClient, script)
+      })
+    },
+    /**
+     * Gets the confirmed balance of the `bitcoinAddress`.
+     *
+     * @param {string} bitcoinAddress Bitcoin address to check.
+     *
+     * @return {Promise<Number>} A promise to the confirmed balance as satoshis.
+     */
+    getBalance: async function(bitcoinAddress) {
+      return await BitcoinHelpers.withElectrumClient(async electrumClient => {
+        const script = BitcoinHelpers.Address.toScript(bitcoinAddress)
+        return (await electrumClient.getBalanceOfScript(script)).confirmed
+      })
+    },
+    /**
+     * Estimates the fee to have a transaction included within the specified
+     * number of blocks.
+     *
+     * @param {number} [includeWithinBlocks=1] - The estimate is based on having
+     *        the transaction included within this number of blocks. Defaults to
+     *        trying to include the transaction within 1 block.
+     *
+     * @return {Promise<number>} The estimated fee to execute the provided
+     *         transaction. Fails if the fee cannot be estimated.
+     */
+    estimateFeePerKb: async function(includeWithinBlocks) {
+      return BitcoinHelpers.withElectrumClient(async electrumClient => {
+        const feePerKb = await electrumClient.getFeeEstimate(includeWithinBlocks || 1)
+
+        if (feePerKb < 0) {
+          throw new Error(`Fee cannot be estimated; Electrum returned ${feePerKb}.`)
+        }
+
+        return feePerKb
+      })
+    },
 
     // Raw helpers.
     /**
@@ -570,6 +619,37 @@ const BitcoinHelpers = {
       if (confirmations >= requiredConfirmations) {
         return confirmations
       }
+    },
+    /**
+     * Finds all transactions to the given `receiverScript` using the
+     * given `electrumClient`.
+     *
+     * @param {ElectrumClient} electrumClient An already-initialized Electrum client.
+     * @param {string} receiverScript A receiver script.
+     *
+     * @return {Promise<Array>} A promise to an array of objects containing
+     *         transactionID, outputPosition, and value. Resolves with
+     *         empty if no transactions exist.
+     */
+    findAllUnspentWithClient: async function(
+        electrumClient,
+        receiverScript,
+    ) {
+      const unspentTransactions = await electrumClient.getUnspentToScript(
+          receiverScript
+      )
+
+      const result = []
+
+      for (const tx of unspentTransactions.reverse()) {
+        result.push({
+          transactionID: tx.tx_hash,
+          outputPosition: tx.tx_pos,
+          value: tx.value
+        })
+      }
+
+      return result
     }
   }
 }
