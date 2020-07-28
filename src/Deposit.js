@@ -287,11 +287,13 @@ export default class Deposit {
     const web3 = factory.config.web3
     const contract = new web3.eth.Contract(DepositJSON.abi, depositAddress)
     contract.options.from = web3.eth.defaultAccount
+    contract.options.handleRevert = true
     const keepContract = new web3.eth.Contract(
       BondedECDSAKeepJSON.abi,
       keepAddress
     )
     keepContract.options.from = web3.eth.defaultAccount
+    keepContract.options.handleRevert = true
 
     return new Deposit(factory, contract, keepContract)
   }
@@ -305,6 +307,7 @@ export default class Deposit {
     const web3 = factory.config.web3
     const contract = new web3.eth.Contract(DepositJSON.abi, address)
     contract.options.from = web3.eth.defaultAccount
+    contract.options.handleRevert = true
 
     console.debug(`Looking up Created event for deposit ${address}...`)
     const createdEvent = await EthereumHelpers.getExistingEvent(
@@ -325,6 +328,7 @@ export default class Deposit {
       keepAddress
     )
     keepContract.options.from = web3.eth.defaultAccount
+    keepContract.options.handleRevert = true
 
     return new Deposit(factory, contract, keepContract)
   }
