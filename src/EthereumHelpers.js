@@ -151,10 +151,37 @@ async function sendSafely(boundContractMethod, sendParams, forceSend) {
   }
 }
 
+/**
+ * Gets the Web3 Contract for a Truffle artifact and Web3 instance.
+ * @param {JSON} artifact
+ * @param {*} web3
+ * @param {string} networkId
+ * @return {Contract}
+ */
+function getDeployedContract(artifact, web3, networkId) {
+  function lookupAddress(artifact) {
+    const deploymentInfo = artifact.networks[networkId]
+    if (!deploymentInfo) {
+      throw new Error(
+        `No deployment info found for contract ${artifact.contractName}, network ID ${networkId}.`
+      )
+    }
+    return deploymentInfo.address
+  }
+
+  const contract = new web3.eth.Contract(artifact.abi)
+  contract.options.address = lookupAddress(artifact)
+  contract.options.from = web3.eth.defaultAccount
+  contract.options.handleRevert = true
+
+  return contract
+}
+
 export default {
   getEvent,
   getExistingEvent,
   readEventFromTransaction,
   bytesToRaw,
-  sendSafely
+  sendSafely,
+  getDeployedContract
 }

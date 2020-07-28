@@ -132,19 +132,8 @@ export class DepositFactory {
   /** @private */
   async resolveContracts() {
     const web3 = this.config.web3
-
     // Get the net_version
     const networkId = await this.config.web3.eth.net.getId()
-
-    function lookupAddress(artifact) {
-      const deploymentInfo = artifact.networks[networkId]
-      if (!deploymentInfo) {
-        throw new Error(
-          `No deployment info found for contract ${artifact.contractName}, network ID ${networkId}.`
-        )
-      }
-      return deploymentInfo.address
-    }
 
     const contracts = [
       [TBTCConstantsJSON, "constantsContract"],
@@ -158,9 +147,11 @@ export class DepositFactory {
     ]
 
     contracts.map(([artifact, propertyName]) => {
-      const contract = new web3.eth.Contract(artifact.abi)
-      contract.options.address = lookupAddress(artifact)
-      contract.options.from = web3.eth.defaultAccount
+      const contract = EthereumHelpers.getDeployedContract(
+        artifact,
+        web3,
+        networkId
+      )
       this[propertyName] = contract
     })
 
@@ -237,8 +228,8 @@ export class DepositFactory {
 
     if (creationCost.lt(accountBalance)) {
       throw new Error(
-        `Insufficient balance ${accountBalance.toNumber()} to open ` +
-          `deposit (required: ${creationCost.toNumber()}).`
+        `Insufficient balance ${accountBalance.toString()} to open ` +
+          `deposit (required: ${creationCost.toString()}).`
       )
     }
 
@@ -289,7 +280,7 @@ export default class Deposit {
   static async forLotSize(factory, satoshiLotSize) {
     console.debug(
       "Creating new deposit contract with lot size",
-      satoshiLotSize.toNumber(),
+      satoshiLotSize.toString(),
       "satoshis..."
     )
     const {
@@ -303,11 +294,13 @@ export default class Deposit {
     const web3 = factory.config.web3
     const contract = new web3.eth.Contract(DepositJSON.abi, depositAddress)
     contract.options.from = web3.eth.defaultAccount
+    contract.options.handleRevert = true
     const keepContract = new web3.eth.Contract(
       BondedECDSAKeepJSON.abi,
       keepAddress
     )
     keepContract.options.from = web3.eth.defaultAccount
+    keepContract.options.handleRevert = true
 
     return new Deposit(factory, contract, keepContract)
   }
@@ -321,6 +314,7 @@ export default class Deposit {
     const web3 = factory.config.web3
     const contract = new web3.eth.Contract(DepositJSON.abi, address)
     contract.options.from = web3.eth.defaultAccount
+    contract.options.handleRevert = true
 
     console.debug(`Looking up Created event for deposit ${address}...`)
     const createdEvent = await EthereumHelpers.getExistingEvent(
@@ -341,6 +335,7 @@ export default class Deposit {
       keepAddress
     )
     keepContract.options.from = web3.eth.defaultAccount
+    keepContract.options.handleRevert = true
 
     return new Deposit(factory, contract, keepContract)
   }
@@ -443,7 +438,7 @@ export default class Deposit {
    * @return {Promise<BN>} A promise to the signer fee for this deposit, in TBTC.
    */
   async getSignerFeeTBTC() {
-    return toBN(await this.contract.methods.signerFee().call())
+    return toBN(await this.contract.methods.signerFeeTbtc().call())
   }
 
   /**
@@ -459,7 +454,7 @@ export default class Deposit {
    * @return {DepositStates} The current state of the deposit.
    */
   async getCurrentState() {
-    return parseInt(await this.contract.methods.getCurrentState().call())
+    return parseInt(await this.contract.methods.currentState().call())
   }
 
   async getTDT() /* : Promise<TBTCDepositToken>*/ {
@@ -733,8 +728,8 @@ export default class Deposit {
     if (redemptionCost.gt(availableBalance)) {
       throw new Error(
         `Account ${thisAccount} does not have the required balance of ` +
-          `${redemptionCost.toNumber()} to redeem; it only has ` +
-          `${availableBalance.toNumber()} available.`
+          `${redemptionCost.toString()} to redeem; it only has ` +
+          `${availableBalance.toString()} available.`
       )
     }
 
@@ -744,8 +739,8 @@ export default class Deposit {
     const transactionFee = await BitcoinHelpers.Transaction.estimateFee(
       this.factory.constantsContract
     )
-    const utxoSize = await this.contract.methods.utxoSize().call()
-    const outputValue = toBN(utxoSize).sub(toBN(transactionFee))
+    const utxoValue = await this.contract.methods.utxoValue().call()
+    const outputValue = toBN(utxoValue).sub(toBN(transactionFee))
     const outputValueBytes = outputValue.toArrayLike(Buffer, "le", 8)
 
     let transaction
@@ -768,8 +763,7 @@ export default class Deposit {
         this.factory.vendingMachineContract.methods.tbtcToBtc(
           this.address,
           outputValueBytes,
-          redeemerOutputScript,
-          thisAccount
+          redeemerOutputScript
         )
       )
     } else {
@@ -1084,7 +1078,7 @@ export default class Deposit {
     redemptionRequestedEventArgs
   ) /* : RedemptionDetails*/ {
     const {
-      _utxoSize,
+      _utxoValue,
       _redeemerOutputScript,
       _requestedFee,
       _outpoint,
@@ -1092,7 +1086,7 @@ export default class Deposit {
     } = redemptionRequestedEventArgs
 
     return {
-      utxoSize: toBN(_utxoSize),
+      utxoValue: toBN(_utxoValue),
       redeemerOutputScript: _redeemerOutputScript,
       requestedFee: toBN(_requestedFee),
       outpoint: _outpoint,
