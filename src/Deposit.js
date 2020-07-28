@@ -392,7 +392,7 @@ export default class Deposit {
    * @return {DepositStates} The current state of the deposit.
    */
   async getCurrentState() {
-    return parseInt(await this.contract.methods.getCurrentState().call())
+    return parseInt(await this.contract.methods.currentState().call())
   }
 
   async getTDT() /* : Promise<TBTCDepositToken>*/ {
