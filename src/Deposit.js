@@ -131,19 +131,8 @@ export class DepositFactory {
   /** @private */
   async resolveContracts() {
     const web3 = this.config.web3
-
     // Get the net_version
     const networkId = await this.config.web3.eth.net.getId()
-
-    function lookupAddress(artifact) {
-      const deploymentInfo = artifact.networks[networkId]
-      if (!deploymentInfo) {
-        throw new Error(
-          `No deployment info found for contract ${artifact.contractName}, network ID ${networkId}.`
-        )
-      }
-      return deploymentInfo.address
-    }
 
     const contracts = [
       [TBTCConstantsJSON, "constantsContract"],
@@ -155,10 +144,12 @@ export class DepositFactory {
       [VendingMachineJSON, "vendingMachineContract"]
     ]
 
-    contracts.map(([artifact, propertyName, deployed]) => {
-      const contract = new web3.eth.Contract(artifact.abi)
-      contract.options.address = lookupAddress(artifact)
-      contract.options.from = web3.eth.defaultAccount
+    contracts.map(([artifact, propertyName]) => {
+      const contract = EthereumHelpers.getDeployedContract(
+        artifact,
+        web3,
+        networkId
+      )
       this[propertyName] = contract
     })
 
@@ -230,8 +221,8 @@ export class DepositFactory {
 
     if (creationCost.lt(accountBalance)) {
       throw new Error(
-        `Insufficient balance ${accountBalance.toNumber()} to open ` +
-          `deposit (required: ${creationCost.toNumber()}).`
+        `Insufficient balance ${accountBalance.toString()} to open ` +
+          `deposit (required: ${creationCost.toString()}).`
       )
     }
 
@@ -282,7 +273,7 @@ export default class Deposit {
   static async forLotSize(factory, satoshiLotSize) {
     console.debug(
       "Creating new deposit contract with lot size",
-      satoshiLotSize.toNumber(),
+      satoshiLotSize.toString(),
       "satoshis..."
     )
     const {
@@ -296,11 +287,13 @@ export default class Deposit {
     const web3 = factory.config.web3
     const contract = new web3.eth.Contract(DepositJSON.abi, depositAddress)
     contract.options.from = web3.eth.defaultAccount
+    contract.options.handleRevert = true
     const keepContract = new web3.eth.Contract(
       BondedECDSAKeepJSON.abi,
       keepAddress
     )
     keepContract.options.from = web3.eth.defaultAccount
+    keepContract.options.handleRevert = true
 
     return new Deposit(factory, contract, keepContract)
   }
@@ -314,6 +307,7 @@ export default class Deposit {
     const web3 = factory.config.web3
     const contract = new web3.eth.Contract(DepositJSON.abi, address)
     contract.options.from = web3.eth.defaultAccount
+    contract.options.handleRevert = true
 
     console.debug(`Looking up Created event for deposit ${address}...`)
     const createdEvent = await EthereumHelpers.getExistingEvent(
@@ -334,6 +328,7 @@ export default class Deposit {
       keepAddress
     )
     keepContract.options.from = web3.eth.defaultAccount
+    keepContract.options.handleRevert = true
 
     return new Deposit(factory, contract, keepContract)
   }
@@ -392,7 +387,7 @@ export default class Deposit {
    * @return {Promise<BN>} A promise to the signer fee for this deposit, in TBTC.
    */
   async getSignerFeeTBTC() {
-    return toBN(await this.contract.methods.signerFee().call())
+    return toBN(await this.contract.methods.signerFeeTbtc().call())
   }
 
   /**
@@ -408,7 +403,7 @@ export default class Deposit {
    * @return {DepositStates} The current state of the deposit.
    */
   async getCurrentState() {
-    return parseInt(await this.contract.methods.getCurrentState().call())
+    return parseInt(await this.contract.methods.currentState().call())
   }
 
   async getTDT() /* : Promise<TBTCDepositToken>*/ {
@@ -672,8 +667,8 @@ export default class Deposit {
     if (redemptionCost.gt(availableBalance)) {
       throw new Error(
         `Account ${thisAccount} does not have the required balance of ` +
-          `${redemptionCost.toNumber()} to redeem; it only has ` +
-          `${availableBalance.toNumber()} available.`
+          `${redemptionCost.toString()} to redeem; it only has ` +
+          `${availableBalance.toString()} available.`
       )
     }
 
@@ -683,8 +678,8 @@ export default class Deposit {
     const transactionFee = await BitcoinHelpers.Transaction.estimateFee(
       this.factory.constantsContract
     )
-    const utxoSize = await this.contract.methods.utxoSize().call()
-    const outputValue = toBN(utxoSize).sub(toBN(transactionFee))
+    const utxoValue = await this.contract.methods.utxoValue().call()
+    const outputValue = toBN(utxoValue).sub(toBN(transactionFee))
     const outputValueBytes = outputValue.toArrayLike(Buffer, "le", 8)
 
     let transaction
@@ -707,8 +702,7 @@ export default class Deposit {
         this.factory.vendingMachineContract.methods.tbtcToBtc(
           this.address,
           outputValueBytes,
-          redeemerOutputScript,
-          thisAccount
+          redeemerOutputScript
         )
       )
     } else {
@@ -830,8 +824,9 @@ export default class Deposit {
           `Waiting for ${requiredConfirmations} confirmations for ` +
             `Bitcoin transaction ${transaction.transactionID}...`
         )
+
         await BitcoinHelpers.Transaction.waitForConfirmations(
-          transaction,
+          transaction.transactionID,
           requiredConfirmations
         )
 
@@ -998,7 +993,7 @@ export default class Deposit {
     redemptionRequestedEventArgs
   ) /* : RedemptionDetails*/ {
     const {
-      _utxoSize,
+      _utxoValue,
       _redeemerOutputScript,
       _requestedFee,
       _outpoint,
@@ -1006,7 +1001,7 @@ export default class Deposit {
     } = redemptionRequestedEventArgs
 
     return {
-      utxoSize: toBN(_utxoSize),
+      utxoValue: toBN(_utxoValue),
       redeemerOutputScript: _redeemerOutputScript,
       requestedFee: toBN(_requestedFee),
       outpoint: _outpoint,
@@ -1023,7 +1018,7 @@ export default class Deposit {
    */
   async getCollateralizationPercentage() {
     return toBN(
-      await this.contract.methods.getCollateralizationPercentage().call()
+      await this.contract.methods.collateralizationPercentage().call()
     )
   }
 
@@ -1033,7 +1028,7 @@ export default class Deposit {
    */
   async getInitialCollateralizedPercentage() {
     return toBN(
-      await this.contract.methods.getInitialCollateralizedPercent().call()
+      await this.contract.methods.initialCollateralizedPercent().call()
     )
   }
 
@@ -1046,9 +1041,7 @@ export default class Deposit {
    */
   async getUndercollateralizedThresholdPercent() {
     return toBN(
-      await this.contract.methods
-        .getUndercollateralizedThresholdPercent()
-        .call()
+      await this.contract.methods.undercollateralizedThresholdPercent().call()
     )
   }
 
@@ -1062,7 +1055,7 @@ export default class Deposit {
   async getSeverelyUndercollateralizedThresholdPercent() {
     return toBN(
       await this.contract.methods
-        .getSeverelyUndercollateralizedThresholdPercent()
+        .severelyUndercollateralizedThresholdPercent()
         .call()
     )
   }
@@ -1081,6 +1074,20 @@ export default class Deposit {
    */
   async exitCourtesyCall() {
     await EthereumHelpers.sendSafely(this.contract.methods.exitCourtesyCall())
+  }
+
+  /**
+   * Notify the contract that the courtesy call period has expired and begin
+   * liquidation of the signer bonds.
+   *
+   * The bonds are auctioned in a falling-price auction. The value of
+   * the bonds can be queried using `Deposit.auctionValue`, and bids placed
+   * using `Deposit.purchaseSignerBondsAtAuction`.
+   */
+  async notifyCourtesyCallExpired() {
+    await EthereumHelpers.sendSafely(
+      this.contract.methods.notifyCourtesyCallExpired()
+    )
   }
 
   /**
@@ -1133,9 +1140,9 @@ export default class Deposit {
    * Notify the contract that signing group setup has timed out.
    * Only applicable during funding.
    */
-  async notifySignerSetupFailure() {
+  async notifySignerSetupFailed() {
     await EthereumHelpers.sendSafely(
-      this.contract.methods.notifySignerSetupFailure()
+      this.contract.methods.notifySignerSetupFailed()
     )
   }
 
@@ -1143,29 +1150,30 @@ export default class Deposit {
    * Notify the contract that the funder has failed to send BTC.
    * Only applicable during funding.
    */
-  async notifyFundingTimeout() {
+  async notifyFundingTimedOut() {
     await EthereumHelpers.sendSafely(
-      this.contract.methods.notifyFundingTimeout()
+      this.contract.methods.notifyFundingTimedOut()
     )
   }
 
   /**
    * Notifies the contract that the courtesy period has elapsed.
    */
-  async notifyCourtesyTimeout() {
+  async notifyCourtesyTimedOut() {
     await EthereumHelpers.sendSafely(
-      this.contract.methods.notifyCourtesyTimeout()
+      this.contract.methods.notifyCourtesyTimedOut()
     )
   }
 
   /**
-   * Notify the contract that the signers have failed to produce a signature.
-   * This is considered fraud, and moves the deposit into liquidation.
+   * Notify the contract that the signers have failed to produce a signature
+   * for a redemption transaction. This is considered fraud, and moves the
+   * deposit into liquidation.
    * Only applicable during redemption.
    */
-  async notifySignatureTimeout() {
+  async notifyRedemptionSignatureTimedOut() {
     await EthereumHelpers.sendSafely(
-      this.contract.methods.notifySignatureTimeout()
+      this.contract.methods.notifyRedemptionSignatureTimedOut()
     )
   }
 
@@ -1174,7 +1182,7 @@ export default class Deposit {
    */
   async notifyRedemptionProofTimeout() {
     await EthereumHelpers.sendSafely(
-      this.contract.methods.notifyRedemptionProofTimeout()
+      this.contract.methods.notifyRedemptionProofTimdOout()
     )
   }
 
@@ -1214,7 +1222,8 @@ export default class Deposit {
   }
 
   /**
-   * Provide a signature that was not requested to prove fraud.
+   * Provide a signature that was not requested to prove fraud after a deposit
+   * has been funded.
    * @param {*} v Signature recovery value.
    * @param {*} r Signature R value.
    * @param {*} s Signature S value.
