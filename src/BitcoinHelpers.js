@@ -534,7 +534,10 @@ const BitcoinHelpers = {
     findAllUnspent: async function(bitcoinAddress) {
       return await BitcoinHelpers.withElectrumClient(async electrumClient => {
         const script = BitcoinHelpers.Address.toScript(bitcoinAddress)
-        return BitcoinHelpers.Transaction.findAllUnspentWithClient(electrumClient, script)
+        return BitcoinHelpers.Transaction.findAllUnspentWithClient(
+          electrumClient,
+          script
+        )
       })
     },
     /**
@@ -609,12 +612,9 @@ const BitcoinHelpers = {
      *         transactionID, outputPosition, and value. Resolves with
      *         empty if no transactions exist.
      */
-    findAllUnspentWithClient: async function(
-        electrumClient,
-        receiverScript,
-    ) {
+    findAllUnspentWithClient: async function(electrumClient, receiverScript) {
       const unspentTransactions = await electrumClient.getUnspentToScript(
-          receiverScript
+        receiverScript
       )
 
       const result = []
