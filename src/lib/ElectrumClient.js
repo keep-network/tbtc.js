@@ -122,10 +122,10 @@ export default class Client {
     const scriptHash = scriptToHash(script)
 
     const balance = await this.electrumClient
-        .blockchain_scripthash_getBalance(scriptHash)
-        .catch(err => {
-          throw new Error(JSON.stringify(err))
-        })
+      .blockchain_scripthash_getBalance(scriptHash)
+      .catch(err => {
+        throw new Error(JSON.stringify(err))
+      })
 
     return balance
   }
