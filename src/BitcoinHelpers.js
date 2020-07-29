@@ -523,6 +523,33 @@ const BitcoinHelpers = {
 
       return transaction.toRaw().toString("hex")
     },
+    /**
+     * Finds all transactions containing unspent outputs received
+     * by the `bitcoinAddress`.
+     *
+     * @param {string} bitcoinAddress Bitcoin address to check.
+     *
+     * @return {Promise<Array>} A promise to the found array of transactions.
+     */
+    findAllUnspent: async function(bitcoinAddress) {
+      return await BitcoinHelpers.withElectrumClient(async electrumClient => {
+        const script = BitcoinHelpers.Address.toScript(bitcoinAddress)
+        return BitcoinHelpers.Transaction.findAllUnspentWithClient(electrumClient, script)
+      })
+    },
+    /**
+     * Gets the confirmed balance of the `bitcoinAddress`.
+     *
+     * @param {string} bitcoinAddress Bitcoin address to check.
+     *
+     * @return {Promise<Number>} A promise to the confirmed balance in satoshis.
+     */
+    getBalance: async function(bitcoinAddress) {
+      return await BitcoinHelpers.withElectrumClient(async electrumClient => {
+        const script = BitcoinHelpers.Address.toScript(bitcoinAddress)
+        return (await electrumClient.getBalanceOfScript(script)).confirmed
+      })
+    },
 
     // Raw helpers.
     /**
@@ -570,6 +597,37 @@ const BitcoinHelpers = {
       if (confirmations >= requiredConfirmations) {
         return confirmations
       }
+    },
+    /**
+     * Finds all transactions to the given `receiverScript` using the
+     * given `electrumClient`.
+     *
+     * @param {ElectrumClient} electrumClient An already-initialized Electrum client.
+     * @param {string} receiverScript A receiver script.
+     *
+     * @return {Promise<Array>} A promise to an array of objects containing
+     *         transactionID, outputPosition, and value. Resolves with
+     *         empty if no transactions exist.
+     */
+    findAllUnspentWithClient: async function(
+        electrumClient,
+        receiverScript,
+    ) {
+      const unspentTransactions = await electrumClient.getUnspentToScript(
+          receiverScript
+      )
+
+      const result = []
+
+      for (const tx of unspentTransactions.reverse()) {
+        result.push({
+          transactionID: tx.tx_hash,
+          outputPosition: tx.tx_pos,
+          value: tx.value
+        })
+      }
+
+      return result
     }
   }
 }
