@@ -221,8 +221,8 @@ export class DepositFactory {
 
     if (creationCost.lt(accountBalance)) {
       throw new Error(
-        `Insufficient balance ${accountBalance.toNumber()} to open ` +
-          `deposit (required: ${creationCost.toNumber()}).`
+        `Insufficient balance ${accountBalance.toString()} to open ` +
+          `deposit (required: ${creationCost.toString()}).`
       )
     }
 
@@ -273,7 +273,7 @@ export default class Deposit {
   static async forLotSize(factory, satoshiLotSize) {
     console.debug(
       "Creating new deposit contract with lot size",
-      satoshiLotSize.toNumber(),
+      satoshiLotSize.toString(),
       "satoshis..."
     )
     const {
@@ -287,11 +287,13 @@ export default class Deposit {
     const web3 = factory.config.web3
     const contract = new web3.eth.Contract(DepositJSON.abi, depositAddress)
     contract.options.from = web3.eth.defaultAccount
+    contract.options.handleRevert = true
     const keepContract = new web3.eth.Contract(
       BondedECDSAKeepJSON.abi,
       keepAddress
     )
     keepContract.options.from = web3.eth.defaultAccount
+    keepContract.options.handleRevert = true
 
     return new Deposit(factory, contract, keepContract)
   }
@@ -305,6 +307,7 @@ export default class Deposit {
     const web3 = factory.config.web3
     const contract = new web3.eth.Contract(DepositJSON.abi, address)
     contract.options.from = web3.eth.defaultAccount
+    contract.options.handleRevert = true
 
     console.debug(`Looking up Created event for deposit ${address}...`)
     const createdEvent = await EthereumHelpers.getExistingEvent(
@@ -325,6 +328,7 @@ export default class Deposit {
       keepAddress
     )
     keepContract.options.from = web3.eth.defaultAccount
+    keepContract.options.handleRevert = true
 
     return new Deposit(factory, contract, keepContract)
   }
@@ -392,7 +396,7 @@ export default class Deposit {
    * @return {DepositStates} The current state of the deposit.
    */
   async getCurrentState() {
-    return parseInt(await this.contract.methods.getCurrentState().call())
+    return parseInt(await this.contract.methods.currentState().call())
   }
 
   async getTDT() /* : Promise<TBTCDepositToken>*/ {
@@ -666,8 +670,8 @@ export default class Deposit {
     if (redemptionCost.gt(availableBalance)) {
       throw new Error(
         `Account ${thisAccount} does not have the required balance of ` +
-          `${redemptionCost.toNumber()} to redeem; it only has ` +
-          `${availableBalance.toNumber()} available.`
+          `${redemptionCost.toString()} to redeem; it only has ` +
+          `${availableBalance.toString()} available.`
       )
     }
 

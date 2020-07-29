@@ -172,6 +172,7 @@ function getDeployedContract(artifact, web3, networkId) {
   const contract = new web3.eth.Contract(artifact.abi)
   contract.options.address = lookupAddress(artifact)
   contract.options.from = web3.eth.defaultAccount
+  contract.options.handleRevert = true
 
   return contract
 }
