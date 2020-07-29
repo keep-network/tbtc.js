@@ -550,28 +550,6 @@ const BitcoinHelpers = {
         return (await electrumClient.getBalanceOfScript(script)).confirmed
       })
     },
-    /**
-     * Estimates the fee to have a transaction included within the specified
-     * number of blocks.
-     *
-     * @param {number} [includeWithinBlocks=1] - The estimate is based on having
-     *        the transaction included within this number of blocks. Defaults to
-     *        trying to include the transaction within 1 block.
-     *
-     * @return {Promise<number>} The estimated fee to execute the provided
-     *         transaction. Fails if the fee cannot be estimated.
-     */
-    estimateFeePerKb: async function(includeWithinBlocks) {
-      return BitcoinHelpers.withElectrumClient(async electrumClient => {
-        const feePerKb = await electrumClient.getFeeEstimate(includeWithinBlocks || 1)
-
-        if (feePerKb < 0) {
-          throw new Error(`Fee cannot be estimated; Electrum returned ${feePerKb}.`)
-        }
-
-        return feePerKb
-      })
-    },
 
     // Raw helpers.
     /**

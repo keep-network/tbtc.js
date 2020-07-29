@@ -131,18 +131,6 @@ export default class Client {
   }
 
   /**
-   * Gets the estimate of a fee per KB for the transaction to use in order to be
-   * included within the given number of blocks.
-   *
-   * @param {number} includeWithinBlocks The number of blocks within which the
-   *        estimate should try to gain inclusion for the transaction(s) that
-   *        use it.
-   */
-  async getFeeEstimate(includeWithinBlocks) {
-    return await this.electrumClient.blockchainEstimatefee(includeWithinBlocks)
-  }
-
-  /**
    * Listens for transactions sent to a script until callback resolves to a
    * 'truthy' value. It includes transactions in the mempool. It passes
    * [status]([Electrum Protocol](https://electrumx.readthedocs.io/en/stable/protocol-basics.html#status))
