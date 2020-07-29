@@ -112,6 +112,25 @@ export default class Client {
   }
 
   /**
+   * Get balance of a script.
+   *
+   * @param {string} script ScriptPubKey in a hexadecimal format.
+   *
+   * @return {Object} Object with balance data.
+   */
+  async getBalanceOfScript(script) {
+    const scriptHash = scriptToHash(script)
+
+    const balance = await this.electrumClient
+      .blockchain_scripthash_getBalance(scriptHash)
+      .catch(err => {
+        throw new Error(JSON.stringify(err))
+      })
+
+    return balance
+  }
+
+  /**
    * Listens for transactions sent to a script until callback resolves to a
    * 'truthy' value. It includes transactions in the mempool. It passes
    * [status]([Electrum Protocol](https://electrumx.readthedocs.io/en/stable/protocol-basics.html#status))
