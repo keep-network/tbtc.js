@@ -102,7 +102,7 @@ export default {
 /**
  * Returns the network ID from the artifact.
  * Artifacts from @keep-network/tbtc for a given build only support a single network id.
- * 
+ *
  * @return {string} network ID
  */
 export const getNetworkIdFromArtifact = () => {
