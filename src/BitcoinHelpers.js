@@ -542,7 +542,7 @@ const BitcoinHelpers = {
      *
      * @param {string} bitcoinAddress Bitcoin address to check.
      *
-     * @return {Promise<Number>} A promise to the confirmed balance as satoshis.
+     * @return {Promise<Number>} A promise to the confirmed balance in satoshis.
      */
     getBalance: async function(bitcoinAddress) {
       return await BitcoinHelpers.withElectrumClient(async electrumClient => {
