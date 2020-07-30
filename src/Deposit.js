@@ -418,7 +418,7 @@ export default class Deposit {
             `Bitcoin transaction ${transaction.transactionID}...`
         )
         await BitcoinHelpers.Transaction.waitForConfirmations(
-          transaction,
+          transaction.transactionID,
           requiredConfirmations
         )
 
