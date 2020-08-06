@@ -876,7 +876,6 @@ export default class Deposit {
 
     state.proofTransaction = state.fundingConfirmations.then(
       async ({ transaction, requiredConfirmations }) => {
-      }
         console.debug(
           `Submitting funding proof to deposit ${this.address} for ` +
             `Bitcoin transaction ${transaction.transactionID}...`
