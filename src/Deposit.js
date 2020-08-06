@@ -15,6 +15,7 @@ import DepositFactoryJSON from "@keep-network/tbtc/artifacts/DepositFactory.json
 import TBTCTokenJSON from "@keep-network/tbtc/artifacts/TBTCToken.json"
 import FeeRebateTokenJSON from "@keep-network/tbtc/artifacts/FeeRebateToken.json"
 import VendingMachineJSON from "@keep-network/tbtc/artifacts/VendingMachine.json"
+import FundingScriptJSON from "@keep-network/tbtc/artifacts/FundingScript.json"
 import BondedECDSAKeepJSON from "@keep-network/keep-ecdsa/artifacts/BondedECDSAKeep.json"
 
 import web3Utils from "web3-utils"
@@ -141,6 +142,7 @@ export class DepositFactory {
       [TBTCDepositTokenJSON, "depositTokenContract"],
       [FeeRebateTokenJSON, "feeRebateTokenContract"],
       [DepositFactoryJSON, "depositFactoryContract"],
+      [FundingScriptJSON, "fundingScriptContract"],
       [VendingMachineJSON, "vendingMachineContract"]
     ]
 
@@ -198,6 +200,11 @@ export class DepositFactory {
      * @type Contract
      */
     this.vendingMachineContract
+    /**
+     * @package
+     * @type Contract
+     */
+    this.fundingScriptContract
   }
 
   /**
@@ -367,6 +374,57 @@ export default class Deposit {
   }
 
   // /------------------------------- Accessors -------------------------------
+
+  /**
+   * Promise to when a Bitcoin funding transaction is found for the address.
+   * @type {Promise<BitcoinTransaction>}
+   */
+  get fundingTransaction() {
+    // Lazily initalized.
+    return (this._fundingTransaction =
+      this._fundingTransaction ||
+      this.bitcoinAddress.then(async address => {
+        const expectedValue = await this.getSatoshiLotSize()
+        console.debug(
+          `Monitoring Bitcoin for transaction to address ${address}...`
+        )
+        return BitcoinHelpers.Transaction.findOrWaitFor(address, expectedValue)
+      }))
+  }
+
+  /**
+   * @typedef FundingConfirmations
+   * @type {Object}
+   * @property {BitcoinTransaction} transaction
+   * @property {number} requiredConfirmations
+   */
+  /**
+   * Promise to when the deposit funding transaction is sufficiently confirmed.
+   * @type {Promise<FundingConfirmations>}
+   */
+  get fundingConfirmations() {
+    // Lazily initalized.
+    return (this._fundingConfirmations =
+      this._fundingConfirmations ||
+      this.fundingTransaction.then(async transaction => {
+        const requiredConfirmations = parseInt(
+          await this.factory.constantsContract.methods
+            .getTxProofDifficultyFactor()
+            .call()
+        )
+
+        console.debug(
+          `Waiting for ${requiredConfirmations} confirmations for ` +
+            `Bitcoin transaction ${transaction.transactionID}...`
+        )
+        await BitcoinHelpers.Transaction.waitForConfirmations(
+          transaction.transactionID,
+          requiredConfirmations
+        )
+
+        return { transaction, requiredConfirmations }
+      }))
+  }
 
   /**
    * @return {Promise<BN>} A promise to the lot size of the deposit, in satoshis.
@@ -560,9 +618,19 @@ export default class Deposit {
       parseInt(requiredConfirmations)
     )
     proofArgs.unshift(this.address)
-    const transaction = await this.factory.vendingMachineContract.methods
-      .unqualifiedDepositToTbtc(...proofArgs)
-      .send()
+
+    // Use approveAndCall pattern to execute VendingMachine.unqualifiedDepositToTbtc.
+    const unqualifiedDepositToTbtcCall = this.factory.vendingMachineContract.methods
+      .unqualifiedDepositToTbtc(this.address, ...proofArgs)
+      .encodeABI()
+
+    const transaction = await EthereumHelpers.sendSafely(
+      this.factory.depositTokenContract.methods.approveAndCall(
+        this.factory.fundingScriptContract.options.address,
+        this.address,
+        unqualifiedDepositToTbtcCall
+      )
+    )
 
     // return TBTC minted amount
     const transferEvent = EthereumHelpers.readEventFromTransaction(
@@ -772,6 +840,7 @@ export default class Deposit {
    * @prop {Promise<BitcoinTransaction>} fundingTransaction
    * @prop {Promise<{ transaction: FoundTransaction, requiredConfirmations: Number }>} fundingConfirmations
    * @prop {Promise<EthereumTransaction>} proofTransaction
+   * @prop {Promise<number>} mintedTBTC
    */
   /**
    * This method enables the deposit's auto-submission capabilities. In
@@ -802,40 +871,12 @@ export default class Deposit {
     }
     /** @type {AutoSubmitState} */
     const state = (this.autoSubmittingState = {})
-
-    state.fundingTransaction = this.bitcoinAddress.then(async address => {
-      const expectedValue = (await this.getLotSizeSatoshis()).toNumber()
-
-      console.debug(
-        `Monitoring Bitcoin for transaction to address ${address}...`
-      )
-      return BitcoinHelpers.Transaction.findOrWaitFor(address, expectedValue)
-    })
-
-    state.fundingConfirmations = state.fundingTransaction.then(
-      async transaction => {
-        const requiredConfirmations = parseInt(
-          await this.factory.constantsContract.methods
-            .getTxProofDifficultyFactor()
-            .call()
-        )
-
-        console.debug(
-          `Waiting for ${requiredConfirmations} confirmations for ` +
-            `Bitcoin transaction ${transaction.transactionID}...`
-        )
-
-        await BitcoinHelpers.Transaction.waitForConfirmations(
-          transaction.transactionID,
-          requiredConfirmations
-        )
-
-        return { transaction, requiredConfirmations }
-      }
-    )
+    state.fundingTransaction = this.fundingTransaction
+    state.fundingConfirmations = this.fundingConfirmations
 
     state.proofTransaction = state.fundingConfirmations.then(
       async ({ transaction, requiredConfirmations }) => {
+      }
         console.debug(
           `Submitting funding proof to deposit ${this.address} for ` +
             `Bitcoin transaction ${transaction.transactionID}...`
@@ -844,11 +885,63 @@ export default class Deposit {
           transaction,
           requiredConfirmations
         )
+
         return EthereumHelpers.sendSafely(
           this.contract.methods.provideBTCFundingProof(...proofArgs),
           {},
           true
         )
+      }
+    )
+
+    return state
+  }
+
+  autoMint() {
+    // Only enable auto-submitting once.
+    if (this.autoSubmittingState) {
+      return this.autoSubmittingState
+    }
+    /** @type {AutoSubmitState} */
+    const state = (this.autoSubmittingState = {})
+    state.fundingTransaction = this.fundingTransaction
+    state.fundingConfirmations = this.fundingConfirmations
+
+    state.mintedTBTC = state.fundingConfirmations.then(
+      async ({ transaction: bitcoinTransaction, requiredConfirmations }) => {
+        console.debug(
+          `Submitting funding proof to deposit ${this.address} for ` +
+            `Bitcoin transaction ${bitcoinTransaction.transactionID} and minting TBTC...`
+        )
+
+        const proofArgs = await this.constructFundingProof(
+          bitcoinTransaction,
+          requiredConfirmations
+        )
+
+        // Use approveAndCall pattern to execute VendingMachine.unqualifiedDepositToTbtc.
+        const unqualifiedDepositToTbtcCall = this.factory.vendingMachineContract.methods
+          .unqualifiedDepositToTbtc(this.address, ...proofArgs)
+          .encodeABI()
+
+        const transaction = await EthereumHelpers.sendSafely(
+          this.factory.depositTokenContract.methods.approveAndCall(
+            this.factory.fundingScriptContract.options.address,
+            this.address,
+            unqualifiedDepositToTbtcCall
+          )
+        )
+
+        // return TBTC minted amount
+        const transferEvent = EthereumHelpers.readEventFromTransaction(
+          this.factory.config.web3,
+          transaction,
+          this.factory.tokenContract,
+          "Transfer"
+        )
+        console.debug(`Minted`, transferEvent.value, `TBTC.`)
+
+        return toBN(transferEvent.value).div(toBN(10).pow(18))
       }
     )
 
