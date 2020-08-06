@@ -24,7 +24,7 @@ const { toBN } = web3Utils
 /** @typedef { import("./TBTC").TBTCConfig } TBTCConfig */
 
 /** @enum {number} */
-const DepositStates = {
+export const DepositStates = {
   // Not initialized.
   START: 0,
 
@@ -371,8 +371,15 @@ export default class Deposit {
   /**
    * @return {Promise<BN>} A promise to the lot size of the deposit, in satoshis.
    */
-  async getSatoshiLotSize() {
+  async getLotSizeSatoshis() {
     return toBN(await this.contract.methods.lotSizeSatoshis().call())
+  }
+
+  /**
+   * @return {Promise<BN>} A promise to the lot size of the deposit, in TBTC tokens.
+   */
+  async getLotSizeTBTC() {
+    return toBN(await this.contract.methods.lotSizeTbtc().call())
   }
 
   /**
@@ -518,7 +525,7 @@ export default class Deposit {
    */
   async qualifyAndMintTBTC() {
     const address = await this.bitcoinAddress
-    const expectedValue = parseInt(await this.getSatoshiLotSize())
+    const expectedValue = (await this.getLotSizeSatoshis()).toNumber()
     const tx = await BitcoinHelpers.Transaction.find(address, expectedValue)
     if (!tx) {
       throw new Error(
@@ -541,16 +548,6 @@ export default class Deposit {
           `expected ${requiredConfirmations}.`
       )
     }
-
-    console.debug(
-      `Approving transfer of deposit ${this.address} TDT to Vending Machine...`
-    )
-    await this.factory.depositTokenContract.methods
-      .approve(
-        this.factory.vendingMachineContract.options.address,
-        this.address
-      )
-      .send()
 
     console.debug(
       `Qualifying and minting off of deposit ${this.address} for ` +
@@ -595,7 +592,7 @@ export default class Deposit {
           )
           .call()
       )
-      const lotSize = await this.getSatoshiLotSize()
+      const lotSize = await this.getLotSizeSatoshis()
 
       return lotSize.mul(toBN(10).pow(toBN(10))).add(ownerRedemptionRequirement)
     } else {
@@ -807,7 +804,7 @@ export default class Deposit {
     const state = (this.autoSubmittingState = {})
 
     state.fundingTransaction = this.bitcoinAddress.then(async address => {
-      const expectedValue = await this.getSatoshiLotSize()
+      const expectedValue = (await this.getLotSizeSatoshis()).toNumber()
 
       console.debug(
         `Monitoring Bitcoin for transaction to address ${address}...`
@@ -1010,5 +1007,238 @@ export default class Deposit {
       outpoint: _outpoint,
       digest: _digest
     }
+  }
+
+  // /--------------------- Liquidation helpers -------------------------
+
+  /**
+   * Get the current collateralization level for this Deposit.
+   * Collateralization will be 0% if the deposit is in liquidation.
+   * @return {BN} Percentage collateralization, as an integer. eg. 149%
+   */
+  async getCollateralizationPercentage() {
+    return toBN(
+      await this.contract.methods.collateralizationPercentage().call()
+    )
+  }
+
+  /**
+   * Get the initial collateralization level for this Deposit.
+   * @return {BN} Percentage collateralization, as an integer. eg. 150%
+   */
+  async getInitialCollateralizedPercentage() {
+    return toBN(
+      await this.contract.methods.initialCollateralizedPercent().call()
+    )
+  }
+
+  /**
+   * Get the first threshold for deposit undercollateralization.
+   * If the collateralization level falls below this percentage, the Deposit can
+   * get courtesy-called.
+   * The deposit can be courtesy called using `Deposit.notifyCourtesyCall`.
+   * @return {BN} Percentage collateralization, as an integer. eg. 125%
+   */
+  async getUndercollateralizedThresholdPercent() {
+    return toBN(
+      await this.contract.methods.undercollateralizedThresholdPercent().call()
+    )
+  }
+
+  /**
+   * Get the threshold for severe deposit undercollateralization.
+   * If the collateralization level falls below this percentage, the Deposit
+   * can be liquidated.
+   * Liquidation can be initiated using `Deposit.notifyUndercollateralizedLiquidation`.
+   * @return {BN} Percentage collateralization, as an integer. eg. 110%
+   */
+  async getSeverelyUndercollateralizedThresholdPercent() {
+    return toBN(
+      await this.contract.methods
+        .severelyUndercollateralizedThresholdPercent()
+        .call()
+    )
+  }
+
+  /**
+   * Notify the contract that the signers are undercollateralized,
+   * and move the deposit into a pre-liquidation state.
+   */
+  async notifyCourtesyCall() {
+    await EthereumHelpers.sendSafely(this.contract.methods.notifyCourtesyCall())
+  }
+
+  /**
+   * Exit the courtesy call state.
+   * Only callable if the deposit is sufficiently collateralised.
+   */
+  async exitCourtesyCall() {
+    await EthereumHelpers.sendSafely(this.contract.methods.exitCourtesyCall())
+  }
+
+  /**
+   * Notify the contract that the courtesy call period has expired and begin
+   * liquidation of the signer bonds.
+   *
+   * The bonds are auctioned in a falling-price auction. The value of
+   * the bonds can be queried using `Deposit.auctionValue`, and bids placed
+   * using `Deposit.purchaseSignerBondsAtAuction`.
+   */
+  async notifyCourtesyCallExpired() {
+    await EthereumHelpers.sendSafely(
+      this.contract.methods.notifyCourtesyCallExpired()
+    )
+  }
+
+  /**
+   * Notify the contract that the deposit is severely undercollateralised,
+   * and begin liquidation of the signer bonds.
+   *
+   * The bonds are auctioned in a falling-price auction. The value of
+   * the bonds can be queried using `Deposit.auctionValue`, and bids placed
+   * using `Deposit.purchaseSignerBondsAtAuction`.
+   */
+  async notifyUndercollateralizedLiquidation() {
+    await EthereumHelpers.sendSafely(
+      this.contract.methods.notifyUndercollateralizedLiquidation()
+    )
+  }
+
+  /**
+   * Purchases the signer bonds and closes the liquidation auction.
+   */
+  async purchaseSignerBondsAtAuction() {
+    const owner = this.factory.config.web3.eth.defaultAccount
+    const allowance = await this.factory.tokenContract.methods
+      .allowance(owner, deposit.address)
+      .call()
+
+    const lotSize = await this.getLotSizeTBTC()
+    if (toBN(allowance).lt(lotSize)) {
+      await this.factory.tokenContract.methods
+        .approve(this.address, lotSize.toString())
+        .send()
+    }
+
+    await EthereumHelpers.sendSafely(
+      this.contract.methods.purchaseSignerBondsAtAuction()
+    )
+  }
+
+  /**
+   * Gets the current value of signer bonds at auction.
+   * Only callable if the deposit is in the liqudation state.
+   * @return {BN} auction value in wei.
+   */
+  async auctionValue() {
+    return toBN(await this.contract.methods.auctionValue().call())
+  }
+
+  // /--------------------- Timeout helpers -------------------------
+
+  /**
+   * Notify the contract that signing group setup has timed out.
+   * Only applicable during funding.
+   */
+  async notifySignerSetupFailed() {
+    await EthereumHelpers.sendSafely(
+      this.contract.methods.notifySignerSetupFailed()
+    )
+  }
+
+  /**
+   * Notify the contract that the funder has failed to send BTC.
+   * Only applicable during funding.
+   */
+  async notifyFundingTimedOut() {
+    await EthereumHelpers.sendSafely(
+      this.contract.methods.notifyFundingTimedOut()
+    )
+  }
+
+  /**
+   * Notifies the contract that the courtesy period has elapsed.
+   */
+  async notifyCourtesyTimedOut() {
+    await EthereumHelpers.sendSafely(
+      this.contract.methods.notifyCourtesyTimedOut()
+    )
+  }
+
+  /**
+   * Notify the contract that the signers have failed to produce a signature
+   * for a redemption transaction. This is considered fraud, and moves the
+   * deposit into liquidation.
+   * Only applicable during redemption.
+   */
+  async notifyRedemptionSignatureTimedOut() {
+    await EthereumHelpers.sendSafely(
+      this.contract.methods.notifyRedemptionSignatureTimedOut()
+    )
+  }
+
+  /**
+   * Notify the contract that the signers have failed to produce a redemption proof.
+   */
+  async notifyRedemptionProofTimeout() {
+    await EthereumHelpers.sendSafely(
+      this.contract.methods.notifyRedemptionProofTimdOout()
+    )
+  }
+
+  /**
+   * Checks if signature was requested via the Keep.
+   * @param {string} digest Digest to check approval for.
+   * @return {boolean} True if signature approved, false if not (fraud).
+   */
+  async wasSignatureApproved(digest) {
+    const events = await this.keepContract.getPastEvents("SignatureRequested", {
+      fromBlock: 0,
+      toBlock: "latest",
+      filter: { digest }
+    })
+
+    return events.length > 0
+  }
+
+  /**
+   * Provide a signature that was not requested to prove fraud during funding.
+   * @param {*} v Signature recovery value.
+   * @param {*} r Signature R value.
+   * @param {*} s Signature S value.
+   * @param {*} signedDigest The digest signed by the signature vrs tuple.
+   * @param {*} preimage The sha256 preimage of the digest.
+   */
+  async provideFundingECDSAFraudProof(v, r, s, signedDigest, preimage) {
+    await EthereumHelpers.sendSafely(
+      this.contract.methods.provideFundingECDSAFraudProof(
+        v,
+        r,
+        s,
+        signedDigest,
+        preimage
+      )
+    )
+  }
+
+  /**
+   * Provide a signature that was not requested to prove fraud after a deposit
+   * has been funded.
+   * @param {*} v Signature recovery value.
+   * @param {*} r Signature R value.
+   * @param {*} s Signature S value.
+   * @param {*} signedDigest The digest signed by the signature vrs tuple.
+   * @param {*} preimage The sha256 preimage of the digest.
+   */
+  async provideECDSAFraudProof(v, r, s, signedDigest, preimage) {
+    await EthereumHelpers.sendSafely(
+      this.contract.methods.provideECDSAFraudProof(
+        v,
+        r,
+        s,
+        signedDigest,
+        preimage
+      )
+    )
   }
 }
