@@ -384,7 +384,7 @@ export default class Deposit {
     return (this._fundingTransaction =
       this._fundingTransaction ||
       this.bitcoinAddress.then(async address => {
-        const expectedValue = await this.getSatoshiLotSize()
+        const expectedValue = await this.getLotSizeSatoshis()
         console.debug(
           `Monitoring Bitcoin for transaction to address ${address}...`
         )
