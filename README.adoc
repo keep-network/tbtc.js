@@ -99,7 +99,7 @@ listen for the Bitcoin address and present it on the console:
 
 ```
 deposit.onBitcoinAddressAvailable(async (address) => {
-    const lotSize = await deposit.getSatoshiLotSize()
+    const lotSize = await deposit.getLotSizeSatoshis()
     console.log(
         "\tGot deposit address:", address,
         "; fund with:", lotSize.toString(), "satoshis please.",
