@@ -8,7 +8,7 @@ on:
     branches: [ 'releases/**' ]
   pull_request:
     branches: [ master ]
-  repository_dispatch:
+  workflow_dispatch:
     types: redeploy
 
 jobs:
