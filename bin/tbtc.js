@@ -1,21 +1,24 @@
 #!/usr/bin/env node --experimental-modules
 import Web3 from "web3"
-import TBTC from "../index.js"
+import TBTC, { EthereumHelpers } from "../index.js"
+import Redemption from "../src/Redemption.js"
 
 import ProviderEngine from "web3-provider-engine"
+import WebsocketSubprovider from "web3-provider-engine/subproviders/websocket.js"
 import Subproviders from "@0x/subproviders"
 
 const engine = new ProviderEngine({ pollingInterval: 1000 })
 engine.addProvider(
   // For address 0x420ae5d973e58bc39822d9457bf8a02f127ed473.
   new Subproviders.PrivateKeyWalletSubprovider(
-    "b6252e08d7a11ab15a4181774fdd58689b9892fe9fb07ab4f026df9791966990"
+    //"b6252e08d7a11ab15a4181774fdd58689b9892fe9fb07ab4f026df9791966990"
+    "44a6e77e0d7b22e7401706c28cc93fd5816788812a8eb1e4bfb423cb50696542"
   )
 )
 engine.addProvider(
-  new Subproviders.RPCSubprovider(
-    "https://:e18ef5ef295944928dd87411bc678f19@ropsten.infura.io/v3/59fb36a36fa4474b890c13dd30038be5"
-  )
+  new WebsocketSubprovider({
+    rpcUrl: "wss://mainnet.infura.io/ws/v3/414a548bc7434bbfb7a135b694b15aa4"
+  })
 )
 
 // -------------------------------- SETUP --------------------------------------
@@ -57,6 +60,34 @@ switch (args[0]) {
       action = async tbtc => {
         return await redeemDeposit(tbtc, args[1], args[2])
       }
+    } else if (args.length == 1) {
+      action = async tbtc => {
+        return await availableRedemptions(tbtc)
+      }
+    }
+    break
+  case "liquidate":
+    if (args.length == 3 && web3.utils.isAddress(args[1])) {
+      console.log('unimplemented')
+      process.exit(1)
+    } else if (args.length == 2 && web3.utils.isAddress(args[1])) {
+      action = async tbtc => {
+        return await liquidateDeposit(tbtc, args[1])
+      }
+    }
+    break
+  case "withdraw":
+     if (args.length == 2 && web3.utils.isAddress(args[1])) {
+      action = async tbtc => {
+        return await withdrawFromDeposit(tbtc, args[1])
+      }
+    }
+    break
+  case "beneficiary":
+     if (args.length == 2 && web3.utils.isAddress(args[1])) {
+      action = async tbtc => {
+        return await depositBenficiaries(tbtc, args[1])
+      }
     }
     break
 }
@@ -80,8 +111,32 @@ Unknown command ${args[0]} or bad parameters. Supported commands:
         --no-mint
             specifies not to mint TBTC once the deposit is qualified.
 
-    redeem <deposit-address>
-        Attempts to redeem a tBTC deposit.
+    redeem
+        Without a deposit address specified, looks up all deposits in the
+        vending machine that are available for redemption and returns
+        information about them.
+
+    redeem <deposit-address> <redeemer-output-script>
+	Attempts to redeem a tBTC deposit, passing the Bitcoin to the given
+        redeeemer-output-script.
+
+    liquidate <deposit-address> [--for <funding-timeout|undercollateralization|courtesy-timeout|redemption-timeout>]
+	Attempts to liquidate a tBTC deposit, reporting back the status of
+        the liquidation (\`liquidated\`, \`in-auction\`, or \`failed\`). Looks for
+        any available reason to liquidate.
+
+        --for <funding-timeout|undercollateralization|courtesy-timeout|redemption-timeout>
+            If specified, only triggers liquidation for the specified reason.
+            If the reason does not apply, reports \`not-applicable\` status.
+
+    withdraw <deposit-address> [--dry-run]
+        Attempts to withdraw the current account's allowance from a tBTC deposit.
+        Only the amount allowed for the current account is withdrawn. Reports
+        the withdrawn amount in wei.
+
+        --dry-run
+            Reports the amount that would be withdrawn in wei, but does not
+            broadcast the transaction to withdraw it.
     `)
 
   process.exit(1)
@@ -92,10 +147,10 @@ async function runAction() {
 
   const tbtc = await TBTC.withConfig({
     web3: web3,
-    bitcoinNetwork: "testnet",
+    bitcoinNetwork: "main",
     electrum: {
       testnet: {
-        server: "electrumx-server.test.tbtc.network",
+        server: "electrumx-server.tbtc.network",
         port: 50002,
         protocol: "ssl"
       },
@@ -105,7 +160,7 @@ async function runAction() {
         protocol: "ssl"
       },
       testnetWS: {
-        server: "electrumx-server.test.tbtc.network",
+        server: "electrumx-server.tbtc.network",
         port: 8443,
         protocol: "wss"
       }
@@ -117,7 +172,7 @@ async function runAction() {
 
 runAction()
   .then(result => {
-    console.log("Action completed with final result:", result)
+    console.log(result)
 
     process.exit(0)
   })
@@ -136,28 +191,91 @@ async function createDeposit(tbtc, satoshiLotSize, mintOnActive) {
 async function resumeDeposit(tbtc, depositAddress, mintOnActive) {
   const deposit = await tbtc.Deposit.withAddress(depositAddress)
 
-  return runDeposit(deposit, mintOnActive)
+  const existingRedemptionDetails = await deposit.getLatestRedemptionDetails()
+  console.log(existingRedemptionDetails)
+  if (existingRedemptionDetails) {
+    return redeemDeposit(tbtc, deposit, existingRedemptionDetails)
+  } else {
+    return runDeposit(deposit, mintOnActive)
+  }
 }
 
 async function redeemDeposit(tbtc, depositAddress, redeemerAddress) {
   return new Promise(async (resolve, reject) => {
     try {
-      const deposit = await tbtc.Deposit.withAddress(depositAddress)
-      const redemption = await deposit.requestRedemption(redeemerAddress)
-      redemption.autoSubmit()
+      let redemption
+      if (typeof depositAddress == "string") {
+        const deposit = await tbtc.Deposit.withAddress(depositAddress)
+        redemption = await deposit.requestRedemption(redeemerAddress)
+      } else {
+        redemption = new Redemption(depositAddress, redeemerAddress)
+      }
 
       redemption.onWithdrawn(transactionID => {
         console.log()
 
         resolve(
-          `Redeemed deposit ${deposit.address} with Bitcoin transaction ` +
+          `Redeemed deposit ${depositAddress} with Bitcoin transaction ` +
             `${transactionID}.`
         )
       })
+
+      await redemption.autoSubmit()
     } catch (err) {
       reject(err)
     }
   })
+}
+
+async function availableRedemptions(tbtc) {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const vmAddress = tbtc.Deposit.vendingMachineContract.options.address
+      const vmDepositTokens = (await EthereumHelpers.getExistingEvents(
+        tbtc.Deposit.depositTokenContract,
+        "Transfer",
+        { to: vmAddress }
+      )).map(_ => _.returnValues.tokenId)
+
+      const stillInVm =
+        (await Promise.all(vmDepositTokens.map(tokenId =>
+          tbtc.Deposit.depositTokenContract.methods.ownerOf(tokenId)
+            .call().then(_ => [tokenId, _ == vmAddress])
+        ))).filter(([tokenId, ownedByVm]) => ownedByVm).map(([tokenId,]) => tokenId)
+
+      const deposits =
+        await Promise.all(stillInVm.map(_ => tbtc.Deposit.withTdtId(_)))
+
+      const depositInfo =
+        await Promise.all(deposits.map(async _ => {
+          const state = await _.getCurrentState()
+          const stateName = Object.entries(tbtc.Deposit.State).filter(([,_]) => _ == state)[0][0]
+          return [_.address, stateName, await _.getSatoshiLotSize()].join(" ")
+        }))
+
+      resolve(depositInfo.join("\n"))
+    } catch (err) {
+      reject(err)
+    }
+  })
+}
+
+async function liquidateDeposit(tbtc, depositAddress) {
+  const deposit = await tbtc.Deposit.withAddress(depositAddress)
+
+  return await deposit.contract.methods.notifySignatureTimeout().send()
+}
+
+async function withdrawFromDeposit(tbtc, depositAddress) {
+  const deposit = await tbtc.Deposit.withAddress(depositAddress)
+
+  return await deposit.contract.methods.withdrawFunds().send()
+}
+
+async function depositBenficiaries(tbtc, depositAddress) {
+  const deposit = await tbtc.Deposit.withAddress(depositAddress)
+
+  return await deposit.keepContract.methods.returnPartialSignerBonds().send({ value: bnOrNull("71029453546650000") })
 }
 
 async function runDeposit(deposit, mintOnActive) {

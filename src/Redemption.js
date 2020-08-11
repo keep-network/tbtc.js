@@ -94,7 +94,13 @@ export default class Redemption {
           { digest: redemptionDigest }
         )
         const { r, s, recoveryID } = signatureEvent.returnValues
+        console.debug(
+          `Looking up public key point for deposit ${this.deposit.address}...`
+        )
         const publicKeyPoint = await this.deposit.publicKeyPoint
+        console.debug(
+          `Found public key point for deposit ${this.deposit.address} ${JSON.stringify(publicKeyPoint)}.`
+        )
 
         // If needed, submit redemption signature to the deposit.
         if (
@@ -108,6 +114,9 @@ export default class Redemption {
           const ETHEREUM_ECDSA_RECOVERY_V = toBN(27)
           const v = toBN(recoveryID).add(ETHEREUM_ECDSA_RECOVERY_V)
 
+          console.debug(
+            `Providing redemption proof to deposit ${this.deposit.address}...`
+          )
           await EthereumHelpers.sendSafely(
             this.deposit.contract.methods.provideRedemptionSignature(
               v.toString(),
@@ -154,6 +163,8 @@ export default class Redemption {
           EthereumHelpers.bytesToRaw(redeemerOutputScript),
           expectedValue
         )
+console.log(transaction)
+transaction = null
 
         if (!transaction) {
           console.debug(
@@ -221,6 +232,16 @@ export default class Redemption {
       confirmations
     )
 
+console.log(
+      this.deposit.contract.methods.provideRedemptionProof(
+        // Redemption proof does not take the output position as a
+        // parameter, as all redemption transactions are one-input-one-output
+        // However, constructFundingProof includes it for deposit funding
+        // proofs. Here, we filter it out to produce the right set of
+        // parameters.
+        ...proofArgs.filter(_ => _ != "output position")
+      ).encodeABI()
+)
     await EthereumHelpers.sendSafely(
       this.deposit.contract.methods.provideRedemptionProof(
         // Redemption proof does not take the output position as a

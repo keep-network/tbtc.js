@@ -127,6 +127,10 @@ export class DepositFactory {
     return await Deposit.forAddress(this, depositAddress)
   }
 
+  async withTdtId(depositTokenId) {
+    return await Deposit.forTDT(this, depositTokenId)
+  }
+
   // Await the deployed() functions of all contract dependencies.
   /** @private */
   async resolveContracts() {
@@ -159,6 +163,8 @@ export class DepositFactory {
       const contract = new web3.eth.Contract(artifact.abi)
       contract.options.address = lookupAddress(artifact)
       contract.options.from = web3.eth.defaultAccount
+      contract.options.gasPrice = web3.utils.toWei('50', 'gwei')
+      contract.options.handleRevert = true
       this[propertyName] = contract
     })
 
@@ -296,11 +302,15 @@ export default class Deposit {
     const web3 = factory.config.web3
     const contract = new web3.eth.Contract(DepositJSON.abi, depositAddress)
     contract.options.from = web3.eth.defaultAccount
+    contract.options.gasPrice = web3.utils.toWei('50', 'gwei')
+    contract.options.handleRevert = true
     const keepContract = new web3.eth.Contract(
       BondedECDSAKeepJSON.abi,
       keepAddress
     )
     keepContract.options.from = web3.eth.defaultAccount
+    keepContract.options.gasPrice = web3.utils.toWei('50', 'gwei')
+    keepContract.options.handleRevert = true
 
     return new Deposit(factory, contract, keepContract)
   }
@@ -314,6 +324,8 @@ export default class Deposit {
     const web3 = factory.config.web3
     const contract = new web3.eth.Contract(DepositJSON.abi, address)
     contract.options.from = web3.eth.defaultAccount
+    contract.options.gasPrice = web3.utils.toWei('50', 'gwei')
+    contract.options.handleRevert = true
 
     console.debug(`Looking up Created event for deposit ${address}...`)
     const createdEvent = await EthereumHelpers.getExistingEvent(
@@ -334,6 +346,8 @@ export default class Deposit {
       keepAddress
     )
     keepContract.options.from = web3.eth.defaultAccount
+    keepContract.options.gasPrice = web3.utils.toWei('50', 'gwei')
+    keepContract.options.handleRevert = true
 
     return new Deposit(factory, contract, keepContract)
   }
@@ -343,7 +357,7 @@ export default class Deposit {
    * @param {any | string} tdt
    */
   static async forTDT(factory, tdt) {
-    return new Deposit(factory, "")
+    return this.forAddress(factory, web3Utils.padLeft(web3Utils.numberToHex(tdt), 40))
   }
 
   /**
@@ -675,17 +689,17 @@ export default class Deposit {
     if (redemptionCost.gt(availableBalance)) {
       throw new Error(
         `Account ${thisAccount} does not have the required balance of ` +
-          `${redemptionCost.toNumber()} to redeem; it only has ` +
-          `${availableBalance.toNumber()} available.`
+          `${redemptionCost.toString()} to redeem; it only has ` +
+          `${availableBalance.toString()} available.`
       )
     }
 
     console.debug(
       `Looking up UTXO size and transaction fee for redemption transaction...`
     )
-    const transactionFee = await BitcoinHelpers.Transaction.estimateFee(
+    const transactionFee = toBN(await BitcoinHelpers.Transaction.estimateFee(
       this.factory.constantsContract
-    )
+    )).mul(toBN(3))
     const utxoSize = await this.contract.methods.utxoSize().call()
     const outputValue = toBN(utxoSize).sub(toBN(transactionFee))
     const outputValueBytes = outputValue.toArrayLike(Buffer, "le", 8)
@@ -852,6 +866,7 @@ export default class Deposit {
           transaction,
           requiredConfirmations
         )
+          console.log(this.contract.methods.provideBTCFundingProof(...proofArgs).encodeABI())
         return EthereumHelpers.sendSafely(
           this.contract.methods.provideBTCFundingProof(...proofArgs),
           {},

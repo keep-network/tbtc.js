@@ -551,7 +551,7 @@ const BitcoinHelpers = {
       )
 
       for (const tx of unspentTransactions.reverse()) {
-        if (tx.value == expectedValue) {
+        if (tx.value >= expectedValue) {
           return {
             transactionID: tx.tx_hash,
             outputPosition: tx.tx_pos,

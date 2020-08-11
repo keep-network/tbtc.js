@@ -81,6 +81,16 @@ async function getExistingEvent(source, eventName, filter) {
   return events[0]
 }
 
+async function getExistingEvents(source, eventName, filter) {
+  const events = await source.getPastEvents(eventName, {
+    fromBlock: 0,
+    toBlock: "latest",
+    filter
+  })
+
+  return events
+}
+
 /**
  * Converts an Ethereum `bytes` value into the raw bytes it represents.
  * Drops the 0x prefix, and the length prefix.
@@ -112,11 +122,14 @@ function bytesToRaw(bytesString) {
  */
 async function sendSafely(boundContractMethod, sendParams, forceSend) {
   try {
-    const gasEstimate = await boundContractMethod.estimateGas(sendParams)
+    const gasEstimate = await boundContractMethod.estimateGas({ ...sendParams })
 
+    console.log(`Sending transaction for params`, boundContractMethod)
     return boundContractMethod.send({
       gas: gasEstimate,
       ...sendParams
+    }).on('transactionHash', (hash) => {
+      console.debug(`Sent transaction with id ${hash} for params ${JSON.stringify(sendParams)}.`)
     })
   } catch (exception) {
     // If we're not forcibly sending, try to resolve the true error by using
@@ -153,6 +166,7 @@ async function sendSafely(boundContractMethod, sendParams, forceSend) {
 export default {
   getEvent,
   getExistingEvent,
+  getExistingEvents,
   readEventFromTransaction,
   bytesToRaw,
   sendSafely
