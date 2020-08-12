@@ -338,18 +338,30 @@ const BitcoinHelpers = {
      * @param {string} transactionID A hex Bitcoin transaction id hash.
      * @param {number} requiredConfirmations The number of required
      *        confirmations to wait before returning.
+     * @param {function} onReceivedConfirmation A callback that fires when a
+     *        confirmation is seen
      *
      * @return {Promise<number>} A promise to the final number of confirmations
      *         observed that was at least equal to the required confirmations.
      */
-    waitForConfirmations: async function(transactionID, requiredConfirmations) {
+    waitForConfirmations: async function(
+      transactionID,
+      requiredConfirmations,
+      onReceivedConfirmation
+    ) {
       return BitcoinHelpers.withElectrumClient(async electrumClient => {
         const checkConfirmations = async function() {
-          return await BitcoinHelpers.Transaction.checkForConfirmationsWithClient(
-            electrumClient,
-            transactionID,
-            requiredConfirmations
+          const { confirmations } = await electrumClient.getTransaction(
+            transactionID
           )
+
+          typeof onReceivedConfirmation === "function" &&
+            confirmations &&
+            onReceivedConfirmation({ transactionID, confirmations })
+
+          if (confirmations >= requiredConfirmations) {
+            return confirmations
+          }
         }
 
         return electrumClient.onNewBlock(checkConfirmations)
