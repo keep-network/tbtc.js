@@ -374,7 +374,7 @@ export default class Deposit {
       this.publicKeyPointToBitcoinAddress.bind(this)
     )
 
-    this.receivedConfirmationEmitter = new EventEmitter()
+    this.receivedFundingConfirmationEmitter = new EventEmitter()
   }
 
   // /------------------------------- Accessors -------------------------------
@@ -425,10 +425,13 @@ export default class Deposit {
           transaction.transactionID,
           requiredConfirmations,
           ({ transactionID, confirmations }) => {
-            this.receivedConfirmationEmitter.emit("receivedConfirmation", {
-              transactionID,
-              confirmations
-            })
+            this.receivedFundingConfirmationEmitter.emit(
+              "receivedFundingConfirmation",
+              {
+                transactionID,
+                confirmations
+              }
+            )
           }
         )
 
@@ -535,16 +538,16 @@ export default class Deposit {
 
   /**
    * Registers a handler for notification when the Bitcoin funding transaction
-   * has received a confirmation
+   * has received a confirmation.
    *
-   * @param {OnReceivedConfirmationHandler} onReceivedConfirmationHandler
-   *        A handler that passes an object with the transactionID and
-   *        confirmations as its parameter
+   * @param {OnReceivedFundingConfirmationHandler} onReceivedFundingConfirmationHandler
+   *        A handler that receives an object with the transactionID and
+   *        confirmations as its parameter.
    */
-  onReceivedConfirmation(onReceivedConfirmationHandler) {
-    this.receivedConfirmationEmitter.on(
-      "receivedConfirmation",
-      onReceivedConfirmationHandler
+  onReceivedFundingConfirmation(onReceivedFundingConfirmationHandler) {
+    this.receivedFundingConfirmationEmitter.on(
+      "receivedFundingConfirmation",
+      onReceivedFundingConfirmationHandler
     )
   }
 
