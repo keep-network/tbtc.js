@@ -622,7 +622,7 @@ export default class Deposit {
         .call()
     )
     const confirmations = await BitcoinHelpers.Transaction.checkForConfirmations(
-      tx,
+      tx.transactionID,
       requiredConfirmations
     )
     if (!confirmations) {
