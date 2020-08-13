@@ -315,7 +315,7 @@ const BitcoinHelpers = {
      * @param {number} requiredConfirmations A number of required
      *        confirmations below which this function will return null.
      * @param {function} [onReceivedConfirmation] A callback that fires when a
-     *        confirmation is seen
+     *        confirmation is seen.
      *
      * @return {Promise<number>} A promise to the current number of
      *         confirmations for the given `transaction`, iff that transaction has
@@ -348,7 +348,7 @@ const BitcoinHelpers = {
      * @param {number} requiredConfirmations The number of required
      *        confirmations to wait before returning.
      * @param {function} [onReceivedConfirmation] A callback that fires when a
-     *        confirmation is seen
+     *        confirmation is seen.
      *
      * @return {Promise<number>} A promise to the final number of confirmations
      *         observed that was at least equal to the required confirmations.
