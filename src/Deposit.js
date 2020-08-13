@@ -1,3 +1,5 @@
+import EventEmitter from "events"
+
 import BitcoinHelpers from "./BitcoinHelpers.js"
 /** @typedef { import("./BitcoinHelpers.js").FoundTransaction } BitcoinTransaction */
 
@@ -371,6 +373,8 @@ export default class Deposit {
     this.bitcoinAddress = this.publicKeyPoint.then(
       this.publicKeyPointToBitcoinAddress.bind(this)
     )
+
+    this.receivedFundingConfirmationEmitter = new EventEmitter()
   }
 
   // /------------------------------- Accessors -------------------------------
@@ -419,7 +423,16 @@ export default class Deposit {
         )
         await BitcoinHelpers.Transaction.waitForConfirmations(
           transaction.transactionID,
-          requiredConfirmations
+          requiredConfirmations,
+          ({ transactionID, confirmations }) => {
+            this.receivedFundingConfirmationEmitter.emit(
+              "receivedFundingConfirmation",
+              {
+                transactionID,
+                confirmations
+              }
+            )
+          }
         )
 
         return { transaction, requiredConfirmations }
@@ -523,6 +536,21 @@ export default class Deposit {
     // Bitcoin txHash; no verification initially.
   }
 
+  /**
+   * Registers a handler for notification when the Bitcoin funding transaction
+   * has received a confirmation.
+   *
+   * @param {OnReceivedFundingConfirmationHandler} onReceivedFundingConfirmationHandler
+   *        A handler that receives an object with the transactionID and
+   *        confirmations as its parameter.
+   */
+  onReceivedFundingConfirmation(onReceivedFundingConfirmationHandler) {
+    this.receivedFundingConfirmationEmitter.on(
+      "receivedFundingConfirmation",
+      onReceivedFundingConfirmationHandler
+    )
+  }
+
   // /--------------------------- Deposit Actions -----------------------------
 
   /**
@@ -597,7 +625,7 @@ export default class Deposit {
         .call()
     )
     const confirmations = await BitcoinHelpers.Transaction.checkForConfirmations(
-      tx,
+      tx.transactionID,
       requiredConfirmations
     )
     if (!confirmations) {

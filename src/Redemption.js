@@ -55,6 +55,7 @@ export default class Redemption {
   ) {
     this.deposit = deposit
     this.withdrawnEmitter = new EventEmitter()
+    this.receivedConfirmationEmitter = new EventEmitter()
 
     this.redemptionDetails = this.getLatestRedemptionDetails(redemptionDetails)
 
@@ -202,7 +203,13 @@ export default class Redemption {
         )
         await BitcoinHelpers.Transaction.waitForConfirmations(
           transactionID,
-          requiredConfirmations
+          requiredConfirmations,
+          ({ transactionID, confirmations }) => {
+            this.receivedConfirmationEmitter.emit("receivedConfirmation", {
+              transactionID,
+              confirmations
+            })
+          }
         )
 
         return { transactionID, requiredConfirmations }
@@ -272,6 +279,21 @@ export default class Redemption {
   onWithdrawn(withdrawalHandler /* : (txHash)=>void*/) {
     // bitcoin txHash
     this.withdrawnEmitter.on("withdrawn", withdrawalHandler)
+  }
+
+  /**
+   * Registers a handler for notification when the Bitcoin transaction
+   * has received a confirmation
+   *
+   * @param {OnReceivedConfirmationHandler} onReceivedConfirmationHandler
+   *        A handler that passes an object with the transactionID and
+   *        confirmations as its parameter
+   */
+  onReceivedConfirmation(onReceivedConfirmationHandler) {
+    this.receivedConfirmationEmitter.on(
+      "receivedConfirmation",
+      onReceivedConfirmationHandler
+    )
   }
 
   /**
