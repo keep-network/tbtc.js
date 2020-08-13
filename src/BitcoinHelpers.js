@@ -338,7 +338,7 @@ const BitcoinHelpers = {
      * @param {string} transactionID A hex Bitcoin transaction id hash.
      * @param {number} requiredConfirmations The number of required
      *        confirmations to wait before returning.
-     * @param {function} onReceivedConfirmation A callback that fires when a
+     * @param {function} [onReceivedConfirmation] A callback that fires when a
      *        confirmation is seen
      *
      * @return {Promise<number>} A promise to the final number of confirmations
