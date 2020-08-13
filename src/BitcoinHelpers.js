@@ -355,9 +355,9 @@ const BitcoinHelpers = {
             transactionID
           )
 
-          typeof onReceivedConfirmation === "function" &&
-            confirmations &&
+          if (typeof onReceivedConfirmation === "function" && confirmations) {
             onReceivedConfirmation({ transactionID, confirmations })
+          }
 
           if (confirmations >= requiredConfirmations) {
             return confirmations
