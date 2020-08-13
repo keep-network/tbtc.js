@@ -314,8 +314,6 @@ const BitcoinHelpers = {
      * @param {string} transactionID A hex Bitcoin transaction id hash.
      * @param {number} requiredConfirmations A number of required
      *        confirmations below which this function will return null.
-     * @param {function} [onReceivedConfirmation] A callback that fires when a
-     *        confirmation is seen.
      *
      * @return {Promise<number>} A promise to the current number of
      *         confirmations for the given `transaction`, iff that transaction has
@@ -323,18 +321,12 @@ const BitcoinHelpers = {
      */
     checkForConfirmations: async function(
       transactionID,
-      requiredConfirmations,
-      onReceivedConfirmation
+      requiredConfirmations
     ) {
       return BitcoinHelpers.withElectrumClient(async electrumClient => {
         const { confirmations } = await electrumClient.getTransaction(
           transactionID
         )
-
-        if (typeof onReceivedConfirmation === "function" && confirmations) {
-          onReceivedConfirmation({ transactionID, confirmations })
-        }
-
         if (confirmations >= requiredConfirmations) {
           return confirmations
         }
@@ -360,11 +352,19 @@ const BitcoinHelpers = {
     ) {
       return BitcoinHelpers.withElectrumClient(async electrumClient => {
         const checkConfirmations = async function() {
-          return await BitcoinHelpers.Transaction.checkForConfirmations(
-            transactionID,
-            requiredConfirmations,
-            onReceivedConfirmation
-          )
+          return BitcoinHelpers.withElectrumClient(async electrumClient => {
+            const { confirmations } = await electrumClient.getTransaction(
+              transactionID
+            )
+
+            if (typeof onReceivedConfirmation === "function" && confirmations) {
+              onReceivedConfirmation({ transactionID, confirmations })
+            }
+
+            if (confirmations >= requiredConfirmations) {
+              return confirmations
+            }
+          })
         }
 
         return electrumClient.onNewBlock(checkConfirmations)
