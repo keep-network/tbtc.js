@@ -1,3 +1,5 @@
+import EventEmitter from "events"
+
 import BitcoinHelpers from "./BitcoinHelpers.js"
 /** @typedef { import("./BitcoinHelpers.js").FoundTransaction } BitcoinTransaction */
 
@@ -371,6 +373,8 @@ export default class Deposit {
     this.bitcoinAddress = this.publicKeyPoint.then(
       this.publicKeyPointToBitcoinAddress.bind(this)
     )
+
+    this.receivedConfirmationEmitter = new EventEmitter()
   }
 
   // /------------------------------- Accessors -------------------------------
@@ -419,7 +423,13 @@ export default class Deposit {
         )
         await BitcoinHelpers.Transaction.waitForConfirmations(
           transaction.transactionID,
-          requiredConfirmations
+          requiredConfirmations,
+          ({ transactionID, confirmations }) => {
+            this.receivedConfirmationEmitter.emit("receivedConfirmation", {
+              transactionID,
+              confirmations
+            })
+          }
         )
 
         return { transaction, requiredConfirmations }
@@ -521,6 +531,21 @@ export default class Deposit {
   onReadyForProof(proofHandler /* : (prove)=>void*/) {
     // prove(txHash) is a thing, will submit funding proof for the given
     // Bitcoin txHash; no verification initially.
+  }
+
+  /**
+   * Registers a handler for notification when the Bitcoin funding transaction
+   * has received a confirmation
+   *
+   * @param {OnReceivedConfirmationHandler} onReceivedConfirmationHandler
+   *        A handler that passes an object with the transactionID and
+   *        confirmations as its parameter
+   */
+  onReceivedConfirmation(onReceivedConfirmationHandler) {
+    this.receivedConfirmationEmitter.on(
+      "receivedConfirmation",
+      onReceivedConfirmationHandler
+    )
   }
 
   // /--------------------------- Deposit Actions -----------------------------
