@@ -263,7 +263,7 @@ export default class Client {
   /**
    * Get merkle root hash for block.
    * @param {number} blockHeight Block height.
-   * @return {string} Merkle root hash.
+   * @return {Promise<Buffer>} Merkle root hash.
    */
   async getMerkleRoot(blockHeight) {
     const header = await this.electrumClient
@@ -272,7 +272,7 @@ export default class Client {
         throw new Error(`failed to get block header: [${err}]`)
       })
 
-    return fromHex(header).slice(36, 68)
+    return Buffer.from(header, "hex").slice(36, 68)
   }
 
   /**

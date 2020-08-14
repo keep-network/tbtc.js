@@ -83,11 +83,12 @@ export class BitcoinSPV {
   async verifyMerkleProof(proofHex, txHash, index, blockHeight) {
     const proof = Buffer.from(proofHex, "hex")
 
-    // Retreive merkle tree root.
-    let actualRoot = await this.client.getMerkleRoot(blockHeight).catch(err => {
-      throw new Error(`failed to get merkle root: [${err}]`)
-    })
-    actualRoot = Buffer.from(actualRoot, "hex")
+    // Retrieve merkle tree root.
+    const actualRoot = await this.client
+      .getMerkleRoot(blockHeight)
+      .catch(err => {
+        throw new Error(`failed to get merkle root: [${err}]`)
+      })
 
     // Extract tree branches
     const branches = []
