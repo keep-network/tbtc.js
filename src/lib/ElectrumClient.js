@@ -353,20 +353,12 @@ export default class Client {
   }
 }
 
-function fromHex(hex) {
-  return Buffer.from(hex, "hex")
-}
-
-function toHex(bytes) {
-  return Buffer.from(bytes).toString("hex")
-}
-
 /**
  * Converts ScriptPubKey to a script hash specified by the [Electrum Protocol](https://electrumx.readthedocs.io/en/stable/protocol-basics.html#script-hashes).
  * @param {string} script ScriptPubKey in a hexadecimal format.
- * @return {string} Script hash.
+ * @return {string} Script hash as a hex string.
  */
 function scriptToHash(script) {
-  const scriptHash = digest(fromHex(script)).reverse()
-  return toHex(scriptHash)
+  const scriptHash = digest(Buffer.from(script, "hex")).reverse()
+  return scriptHash.toString("hex")
 }
