@@ -1,3 +1,16 @@
+/** @typedef { import("web3").default } Web3 */
+
+/**
+ * Checks whether the given web3 instance is connected to Ethereum mainnet.
+ *
+ * @param {Web3} web3 The web3 instance whose network should be checked.
+ * @return {Promise<boolean>} True if the web3 instance is aimed at Ethereum
+ *         mainnet, false otherwise.
+ */
+async function isMainnet(web3) {
+  return (await web3.eth.getChainId()) == 0x1
+}
+
 /**
  * From a given transaction result, extracts the first event with the given
  * name from the given source contract.
@@ -178,6 +191,7 @@ function getDeployedContract(artifact, web3, networkId) {
 }
 
 export default {
+  isMainnet,
   getEvent,
   getExistingEvent,
   readEventFromTransaction,
