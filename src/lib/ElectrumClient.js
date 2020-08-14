@@ -54,7 +54,7 @@ export default class Client {
 
   /**
    * Get height of the latest mined block.
-   * @return {number} Height of the last mined block.
+   * @return {Promise<number>} Height of the last mined block.
    */
   async latestBlockHeight() {
     // Get header of the latest mined block.
@@ -69,7 +69,7 @@ export default class Client {
   /**
    * Get details of the transaction.
    * @param {string} txHash Hash of a transaction.
-   * @return {*} Transaction details.
+   * @return {Promise<any>} Transaction details.
    */
   async getTransaction(txHash) {
     const tx = await this.electrumClient
@@ -84,7 +84,7 @@ export default class Client {
   /**
    * Broadcast a transaction to the network.
    * @param {string} rawTX The raw transaction as a hexadecimal string.
-   * @return {string} The transaction hash as a hexadecimal string.
+   * @return {Promise<string>} The transaction hash as a hexadecimal string.
    */
   async broadcastTransaction(rawTX) {
     const txHash = await this.electrumClient
@@ -99,7 +99,7 @@ export default class Client {
   /**
    * Get unspent outputs sent to a script.
    * @param {string} script ScriptPubKey in a hexadecimal format.
-   * @return {*} List of unspent outputs. It includes transactions in the mempool.
+   * @return {Promise<any>} List of unspent outputs. It includes transactions in the mempool.
    */
   async getUnspentToScript(script) {
     const scriptHash = scriptToHash(script)
@@ -118,7 +118,7 @@ export default class Client {
    *
    * @param {string} script ScriptPubKey in a hexadecimal format.
    *
-   * @return {Object} Object with balance data.
+   * @return {Promise<any>} Object with balance data.
    */
   async getBalanceOfScript(script) {
     const scriptHash = scriptToHash(script)
@@ -140,7 +140,7 @@ export default class Client {
    * @param {string} script ScriptPubKey in a hexadecimal format.
    * @param {function} callback Is an async callback function called when an existing
    * transaction for the script is found or a new transaction is sent to the script.
-   * @return {any} Value resolved by the callback.
+   * @return {Promise<any>} Value resolved by the callback.
    */
   async onTransactionToScript(script, callback) {
     const scriptHash = scriptToHash(script)
@@ -211,7 +211,7 @@ export default class Client {
    * @param {function} callback Callback function called for the current block
    * and when a new block is mined. It passes to the callback a value returned by
    * [blockchain.headers.subscribe](https://electrumx.readthedocs.io/en/stable/protocol-methods.html#blockchain-headers-subscribe).
-   * @return {any} Value resolved by the callback.
+   * @return {Promise<any>} Value resolved by the callback.
    */
   async onNewBlock(callback) {
     // Subscribe for new block notifications.
@@ -280,7 +280,7 @@ export default class Client {
    * @param {number} blockHeight Starting block height.
    * @param {number} confirmations Number of confirmations (subsequent blocks)
    * built on the starting block.
-   * @return {string} Concatenation of block headers in a hexadecimal format.
+   * @return {Promise<string>} Concatenation of block headers in a hexadecimal format.
    */
   async getHeadersChain(blockHeight, confirmations) {
     const headersChain = await this.electrumClient
@@ -323,7 +323,7 @@ export default class Client {
    * Finds index of output in a transaction for a given address.
    * @param {string} txHash Hash of a transaction.
    * @param {string} address Bitcoin address for the output.
-   * @return {number} Index of output in the transaction (0-indexed).
+   * @return {Promise<number>} Index of output in the transaction (0-indexed).
    */
   async findOutputForAddress(txHash, address) {
     const tx = await this.getTransaction(txHash).catch(err => {
@@ -346,7 +346,7 @@ export default class Client {
   /**
    * Gets a history of all transactions the script is involved in.
    * @param {string} script The script in raw hexadecimal format.
-   * @return {*} A list of transactions.
+   * @return {Promise<any>} A list of transactions.
    */
   async getTransactionsForScript(script) {
     const scriptHash = scriptToHash(script)

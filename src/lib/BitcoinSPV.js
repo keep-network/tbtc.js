@@ -26,7 +26,7 @@ export class BitcoinSPV {
    * Get SPV transaction proof.
    * @param {string} txHash Transaction hash.
    * @param {number} confirmations Required number of confirmations for the transaction.
-   * @return {Proof} Transaction's SPV proof.
+   * @return {Promise<Proof>} Transaction's SPV proof.
    */
   async getTransactionProof(txHash, confirmations) {
     // GET TRANSACTION
@@ -78,7 +78,7 @@ export class BitcoinSPV {
    * @param {string} txHash Transaction hash.
    * @param {number} index is transaction index in the block (1-indexed)
    * @param {number} blockHeight Height of the block where transaction was confirmed.
-   * @return {boolean} true if verification passed, else false
+   * @return {Promise<boolean>} true if verification passed, else false
    */
   async verifyMerkleProof(proofHex, txHash, index, blockHeight) {
     const proof = Buffer.from(proofHex, "hex")
