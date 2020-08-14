@@ -4,6 +4,7 @@ import BN from "bn.js"
 import BitcoinHelpers from "./BitcoinHelpers.js"
 /** @typedef { import("./BitcoinHelpers.js").BitcoinNetwork } BitcoinNetwork */
 import EthereumHelpers from "./EthereumHelpers.js"
+/** @typedef { import("./lib/ElectrumClient.js").Config } ElectrumConfig */
 
 import { DepositFactory } from "./Deposit.js"
 import { Constants } from "./Constants.js"
@@ -11,9 +12,10 @@ import { Constants } from "./Constants.js"
 import TBTCSystemJSON from "@keep-network/tbtc/artifacts/TBTCSystem.json"
 
 /**
- * @typedef {Object} TBTCConfig
- * @prop {BitcoinNetwork} bitcoinNetwork
- * @prop {Web3} web3
+ * @typedef {object} TBTCConfig
+ * @property {Web3} web3
+ * @property {BitcoinNetwork} bitcoinNetwork
+ * @property {ElectrumConfig} electrum
  */
 
 /**

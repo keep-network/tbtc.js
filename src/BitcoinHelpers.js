@@ -1,19 +1,19 @@
+import bcoin from "bcoin/lib/bcoin-browser.js"
 import secp256k1 from "bcrypto/lib/secp256k1.js"
+import BcryptoSignature from "bcrypto/lib/internal/signature.js"
 import BcoinPrimitives from "bcoin/lib/primitives/index.js"
 import BcoinScript from "bcoin/lib/script/index.js"
-import BcryptoSignature from "bcrypto/lib/internal/signature.js"
-const { KeyRing } = BcoinPrimitives
-const { Script } = BcoinScript
-
-import bcoin from "bcoin/lib/bcoin-browser.js"
 
 import { BitcoinSPV } from "./lib/BitcoinSPV.js"
+/** @typedef { import("./lib/BitcoinSPV.js").Proof } Proof */
 import { BitcoinTxParser } from "./lib/BitcoinTxParser.js"
 import ElectrumClient from "./lib/ElectrumClient.js"
+/** @typedef { import("./lib/ElectrumClient.js").Config } ElectrumConfig */
 
 import BN from "bn.js"
 
-/** @typedef { import("./lib/BitcoinSPV.js").Proof } Proof */
+const { KeyRing } = BcoinPrimitives
+const { Script } = BcoinScript
 
 /** @enum {string} */
 const BitcoinNetwork = {
@@ -56,7 +56,9 @@ const BitcoinHelpers = {
 
   Network: BitcoinNetwork,
 
+  /** @type {ElectrumConfig?} */
   electrumConfig: null,
+
   /**
    * Updates the config to use for Electrum client connections. Electrum is
    * the core mechanism used to interact with the Bitcoin blockchain.
@@ -210,9 +212,7 @@ const BitcoinHelpers = {
    * @template T
    */
   withElectrumClient: async function(block) {
-    const electrumClient = new ElectrumClient(
-      BitcoinHelpers.electrumConfig.testnetWS
-    )
+    const electrumClient = new ElectrumClient(BitcoinHelpers.electrumConfig)
 
     await electrumClient.connect()
 
