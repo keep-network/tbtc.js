@@ -978,10 +978,26 @@ export default class Deposit {
     console.debug(
       `Waiting for deposit ${this.address} to retrieve public key...`
     )
-    // Ask the deposit to fetch and store the signer pubkey.
-    const pubkeyTransaction = await EthereumHelpers.sendSafely(
-      this.contract.methods.retrieveSignerPubkey()
-    )
+
+    let pubkeyTransaction
+
+    for (;;) {
+      try {
+        // Ask the deposit to fetch and store the signer pubkey.
+        console.debug(`Starting public key retrieval attempt...`)
+
+        pubkeyTransaction = await EthereumHelpers.sendSafely(
+          this.contract.methods.retrieveSignerPubkey()
+        )
+
+        if (pubkeyTransaction) {
+          break
+        }
+      } catch (e) {
+        console.debug("Could not retrieve signer public key; retrying", e)
+        await new Promise(resolve => setTimeout(resolve, 10000))
+      }
+    }
 
     console.debug(`Found public key for deposit ${this.address}...`)
     const {
