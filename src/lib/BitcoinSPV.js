@@ -5,11 +5,13 @@ import Hash256 from "bcrypto/lib/hash256.js"
 import BcryptoMerkle from "bcrypto/lib/merkle.js"
 const { deriveRoot } = BcryptoMerkle
 
+/** @typedef { import("./ElectrumClient.js").default } ElectrumClient */
+
 /**
- * @typedef {Object} Proof
+ * @typedef {object} Proof
  * @property {string} tx - Raw transaction in hexadecimal format.
  * @property {string} merkleProof - Transaction merkle proof.
- * @property {string} txInBlockIndex - Transaction index in a block.
+ * @property {number} txInBlockIndex - Transaction index in a block.
  * @property {string} chainHeaders - Chain of blocks headers.
  */
 
@@ -56,18 +58,50 @@ export class BitcoinSPV {
       })
 
     // GET MERKLE PROOF
-    const merkleProof = await this.client
-      .getMerkleProof(txHash, txBlockHeight)
-      .catch(err => {
-        throw new Error(`failed to get merkle proof: [${err}]`)
-      })
+    const merkleProofInfo = await this.getMerkleProofInfo(
+      txHash,
+      txBlockHeight
+    ).catch(err => {
+      throw new Error(`failed to get merkle proof: [${err}]`)
+    })
 
     return {
       tx: tx.hex,
-      merkleProof: merkleProof.proof,
-      txInBlockIndex: merkleProof.position,
+      merkleProof: merkleProofInfo.proof,
+      txInBlockIndex: merkleProofInfo.position,
       chainHeaders: headersChain
     }
+  }
+
+  /**
+   * @typedef {object} MerkleProofInfo
+   * @property {string} proof The proof data for a transaction as a hex string.
+   * @property {number} position The position of the transaction in question in
+   *           its containing block.
+   */
+
+  /**
+   * Get proof of transaction inclusion in the block. It produces proof as a
+   * concatenation of 32-byte values in a hexadecimal form. It converts the
+   * values to little endian form.
+   *
+   * @param {string} txHash Hash of a transaction.
+   * @param {number} blockHeight Height of the block where transaction was
+   *        confirmed.
+   * @return {Promise<MerkleProofInfo>} Transaction inclusion proof in
+   *         hexadecimal form.
+   */
+  async getMerkleProofInfo(txHash, blockHeight) {
+    const merkle = await this.client.getTransactionMerkle(txHash, blockHeight)
+
+    let proof = Buffer.from("")
+
+    // Merkle tree
+    merkle.merkle.forEach(function(item) {
+      proof = Buffer.concat([proof, Buffer.from(item, "hex").reverse()])
+    })
+
+    return { proof: proof.toString("hex"), position: merkle.pos }
   }
 
   /**

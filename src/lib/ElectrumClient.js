@@ -292,31 +292,19 @@ export default class Client {
   }
 
   /**
-   * Get proof of transaction inclusion in the block. It produces proof as a
-   * concatenation of 32-byte values in a hexadecimal form. It converts the
-   * values to little endian form.
+   * Get proof of transaction inclusion in the block.
+   *
    * @param {string} txHash Hash of a transaction.
-   * @param {number} blockHeight Height of the block where transaction was confirmed.
-   * @return {string} Transaction inclusion proof in hexadecimal form.
+   * @param {number} blockHeight Height of the block where transaction was
+   *        confirmed.
+   * @return {Promise<any>} Transaction inclusion proof in hexadecimal form.
    */
-  // TODO: We should move this function to BitcoinSPV.js file as it's strictly
-  // related to bitcoin-spv. It just gets merkle from electrum and reverses
-  // endianess.
-  async getMerkleProof(txHash, blockHeight) {
-    const merkle = await this.electrumClient
+  async getTransactionMerkle(txHash, blockHeight) {
+    return await this.electrumClient
       .blockchain_transaction_getMerkle(txHash, blockHeight)
       .catch(err => {
         throw new Error(`failed to get transaction merkle: [${err}]`)
       })
-
-    let proof = Buffer.from("")
-
-    // Merkle tree
-    merkle.merkle.forEach(function(item) {
-      proof = Buffer.concat([proof, fromHex(item).reverse()])
-    })
-
-    return { proof: toHex(proof), position: merkle.pos }
   }
 
   /**
