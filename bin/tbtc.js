@@ -5,6 +5,30 @@ import TBTC from "../index.js"
 import ProviderEngine from "web3-provider-engine"
 import Subproviders from "@0x/subproviders"
 
+/** @type {{ [name: string]: import("../src/TBTC.js").ElectrumConfig }} */
+const electrumConfigs = {
+  testnet: {
+    server: "electrumx-server.test.tbtc.network",
+    port: 8443,
+    protocol: "wss"
+  },
+  testnetTCP: {
+    server: "electrumx-server.test.tbtc.network",
+    port: 50002,
+    protocol: "ssl"
+  },
+  mainnet: {
+    server: "electrumx-server.tbtc.network",
+    port: 8443,
+    protocol: "wss"
+  },
+  mainnetTCP: {
+    server: "electrumx-server.tbtc.network",
+    port: 50002,
+    protocol: "ssl"
+  }
+}
+
 const engine = new ProviderEngine({ pollingInterval: 1000 })
 engine.addProvider(
   // For address 0x420ae5d973e58bc39822d9457bf8a02f127ed473.
@@ -93,23 +117,7 @@ async function runAction() {
   const tbtc = await TBTC.withConfig({
     web3: web3,
     bitcoinNetwork: "testnet",
-    electrum: {
-      testnet: {
-        server: "electrumx-server.test.tbtc.network",
-        port: 50002,
-        protocol: "ssl"
-      },
-      testnetPublic: {
-        server: "testnet1.bauerj.eu",
-        port: 50002,
-        protocol: "ssl"
-      },
-      testnetWS: {
-        server: "electrumx-server.test.tbtc.network",
-        port: 8443,
-        protocol: "wss"
-      }
-    }
+    electrum: electrumConfigs.testnet
   })
 
   return action(tbtc)

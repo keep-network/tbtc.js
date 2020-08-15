@@ -4,12 +4,14 @@ const { digest } = sha256
 
 /**
  * Configuration of electrum client.
- * @typedef Config
- * @type {Object}
+ * @typedef {object} Config
  * @property {string} server ElectrumX server hostname.
  * @property {number} port ElectrumX server port.
- * @property {string} protocol ElectrumX server connection protocol
- * (`ssl`|`tls`|`ws`|`wss`).
+ * @property {"ssl"|"tls"|"ws"|"wss"} protocol The server connection protocol to
+ *           use for the specified `server`.
+ * @property {object} [options] Additional options for the server connection.
+ *           For WebSocket connections, these are `W3CWebSocket` options; for
+ *           SSL/TLS connections, they are Node `TLSSocket` options.
  */
 
 /**
