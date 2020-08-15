@@ -178,7 +178,7 @@ const BitcoinHelpers = {
 
       const publicKey = secp256k1.publicKeyImport(publicKeyBytes, compress)
       const keyRing = KeyRing.fromKey(publicKey, compress)
-      const p2wpkhScript = Script.fromProgram(0, keyRing.getKeyHash())
+      const p2wpkhScript = Script.fromProgram(0, keyRing.getKeyHash(null))
 
       // Serialize address to a format specific to given network.
       return p2wpkhScript.getAddress().toString(network)
@@ -201,11 +201,14 @@ const BitcoinHelpers = {
      *
      * @param {string} address A Bitcoin address.
      *
-     * @return {string} A Bitcoin script for the given address, as a Buffer
+     * @return {Buffer} A Bitcoin script for the given address, as a Buffer
      *         of bytes.
      */
     toRawScript: function(address) {
-      return Script.fromAddress(address).toRaw()
+      // Reading of the Script.toRaw code makes it clear this will always be a
+      // Buffer, and indeed the bcoin code itself `assert`s it in several
+      // places.
+      return /** @type {Buffer} */ (Script.fromAddress(address).toRaw())
     }
   },
   /**
@@ -493,7 +496,10 @@ const BitcoinHelpers = {
       // Combine witness
       let signedTransaction
       try {
-        signedTransaction = bcoin.TX.fromRaw(unsignedTransaction, "hex").clone()
+        signedTransaction = bcoin.TX.fromRaw(
+          Buffer.from(unsignedTransaction, "hex"),
+          null
+        ).clone()
       } catch (err) {
         throw new Error(`failed to import transaction: [${err}]`)
       }
