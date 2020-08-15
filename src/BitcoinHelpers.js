@@ -23,9 +23,20 @@ const BitcoinNetwork = {
 }
 
 /**
- * Found transaction details.
- * @typedef FoundTransaction
- * @type {Object}
+ * Partial details about a transaction; same fields as `Transaction`, but only
+ * the transaction ID is guaranteed to be present in a function that returns
+ * this type.
+ *
+ * @typedef {object} PartialTransactionInBlock
+ * @property {string} transactionID Transaction ID.
+ * @property {number} [outputPosition] Position of output in the transaction.
+ * @property {number} [value] Value of the output (satoshis).
+ */
+
+/**
+ * Complete details about a transaction in a block.
+ *
+ * @typedef {object} TransactionInBlock
  * @property {string} transactionID Transaction ID.
  * @property {number} outputPosition Position of output in the transaction.
  * @property {number} value Value of the output (satoshis).
@@ -243,7 +254,7 @@ const BitcoinHelpers = {
      * @param {number} expectedValue The expected value of the transaction
      *        to fetch.
      *
-     * @return {Promise<FoundTransaction>} A promise to an object of
+     * @return {Promise<TransactionInBlock>} A promise to an object of
      *         transactionID, outputPosition, and value, that resolves with
      *         either null if such a transaction could not be found, or the
      *         information about the transaction that was found.
@@ -263,7 +274,7 @@ const BitcoinHelpers = {
      * @param {number} expectedValue The expected value of the transaction
      *        to fetch.
      *
-     * @return {Promise<FoundTransaction>} A promise to an object of
+     * @return {Promise<TransactionInBlock>} A promise to an object of
      *         transactionID, outputPosition, and value, that resolves with
      *         either null if such a transaction could not be found, or the
      *         information about the transaction that was found.
@@ -284,7 +295,7 @@ const BitcoinHelpers = {
      * @param {string} bitcoinAddress Bitcoin address to watch.
      * @param {number} expectedValue The expected value to watch for.
      *
-     * @return {Promise<FoundTransaction>} A promise to the found
+     * @return {Promise<TransactionInBlock>} A promise to the found
      *         transaction once it is seen on the chain.
      */
     findOrWaitFor: async function(bitcoinAddress, expectedValue) {
@@ -424,8 +435,8 @@ const BitcoinHelpers = {
      * @param {string} signedTransaction The signed transaction in
      *        hexadecimal format.
      *
-     * @return {Promise<FoundTransaction>} A partial FoundTransaction with
-     *         the transactionID field set.
+     * @return {Promise<PartialTransactionInBlock>} Partial information for the
+     *         broadcast transaction with the transactionID field set.
      */
     broadcast: async function(signedTransaction) {
       return await BitcoinHelpers.withElectrumClient(async electrumClient => {
@@ -586,7 +597,7 @@ const BitcoinHelpers = {
      * @param {number} expectedValue The expected value of the transaction
      *        to fetch.
      *
-     * @return {Promise<FoundTransaction>} A promise to an object of
+     * @return {Promise<TransactionInBlock>} A promise to an object of
      *         transactionID, outputPosition, and value, that resolves with
      *         either null if such a transaction could not be found, or the
      *         information about the transaction that was found.
