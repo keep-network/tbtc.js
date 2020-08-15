@@ -32,7 +32,9 @@ const BitcoinNetwork = {
  */
 
 /**
- * @typedef {Object} ParsedTransaction
+ * An extraction of a transaction's important fields as hex strings.
+ *
+ * @typedef {object} HexTransactionFields
  * @property {string} version The transaction version as an unprefixed hex
  *           string.
  * @property {string} txInVector The transaction input vector as an unprefixed
@@ -45,10 +47,13 @@ const BitcoinNetwork = {
  */
 
 /**
- * @typedef {Object} SPVProof
- * @extends {Proof}
- * @property {ParsedTransaction} parsedTransaction Parsed transaction with
+ * @typedef {object} SPVProofInfo
+ * @property {HexTransactionFields} parsedTransaction Parsed transaction with
  *           additional data useful in submitting SPV proofs, stored as buffers.
+ */
+
+/**
+ * @typedef {Proof & SPVProofInfo} SPVProof
  */
 
 const BitcoinHelpers = {
@@ -396,7 +401,8 @@ const BitcoinHelpers = {
      * @param {number} confirmations The number of confirmations to include
      *        in the proof.
      *
-     * @return {SPVProof} The proof data, plus the parsed transaction for the proof.
+     * @return {Promise<SPVProof>} The proof data, plus the parsed transaction
+     *         for the proof.
      */
     getSPVProof: async function(transactionID, confirmations) {
       return await BitcoinHelpers.withElectrumClient(async electrumClient => {
