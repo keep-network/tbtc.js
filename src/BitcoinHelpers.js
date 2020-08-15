@@ -457,7 +457,7 @@ const BitcoinHelpers = {
      *
      * @param {string} unsignedTransaction Unsigned raw bitcoin transaction
      *        in hexadecimal format.
-     * @param {uint32} inputIndex Index number of input to be signed.
+     * @param {number} inputIndex Index number of input to be signed.
      * @param {string} r Signature's `r` value in hexadecimal format.
      * @param {string} s Signature's `s` value in hexadecimal format.
      * @param {string} publicKey 64-byte signer's public key's concatenated
@@ -519,7 +519,7 @@ const BitcoinHelpers = {
      * @param {string} previousOutpoint Previous transaction's output to be
      *        used as an input. Provided in hexadecimal format, consists of
      *        32-byte transaction ID and 4-byte output index number.
-     * @param {uint32} inputSequence Input's sequence number. As per
+     * @param {number} inputSequence Input's sequence number. As per
      *        BIP-125 the value is used to indicate that transaction should
      *        be able to be replaced in the future. If input sequence is set
      *        to `0xffffffff` the transaction won't be replaceable.
