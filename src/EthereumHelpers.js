@@ -1,5 +1,7 @@
 /** @typedef { import("web3").default } Web3 */
 /** @typedef { import("web3-eth-contract").Contract } Contract */
+/** @typedef { import("web3-eth-contract").ContractSendMethod } ContractSendMethod */
+/** @typedef { import("web3-eth-contract").SendOptions } SendOptions */
 /** @typedef { import("web3-utils").AbiItem } AbiItem */
 /** @typedef { import("web3-core").TransactionReceipt } TransactionReceipt */
 
@@ -139,12 +141,12 @@ function bytesToRaw(bytesString) {
  * method to get the proper underlying error message. Otherwise, sends the
  * signed transaction normally.
  *
- * @param {*} boundContractMethod A bound web3 contract method with
- *        `estimateGas`, `send`, and `call` variants available.
- * @param {*} sendParams The parameters to pass to `estimateGas` and `send` for
- *        transaction processing.
- * @param {boolean} forceSend Force the transaction send through even if gas
- *        estimation fails.
+ * @param {ContractSendMethod} boundContractMethod A bound web3 contract method
+ *        with `estimateGas`, `send`, and `call` variants available.
+ * @param {Partial<SendOptions>} [sendParams] The parameters to pass to
+ *        `estimateGas` and `send` for transaction processing.
+ * @param {boolean} [forceSend=false] Force the transaction send through even
+ *        if gas estimation fails.
  *
  * @return {Promise<any>} A promise to the result of sending the bound contract
  *         method. Fails the promise if gas estimation fails, extracting an
@@ -156,6 +158,7 @@ async function sendSafely(boundContractMethod, sendParams, forceSend) {
     const gasEstimate = await boundContractMethod.estimateGas({ ...sendParams })
 
     return boundContractMethod.send({
+      from: "", // FIXME Need systemic handling of default from address.
       ...sendParams,
       gas: gasEstimate
     })
@@ -195,10 +198,10 @@ async function sendSafely(boundContractMethod, sendParams, forceSend) {
  * Wraps the {@link sendSafely} method with a retry logic.
  * @see {@link sendSafely}
  *
- * @param {*} boundContractMethod A bound web3 contract method with
- *        `estimateGas`, `send`, and `call` variants available.
- * @param {*} sendParams The parameters to pass to `estimateGas` and `send` for
- *        transaction processing.
+ * @param {ContractSendMethod} boundContractMethod A bound web3 contract method
+ *        with `estimateGas`, `send`, and `call` variants available.
+ * @param {Partial<SendOptions>} sendParams The parameters to pass to
+ *        `estimateGas` and `send` for transaction processing.
  * @param {boolean} forceSend Force the transaction send through even if gas
  *        estimation fails.
  * @param {number} totalAttempts Total attempts number which should be performed
