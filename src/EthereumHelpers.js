@@ -163,31 +163,16 @@ async function sendSafely(boundContractMethod, sendParams, forceSend) {
       gas: gasEstimate
     })
   } catch (exception) {
-    // If we're not forcibly sending, try to resolve the true error by using
-    // `call`.
+    // For an always failing transaction, if forceSend is set, send it anyway.
     if (
       exception.message &&
-      exception.message.match(/always failing transaction/)
+      exception.message.match(/always failing transaction/) &&
+      forceSend
     ) {
-      let callResult
-      try {
-        // FIXME Something more is needed here to properly resolve this error...
-        callResult = await boundContractMethod.call(sendParams)
-      } catch (trueError) {
-        if (forceSend) {
-          console.error(callResult, trueError)
-        } else {
-          throw trueError
-        }
-      }
-
-      if (forceSend) {
-        return boundContractMethod.send(sendParams)
-      } else {
-        // If we weren't able to get a better error from `call`, throw the
-        // original exception.
-        throw exception
-      }
+      return boundContractMethod.send({
+        from: "", // FIXME Need systemic handling of default from address.
+        ...sendParams
+      })
     } else {
       throw exception // rethrow the exception if we don't handle it
     }
