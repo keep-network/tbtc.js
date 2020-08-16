@@ -1,12 +1,13 @@
-import EventEmitter from "events"
+import { EventEmitter } from "events"
 
 import BitcoinHelpers from "./BitcoinHelpers.js"
 /** @typedef { import("./BitcoinHelpers.js").TransactionInBlock } BitcoinTransaction */
 /** @typedef { import("./BitcoinHelpers.js").OnReceivedConfirmationHandler } OnReceivedConfirmationHandler */
 
 import EthereumHelpers from "./EthereumHelpers.js"
-
-/** @typedef { import("web3").default.Web3.eth.Contract } Contract */
+/** @typedef { import("./EthereumHelpers.js").Contract } Contract */
+/** @typedef { import("./EthereumHelpers.js").TruffleArtifact } TruffleArtifact */
+/** @typedef { import("./EthereumHelpers.js").TransactionReceipt } TransactionReceipt */
 
 import Redemption from "./Redemption.js"
 
