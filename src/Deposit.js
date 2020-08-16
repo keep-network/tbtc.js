@@ -493,7 +493,7 @@ export default class Deposit {
   }
 
   /**
-   * @return {DepositStates} The current state of the deposit.
+   * @return {Promise<DepositStates>} The current state of the deposit.
    */
   async getCurrentState() {
     return parseInt(await this.contract.methods.currentState().call())
@@ -1159,7 +1159,7 @@ export default class Deposit {
   /**
    * Get the current collateralization level for this Deposit.
    * Collateralization will be 0% if the deposit is in liquidation.
-   * @return {BN} Percentage collateralization, as an integer. eg. 149%
+   * @return {Promise<BN>} Percentage collateralization, as an integer. eg. 149%
    */
   async getCollateralizationPercentage() {
     return toBN(
@@ -1169,7 +1169,7 @@ export default class Deposit {
 
   /**
    * Get the initial collateralization level for this Deposit.
-   * @return {BN} Percentage collateralization, as an integer. eg. 150%
+   * @return {Promise<BN>} Percentage collateralization, as an integer. eg. 150%
    */
   async getInitialCollateralizedPercentage() {
     return toBN(
@@ -1182,7 +1182,7 @@ export default class Deposit {
    * If the collateralization level falls below this percentage, the Deposit can
    * get courtesy-called.
    * The deposit can be courtesy called using `Deposit.notifyCourtesyCall`.
-   * @return {BN} Percentage collateralization, as an integer. eg. 125%
+   * @return {Promise<BN>} Percentage collateralization, as an integer. eg. 125%
    */
   async getUndercollateralizedThresholdPercent() {
     return toBN(
@@ -1195,7 +1195,7 @@ export default class Deposit {
    * If the collateralization level falls below this percentage, the Deposit
    * can be liquidated.
    * Liquidation can be initiated using `Deposit.notifyUndercollateralizedLiquidation`.
-   * @return {BN} Percentage collateralization, as an integer. eg. 110%
+   * @return {Promise<BN>} Percentage collateralization, as an integer. eg. 110%
    */
   async getSeverelyUndercollateralizedThresholdPercent() {
     return toBN(
@@ -1273,7 +1273,7 @@ export default class Deposit {
   /**
    * Gets the current value of signer bonds at auction.
    * Only callable if the deposit is in the liqudation state.
-   * @return {BN} auction value in wei.
+   * @return {Promise<BN>} auction value in wei.
    */
   async auctionValue() {
     return toBN(await this.contract.methods.auctionValue().call())
@@ -1334,7 +1334,7 @@ export default class Deposit {
   /**
    * Checks if signature was requested via the Keep.
    * @param {string} digest Digest to check approval for.
-   * @return {boolean} True if signature approved, false if not (fraud).
+   * @return {Promise<boolean>} True if signature approved, false if not (fraud).
    */
   async wasSignatureApproved(digest) {
     const events = await this.keepContract.getPastEvents("SignatureRequested", {
