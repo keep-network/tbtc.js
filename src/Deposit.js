@@ -668,7 +668,6 @@ export default class Deposit {
       tx,
       requiredConfirmations
     )
-    proofArgs.unshift(this.address)
 
     // Use approveAndCall pattern to execute VendingMachine.unqualifiedDepositToTbtc.
     const unqualifiedDepositToTbtcCall = this.factory.vendingMachineContract.methods
