@@ -362,10 +362,10 @@ export default class Deposit {
 
   /**
    * @param {DepositFactory} factory
-   * @param {any | string} tdt
+   * @param {string} tdtId
    */
-  static async forTDT(factory, tdt) {
-    return new Deposit(factory, "")
+  static async forTDT(factory, tdtId) {
+    return this.forAddress(factory, "0x" + toBN(tdtId).toString("hex"))
   }
 
   /**
