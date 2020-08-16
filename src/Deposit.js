@@ -2,6 +2,7 @@ import EventEmitter from "events"
 
 import BitcoinHelpers from "./BitcoinHelpers.js"
 /** @typedef { import("./BitcoinHelpers.js").TransactionInBlock } BitcoinTransaction */
+/** @typedef { import("./BitcoinHelpers.js").OnReceivedConfirmationHandler } OnReceivedConfirmationHandler */
 
 import EthereumHelpers from "./EthereumHelpers.js"
 
@@ -561,7 +562,7 @@ export default class Deposit {
    * Registers a handler for notification when the Bitcoin funding transaction
    * has received a confirmation.
    *
-   * @param {OnReceivedFundingConfirmationHandler} onReceivedFundingConfirmationHandler
+   * @param {OnReceivedConfirmationHandler} onReceivedFundingConfirmationHandler
    *        A handler that receives an object with the transactionID and
    *        confirmations as its parameter.
    */
