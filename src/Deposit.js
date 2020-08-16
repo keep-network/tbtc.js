@@ -226,7 +226,7 @@ export class DepositFactory {
   }
 
   /**
-   * @private
+   * @package
    *
    * INTERNAL USE ONLY
    *
