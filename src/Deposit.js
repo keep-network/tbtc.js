@@ -168,7 +168,7 @@ export class DepositFactory {
       const contract = EthereumHelpers.getDeployedContract(
         artifact,
         web3,
-        networkId
+        networkId.toString()
       )
       this[propertyName] = contract
     })
@@ -240,8 +240,8 @@ export class DepositFactory {
       await this.systemContract.methods.getNewDepositFeeEstimate().call()
     )
 
-    const accountBalance = await this.config.web3.eth.getBalance(
-      this.config.web3.eth.defaultAccount
+    const accountBalance = toBN(
+      await this.config.web3.eth.getBalance(this.config.web3.eth.defaultAccount)
     )
 
     if (creationCost.lt(accountBalance)) {
@@ -410,7 +410,10 @@ export default class Deposit {
         console.debug(
           `Monitoring Bitcoin for transaction to address ${address}...`
         )
-        return BitcoinHelpers.Transaction.findOrWaitFor(address, expectedValue)
+        return BitcoinHelpers.Transaction.findOrWaitFor(
+          address,
+          expectedValue.toNumber()
+        )
       }))
   }
 
@@ -661,7 +664,7 @@ export default class Deposit {
     )
     const proofArgs = await this.constructFundingProof(
       tx,
-      parseInt(requiredConfirmations)
+      requiredConfirmations
     )
     proofArgs.unshift(this.address)
 
@@ -686,7 +689,7 @@ export default class Deposit {
       "Transfer"
     )
 
-    return toBN(transferEvent.value).div(toBN(10).pow(18))
+    return toBN(transferEvent.value).div(toBN(10).pow(toBN(18)))
   }
 
   /**
@@ -986,7 +989,7 @@ export default class Deposit {
         )
         console.debug(`Minted`, transferEvent.value, `TBTC.`)
 
-        return toBN(transferEvent.value).div(toBN(10).pow(18))
+        return toBN(transferEvent.value).div(toBN(10).pow(toBN(18)))
       }
     )
 
