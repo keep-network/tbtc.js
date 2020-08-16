@@ -1253,9 +1253,10 @@ export default class Deposit {
    * Purchases the signer bonds and closes the liquidation auction.
    */
   async purchaseSignerBondsAtAuction() {
+    // FIXME Need systemic handling of default from address.
     const owner = this.factory.config.web3.eth.defaultAccount
     const allowance = await this.factory.tokenContract.methods
-      .allowance(owner, deposit.address)
+      .allowance(owner, this.address)
       .call()
 
     const lotSize = await this.getLotSizeTBTC()
