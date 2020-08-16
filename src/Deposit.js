@@ -137,15 +137,31 @@ export class DepositFactory {
     // Get the net_version
     const networkId = await this.config.web3.eth.net.getId()
 
+    /** @type {[TruffleArtifact, string][]} */
     const contracts = [
-      [TBTCConstantsJSON, "constantsContract"],
-      [TBTCSystemJSON, "systemContract"],
-      [TBTCTokenJSON, "tokenContract"],
-      [TBTCDepositTokenJSON, "depositTokenContract"],
-      [FeeRebateTokenJSON, "feeRebateTokenContract"],
-      [DepositFactoryJSON, "depositFactoryContract"],
-      [FundingScriptJSON, "fundingScriptContract"],
-      [VendingMachineJSON, "vendingMachineContract"]
+      [/** @type {TruffleArtifact} */ (TBTCConstantsJSON), "constantsContract"],
+      [/** @type {TruffleArtifact} */ (TBTCSystemJSON), "systemContract"],
+      [/** @type {TruffleArtifact} */ (TBTCTokenJSON), "tokenContract"],
+      [
+        /** @type {TruffleArtifact} */ (TBTCDepositTokenJSON),
+        "depositTokenContract"
+      ],
+      [
+        /** @type {TruffleArtifact} */ (FeeRebateTokenJSON),
+        "feeRebateTokenContract"
+      ],
+      [
+        /** @type {TruffleArtifact} */ (DepositFactoryJSON),
+        "depositFactoryContract"
+      ],
+      [
+        /** @type {TruffleArtifact} */ (FundingScriptJSON),
+        "fundingScriptContract"
+      ],
+      [
+        /** @type {TruffleArtifact} */ (VendingMachineJSON),
+        "vendingMachineContract"
+      ]
     ]
 
     contracts.map(([artifact, propertyName]) => {
@@ -294,50 +310,52 @@ export default class Deposit {
         `keep at address ${keepAddress}...`
     )
     const web3 = factory.config.web3
-    const contract = new web3.eth.Contract(DepositJSON.abi, depositAddress)
-    contract.options.from = web3.eth.defaultAccount
-    contract.options.handleRevert = true
-    const keepContract = new web3.eth.Contract(
-      BondedECDSAKeepJSON.abi,
+    const contract = EthereumHelpers.buildContract(
+      web3,
+      /** @type {TruffleArtifact} */ (DepositJSON).abi,
+      depositAddress
+    )
+    const keepContract = EthereumHelpers.buildContract(
+      web3,
+      /** @type {TruffleArtifact} */ (BondedECDSAKeepJSON).abi,
       keepAddress
     )
-    keepContract.options.from = web3.eth.defaultAccount
-    keepContract.options.handleRevert = true
 
     return new Deposit(factory, contract, keepContract)
   }
 
   /**
    * @param {DepositFactory} factory
-   * @param {string} address
+   * @param {string} depositAddress
    */
-  static async forAddress(factory, address) {
-    console.debug(`Looking up Deposit contract at address ${address}...`)
+  static async forAddress(factory, depositAddress) {
+    console.debug(`Looking up Deposit contract at address ${depositAddress}...`)
     const web3 = factory.config.web3
-    const contract = new web3.eth.Contract(DepositJSON.abi, address)
-    contract.options.from = web3.eth.defaultAccount
-    contract.options.handleRevert = true
+    const contract = EthereumHelpers.buildContract(
+      web3,
+      /** @type {TruffleArtifact} */ (DepositJSON).abi,
+      depositAddress
+    )
 
-    console.debug(`Looking up Created event for deposit ${address}...`)
+    console.debug(`Looking up Created event for deposit ${depositAddress}...`)
     const createdEvent = await EthereumHelpers.getExistingEvent(
       factory.systemContract,
       "Created",
-      { _depositContractAddress: address }
+      { _depositContractAddress: depositAddress }
     )
     if (!createdEvent) {
       throw new Error(
-        `Could not find creation event for deposit at address ${address}.`
+        `Could not find creation event for deposit at address ${depositAddress}.`
       )
     }
 
     const keepAddress = createdEvent.returnValues._keepAddress
     console.debug(`Found keep address ${keepAddress}.`)
-    const keepContract = new web3.eth.Contract(
-      BondedECDSAKeepJSON.abi,
+    const keepContract = EthereumHelpers.buildContract(
+      web3,
+      /** @type {TruffleArtifact} */ (BondedECDSAKeepJSON).abi,
       keepAddress
     )
-    keepContract.options.from = web3.eth.defaultAccount
-    keepContract.options.handleRevert = true
 
     return new Deposit(factory, contract, keepContract)
   }
