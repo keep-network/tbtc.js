@@ -370,8 +370,8 @@ export default class Deposit {
 
   /**
    * @param {DepositFactory} factory
-   * @param {TruffleContract} depositContract
-   * @param {TruffleContract} keepContract
+   * @param {Contract} depositContract
+   * @param {Contract} keepContract
    */
   constructor(factory, depositContract, keepContract) {
     if (!keepContract) {
