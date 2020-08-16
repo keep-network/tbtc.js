@@ -388,8 +388,8 @@ export default class Deposit {
     this.activeStatePromise = this.waitForActiveState()
 
     this.publicKeyPoint = this.findOrWaitForPublicKeyPoint()
-    this.bitcoinAddress = this.publicKeyPoint.then(
-      this.publicKeyPointToBitcoinAddress.bind(this)
+    this.bitcoinAddress = this.publicKeyPoint.then(point =>
+      this.publicKeyPointToBitcoinAddress(point)
     )
 
     this.receivedFundingConfirmationEmitter = new EventEmitter()
