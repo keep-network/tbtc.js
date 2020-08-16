@@ -888,8 +888,8 @@ export default class Deposit {
   /**
    * @typedef {Object} AutoSubmitState
    * @prop {Promise<BitcoinTransaction>} fundingTransaction
-   * @prop {Promise<{ transaction: FoundTransaction, requiredConfirmations: Number }>} fundingConfirmations
-   * @prop {Promise<EthereumTransaction>} proofTransaction
+   * @prop {Promise<{ transaction: BitcoinTransaction, requiredConfirmations: Number }>} fundingConfirmations
+   * @prop {Promise<TransactionReceipt>} proofTransaction
    * @prop {Promise<number>} mintedTBTC
    */
   /**
