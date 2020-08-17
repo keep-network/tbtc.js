@@ -10,6 +10,7 @@ import EthereumHelpers from "./EthereumHelpers.js"
 /** @typedef { import("./EthereumHelpers.js").TransactionReceipt } TransactionReceipt */
 
 import Redemption from "./Redemption.js"
+/** @typedef { import("./Redemption.js").RedemptionDetails } RedemptionDetails */
 
 import TBTCConstantsJSON from "@keep-network/tbtc/artifacts/TBTCConstants.json"
 import TBTCSystemJSON from "@keep-network/tbtc/artifacts/TBTCSystem.json"
@@ -860,6 +861,8 @@ export default class Deposit {
    *
    * Returns a promise to the redemption details, or to null if there is no
    * current redemption in progress.
+   *
+   * @return {Promise<RedemptionDetails>}
    */
   async getLatestRedemptionDetails() {
     // If the contract is ACTIVE, there's definitely no redemption. This can
@@ -1135,9 +1138,11 @@ export default class Deposit {
     ]
   }
 
-  redemptionDetailsFromEvent(
-    redemptionRequestedEventArgs
-  ) /* : RedemptionDetails*/ {
+  /**
+   * @param {any} redemptionRequestedEventArgs
+   * @return {RedemptionDetails}
+   */
+  redemptionDetailsFromEvent(redemptionRequestedEventArgs) {
     const {
       _utxoValue,
       _redeemerOutputScript,

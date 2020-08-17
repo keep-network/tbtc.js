@@ -11,10 +11,10 @@ const { toBN } = web3Utils
  * Details of a given redemption at a given point in time.
  * @typedef {Object} RedemptionDetails
  * @property {BN} utxoValue The value of the UTXO in the redemption.
- * @property {Buffer} redeemerOutputScript The raw redeemer output script bytes.
+ * @property {string} redeemerOutputScript The raw redeemer output script bytes.
  * @property {BN} requestedFee The fee for the redemption transaction.
- * @property {Buffer} outpoint The raw outpoint bytes.
- * @property {Buffer} digest The raw digest bytes.
+ * @property {string} outpoint The raw outpoint bytes.
+ * @property {string} digest The raw digest bytes.
  */
 
 /**
