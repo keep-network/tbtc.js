@@ -67,6 +67,16 @@ const BitcoinNetwork = {
  * @typedef {Proof & SPVProofInfo} SPVProof
  */
 
+/**
+ * A handler that is notified whenever a new confirmation arrives for a given
+ * transaction id.
+ *
+ * @callback OnReceivedConfirmationHandler
+ * @param {{ transactionID: string, confirmations: number }} confirmationInfo
+ *        The transaction id whose confirmation was received, and the
+ *        total number of confirmations seen for that transaction id.
+ */
+
 const BitcoinHelpers = {
   satoshisPerBtc: new BN(10).pow(new BN(8)),
 
@@ -358,8 +368,8 @@ const BitcoinHelpers = {
      * @param {string} transactionID A hex Bitcoin transaction id hash.
      * @param {number} requiredConfirmations The number of required
      *        confirmations to wait before returning.
-     * @param {function} [onReceivedConfirmation] A callback that fires when a
-     *        confirmation is seen.
+     * @param {OnReceivedConfirmationHandler} [onReceivedConfirmation] A
+     *        callback that fires when a confirmation is seen.
      *
      * @return {Promise<number>} A promise to the final number of confirmations
      *         observed that was at least equal to the required confirmations.
