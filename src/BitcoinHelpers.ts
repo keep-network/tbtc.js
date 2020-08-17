@@ -6,9 +6,11 @@ import BcoinScript from "bcoin/lib/script/index.js"
 
 import { BitcoinSPV } from "./lib/BitcoinSPV.js"
 /** @typedef { import("./lib/BitcoinSPV.js").Proof } Proof */
+import {Proof} from './lib/BitcoinSPV'
 import { BitcoinTxParser } from "./lib/BitcoinTxParser.js"
 import ElectrumClient from "./lib/ElectrumClient.js"
 /** @typedef { import("./lib/ElectrumClient.js").Config } ElectrumConfig */
+import {Config as ElectrumConfig} from "./lib/ElectrumClient"
 
 import BN from "bn.js"
 
@@ -57,7 +59,7 @@ const BitcoinHelpers = {
   Network: BitcoinNetwork,
 
   /** @type {ElectrumConfig?} */
-  electrumConfig: null,
+  electrumConfig: null as ElectrumConfig|null,
 
   /**
    * Updates the config to use for Electrum client connections. Electrum is
@@ -66,7 +68,7 @@ const BitcoinHelpers = {
    * @param {ElectrumConfig} newConfig The config to use for future Electrum
    *        connections.
    */
-  setElectrumConfig: function(newConfig) {
+  setElectrumConfig: function(newConfig:ElectrumConfig) {
     BitcoinHelpers.electrumConfig = newConfig
   },
 
@@ -82,7 +84,7 @@ const BitcoinHelpers = {
    *
    * @return {Buffer} The signature in the DER format.
    */
-  signatureDER: function(r, s) {
+  signatureDER: function(r:string, s:string) {
     const size = secp256k1.size
     const signature = new BcryptoSignature(
       size,
@@ -211,7 +213,7 @@ const BitcoinHelpers = {
    *        completes (successfully or unsuccessfully).
    * @template T
    */
-  withElectrumClient: async function(block) {
+  withElectrumClient: async function<T>(block:(client:ElectrumClient)=>Promise<T>) {
     const electrumClient = new ElectrumClient(BitcoinHelpers.electrumConfig)
 
     await electrumClient.connect()
