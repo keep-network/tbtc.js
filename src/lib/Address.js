@@ -29,7 +29,7 @@ function publicKeyToP2WPKHaddress(publicKey, network) {
 
   const keyRing = KeyRing.fromKey(publicKeyBCOIN, compress)
 
-  const p2wpkhScript = Script.fromProgram(0, keyRing.getKeyHash())
+  const p2wpkhScript = Script.fromProgram(0, keyRing.getKeyHash(null))
 
   const address = p2wpkhScript.getAddress()
 
