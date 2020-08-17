@@ -258,7 +258,7 @@ export default class Redemption {
       confirmations
     )
 
-    await EthereumHelpers.sendSafely(
+    const proofReceipt = EthereumHelpers.sendSafely(
       this.deposit.contract.methods.provideRedemptionProof(
         // Redemption proof does not take the output position as a
         // parameter, as all redemption transactions are one-input-one-output
@@ -269,7 +269,11 @@ export default class Redemption {
       )
     )
 
-    this.withdrawnEmitter.emit("withdrawn", transactionID)
+    proofReceipt.then(() =>
+      this.withdrawnEmitter.emit("withdrawn", transactionID)
+    )
+
+    return proofReceipt
   }
 
   onBitcoinTransactionSigned(transactionHandler /* : (transaction)=>void*/) {
