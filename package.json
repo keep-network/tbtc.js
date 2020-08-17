@@ -22,8 +22,10 @@
     "test": "mocha --timeout 10000",
     "lint": "npm run lint:js",
     "lint:fix": "npm run lint:fix:js",
-    "lint:js": "eslint .",
-    "lint:fix:js": "eslint --fix ."
+    "lint:js": "npm run lint:js:eslint && npm run lint:js:types",
+    "lint:fix:js": "eslint --fix .",
+    "lint:js:eslint": "eslint .",
+    "lint:js:types": "!(npx tsc --allowJs --noEmit $(cat jsconfig.json | jq -r '.compilerOptions | to_entries | map([\"--\\(.key)\",.value]) | flatten | join(\" \")') src/**.js | grep \"^\\(src\\|bin\\|test\\|examples\\)/\") # comment any other passed arguments"
   },
   "author": "Antonio Salazar Cardozo <antonio@thesis.co>",
   "license": "MIT",
@@ -47,6 +49,7 @@
     "eslint-config-keep": "git+https://github.com/keep-network/eslint-config-keep.git#0.3.0",
     "prettier": "^1.19.1",
     "fs": "0.0.1-security",
-    "mocha": "^6.2.0"
+    "mocha": "^6.2.0",
+    "typescript": "3.4.3"
   }
 }

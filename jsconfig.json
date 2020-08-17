@@ -4,6 +4,8 @@
     "target": "es6",
     "moduleResolution": "node",
     "resolveJsonModule": true,
-    "checkJs": true,
-  },
+    "maxNodeModuleJsDepth": 2,
+    "esModuleInterop": true,
+    "checkJs": true
+  }
 }
