@@ -22,7 +22,7 @@ const { toBN } = web3Utils
  * Details of a given unsigned transaction
  * @typedef {Object} UnsignedTransactionDetails
  * @property {string} hex The raw transaction hex string.
- * @property {digest} digest The transaction's digest.
+ * @property {string} digest The transaction's digest as a hex string.
  */
 
 /**
@@ -58,8 +58,10 @@ export default class Redemption {
     this.withdrawnEmitter = new EventEmitter()
     this.receivedConfirmationEmitter = new EventEmitter()
 
+    /** @type {Promise<RedemptionDetails>} */
     this.redemptionDetails = this.getLatestRedemptionDetails(redemptionDetails)
 
+    /** @type {Promise<UnsignedTransactionDetails>} */
     this.unsignedTransactionDetails = this.redemptionDetails.then(details => {
       const outputValue = details.utxoValue.sub(details.requestedFee)
       const unsignedTransaction = BitcoinHelpers.Transaction.constructOneInputOneOutputWitnessTransaction(
