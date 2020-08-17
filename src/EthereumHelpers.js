@@ -152,6 +152,54 @@ async function sendSafely(boundContractMethod, sendParams, forceSend) {
 }
 
 /**
+ * Wraps the {@link sendSafely} method with a retry logic.
+ * @see {@link sendSafely}
+ *
+ * @param {*} boundContractMethod A bound web3 contract method with
+ *        `estimateGas`, `send`, and `call` variants available.
+ * @param {*} sendParams The parameters to pass to `estimateGas` and `send` for
+ *        transaction processing.
+ * @param {boolean} forceSend Force the transaction send through even if gas
+ *        estimation fails.
+ * @param {number} totalAttempts Total attempts number which should be performed
+ *        in case of an error before rethrowing it to the caller.
+ *
+ * @return {Promise<any>} A promise to the result of sending the bound contract
+ *         method. Fails the promise if gas estimation fails, extracting an
+ *         on-chain error if possible.
+ */
+async function sendSafelyRetryable(
+  boundContractMethod,
+  sendParams,
+  forceSend,
+  totalAttempts
+) {
+  for (let attempt = 1; true; attempt++) {
+    try {
+      console.debug(`sending transaction; attempt number ${attempt}`)
+
+      return await sendSafely(boundContractMethod, sendParams, forceSend)
+    } catch (exception) {
+      if (attempt === totalAttempts) {
+        console.debug(`last attempt ${attempt} failed; throwing exception`)
+        throw exception
+      }
+
+      const backoffMillis = Math.pow(2, attempt) * 1000
+      const jitterMillis = Math.floor(Math.random() * 100)
+      const waitMillis = backoffMillis + jitterMillis
+
+      console.debug(
+        `attempt ${attempt} failed: ${exception}; ` +
+          `retrying after ${waitMillis} milliseconds`
+      )
+
+      await new Promise(resolve => setTimeout(resolve, waitMillis))
+    }
+  }
+}
+
+/**
  * Gets the Web3 Contract for a Truffle artifact and Web3 instance.
  * @param {JSON} artifact
  * @param {*} web3
@@ -183,5 +231,6 @@ export default {
   readEventFromTransaction,
   bytesToRaw,
   sendSafely,
+  sendSafelyRetryable,
   getDeployedContract
 }
