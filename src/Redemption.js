@@ -1,6 +1,7 @@
 import EventEmitter from "events"
 
 import BitcoinHelpers from "./BitcoinHelpers.js"
+/** @typedef { import("./BitcoinHelpers.js").OnReceivedConfirmationHandler } OnReceivedConfirmationHandler */
 
 import EthereumHelpers from "./EthereumHelpers.js"
 
