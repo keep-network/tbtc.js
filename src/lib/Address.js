@@ -4,8 +4,13 @@ const Script = require("bcoin/lib/script").Script
 
 /**
  * Network type enumeration.
+ * @enum {number}
  */
-const Network = Object.freeze({ mainnet: 1, testnet: 2, simnet: 4 })
+const Network = Object.freeze({
+  mainnet: 1,
+  testnet: 2,
+  simnet: 4
+})
 
 /**
  * Converts public key to bitcoin Witness Public Key Hash Address according to
@@ -29,7 +34,7 @@ function publicKeyToP2WPKHaddress(publicKey, network) {
   const address = p2wpkhScript.getAddress()
 
   // Serialize address to a format specific to given network.
-  return address.toString(networkToBCOINvalue(network))
+  return address.toString(networkToBcoinValue(network))
 }
 
 /**
@@ -49,7 +54,7 @@ function addressToScript(address) {
  * @param {Network} network Network value from `Network` enumeration.
  * @return {string} Network type used in `bcoin` library.
  */
-function networkToBCOINvalue(network) {
+function networkToBcoinValue(network) {
   switch (network) {
     case Network.mainnet:
       return "main"
@@ -59,7 +64,7 @@ function networkToBCOINvalue(network) {
       return "simnet"
     default:
       throw new Error(
-        `unsupported network [${networkType}], use one of: [${Object.keys(
+        `unsupported network [${network}], use one of: [${Object.keys(
           network
         ).map(key => {
           return "Network." + key
