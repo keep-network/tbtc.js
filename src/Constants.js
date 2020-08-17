@@ -1,22 +1,27 @@
-import TBTCConstantsJSON from "@keep-network/tbtc/artifacts/TBTCConstants.json"
-import EthereumHelpers from "./EthereumHelpers.js"
 import web3Utils from "web3-utils"
-const { toBN } = web3Utils
+/** @typedef { import("web3-eth-contract").Contract } Contract */
+/** @typedef { import("bn.js") } BN */
 
-/** @typedef { import("web3").default.Web3.eth.Contract } Contract */
+import EthereumHelpers from "./EthereumHelpers.js"
+/** @typedef { import("./EthereumHelpers.js").TruffleArtifact } TruffleArtifact */
+/** @typedef { import("./TBTC.js").TBTCConfig } TBTCConfig */
+
+import TBTCConstantsJSON from "@keep-network/tbtc/artifacts/TBTCConstants.json"
+
+const { toBN } = web3Utils
 
 class Constants {
   /**
    * @param {TBTCConfig} config The config to use for this constants instance.
-   * @return {Constants} The TBTC constants.
+   * @return {Promise<Constants>} The TBTC constants.
    */
   static async withConfig(config) {
     const { web3 } = config
     const networkId = await web3.eth.net.getId()
     const tbtcConstantsContract = EthereumHelpers.getDeployedContract(
-      TBTCConstantsJSON,
+      /** @type {TruffleArtifact} */ (TBTCConstantsJSON),
       web3,
-      networkId
+      networkId.toString()
     )
 
     // BatchRequest makes a batch of Web3 RPC requests as one network payload.
