@@ -1,4 +1,33 @@
 /** @typedef { import("web3").default } Web3 */
+/** @typedef { import("web3-eth-contract").Contract } Contract */
+/** @typedef { import("web3-eth-contract").ContractSendMethod } ContractSendMethod */
+/** @typedef { import("web3-eth-contract").SendOptions } SendOptions */
+/** @typedef { import("web3-utils").AbiItem } AbiItem */
+/** @typedef { import("web3-core").TransactionReceipt } TransactionReceipt */
+
+/**
+ * @typedef {object} DeploymentInfo
+ * @property {string} address The address a contract is deployed at on a given
+ *           network.
+ */
+
+/**
+ * @typedef {object} TruffleArtifact
+ * @property {string} contractName The name of the contract this artifact
+ *           represents.
+ * @property {AbiItem[]} abi The ABI of the contract this artifact represents.
+ * @property {{ [networkId: string]: DeploymentInfo}} networks Information about
+ *           the networks this contract is deployed to.
+ */
+
+/**
+ * @typedef {object} AbiEventProperties
+ * @property {string} signature The method's hex signature.
+ */
+
+/**
+ * @typedef {AbiItem & AbiEventProperties} AbiEvent
+ */
 
 /**
  * Checks whether the given web3 instance is connected to Ethereum mainnet.
@@ -16,7 +45,7 @@ async function isMainnet(web3) {
  * name from the given source contract.
  *
  * @param {Web3} web3 A web3 instance for operating.
- * @param {Result} transaction A web3 transaction result.
+ * @param {TransactionReceipt} transaction A web3 transaction result.
  * @param {Contract} sourceContract A web3 Contract instance whose
  *        event is being read.
  * @param {string} eventName The name of the event to be read.
@@ -29,9 +58,9 @@ function readEventFromTransaction(
   sourceContract,
   eventName
 ) {
-  const eventABI = sourceContract.options.jsonInterface.find(
+  const eventABI = /** @type {AbiEvent} */ (sourceContract.options.jsonInterface.find(
     entry => entry.type == "event" && entry.name == eventName
-  )
+  ))
 
   return Object.values(transaction.events)
     .filter(
@@ -50,7 +79,7 @@ function readEventFromTransaction(
  *
  * @param {Contract} sourceContract The web3 Contract that emits the event.
  * @param {string} eventName The name of the event to wait on.
- * @param {object} filter An additional filter to apply to the event being
+ * @param {object} [filter] An additional filter to apply to the event being
  *        searched for.
  *
  * @return {Promise<Object>} A promise that will be fulfilled by the event
@@ -112,12 +141,12 @@ function bytesToRaw(bytesString) {
  * method to get the proper underlying error message. Otherwise, sends the
  * signed transaction normally.
  *
- * @param {*} boundContractMethod A bound web3 contract method with
- *        `estimateGas`, `send`, and `call` variants available.
- * @param {*} sendParams The parameters to pass to `estimateGas` and `send` for
- *        transaction processing.
- * @param {boolean} forceSend Force the transaction send through even if gas
- *        estimation fails.
+ * @param {ContractSendMethod} boundContractMethod A bound web3 contract method
+ *        with `estimateGas`, `send`, and `call` variants available.
+ * @param {Partial<SendOptions>} [sendParams] The parameters to pass to
+ *        `estimateGas` and `send` for transaction processing.
+ * @param {boolean} [forceSend=false] Force the transaction send through even
+ *        if gas estimation fails.
  *
  * @return {Promise<any>} A promise to the result of sending the bound contract
  *         method. Fails the promise if gas estimation fails, extracting an
@@ -129,35 +158,21 @@ async function sendSafely(boundContractMethod, sendParams, forceSend) {
     const gasEstimate = await boundContractMethod.estimateGas({ ...sendParams })
 
     return boundContractMethod.send({
+      from: "", // FIXME Need systemic handling of default from address.
       ...sendParams,
       gas: gasEstimate
     })
   } catch (exception) {
-    // If we're not forcibly sending, try to resolve the true error by using
-    // `call`.
+    // For an always failing transaction, if forceSend is set, send it anyway.
     if (
       exception.message &&
-      exception.message.match(/always failing transaction/)
+      exception.message.match(/always failing transaction/) &&
+      forceSend
     ) {
-      let callResult
-      try {
-        // FIXME Something more is needed here to properly resolve this error...
-        callResult = await boundContractMethod.call(sendParams)
-      } catch (trueError) {
-        if (forceSend) {
-          console.error(callResult, trueError)
-        } else {
-          throw trueError
-        }
-      }
-
-      if (forceSend) {
-        return boundContractMethod.send(sendParams)
-      } else {
-        // If we weren't able to get a better error from `call`, throw the
-        // original exception.
-        throw exception
-      }
+      return boundContractMethod.send({
+        from: "", // FIXME Need systemic handling of default from address.
+        ...sendParams
+      })
     } else {
       throw exception // rethrow the exception if we don't handle it
     }
@@ -168,10 +183,10 @@ async function sendSafely(boundContractMethod, sendParams, forceSend) {
  * Wraps the {@link sendSafely} method with a retry logic.
  * @see {@link sendSafely}
  *
- * @param {*} boundContractMethod A bound web3 contract method with
- *        `estimateGas`, `send`, and `call` variants available.
- * @param {*} sendParams The parameters to pass to `estimateGas` and `send` for
- *        transaction processing.
+ * @param {ContractSendMethod} boundContractMethod A bound web3 contract method
+ *        with `estimateGas`, `send`, and `call` variants available.
+ * @param {Partial<SendOptions>} sendParams The parameters to pass to
+ *        `estimateGas` and `send` for transaction processing.
  * @param {boolean} forceSend Force the transaction send through even if gas
  *        estimation fails.
  * @param {number} totalAttempts Total attempts number which should be performed
@@ -213,29 +228,50 @@ async function sendSafelyRetryable(
 }
 
 /**
- * Gets the Web3 Contract for a Truffle artifact and Web3 instance.
- * @param {JSON} artifact
- * @param {*} web3
- * @param {string} networkId
- * @return {Contract}
+ * Builds a web3.eth.Contract instance with the given ABI, pointed to the given
+ * address, with a default `from` and revert handling set.
+ *
+ * @param {Web3} web3 The Web3 instance to instantiate the contract on.
+ * @param {AbiItem[]} contractABI The ABI of the contract to instantiate.
+ * @param {string} [address] The address of the deployed contract; if left
+ *        unspecified, the contract won't be pointed to any address.
+ *
+ * @return {Contract} A contract for the specified ABI at the specified address,
+ *         with default `from` and revert handling set.
  */
-function getDeployedContract(artifact, web3, networkId) {
-  function lookupAddress(artifact) {
-    const deploymentInfo = artifact.networks[networkId]
-    if (!deploymentInfo) {
-      throw new Error(
-        `No deployment info found for contract ${artifact.contractName}, network ID ${networkId}.`
-      )
-    }
-    return deploymentInfo.address
-  }
-
-  const contract = new web3.eth.Contract(artifact.abi)
-  contract.options.address = lookupAddress(artifact)
+function buildContract(web3, contractABI, address) {
+  const contract = new web3.eth.Contract(contractABI)
+  contract.options.address = address
   contract.options.from = web3.eth.defaultAccount
+  // @ts-ignore A newer version of Web3 is needed to include handleRevert.
   contract.options.handleRevert = true
 
   return contract
+}
+
+/**
+ * Gets the Web3 Contract for a Truffle artifact and Web3 instance. Throws if
+ * the artifact does not contain deployment information for the specified
+ * network id.
+ *
+ * @param {TruffleArtifact} artifact The Truffle artifact for the deployed
+ *        contract.
+ * @param {Web3} web3 The Web3 instance to instantiate the contract on.
+ * @param {string} networkId The network ID of the network the contract is
+ *        deployed at.
+ *
+ * @return {Contract} A web3.eth.Contract ready for usage for the given network
+ *         and artifact.
+ */
+function getDeployedContract(artifact, web3, networkId) {
+  const deploymentInfo = artifact.networks[networkId]
+  if (!deploymentInfo) {
+    throw new Error(
+      `No deployment info found for contract ${artifact.contractName}, network ID ${networkId}.`
+    )
+  }
+
+  return buildContract(web3, artifact.abi, deploymentInfo.address)
 }
 
 export default {
@@ -246,5 +282,6 @@ export default {
   bytesToRaw,
   sendSafely,
   sendSafelyRetryable,
+  buildContract,
   getDeployedContract
 }

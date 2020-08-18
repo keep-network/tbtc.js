@@ -1,7 +1,7 @@
 import EventEmitter from "events"
 
 import BitcoinHelpers from "./BitcoinHelpers.js"
-/** @typedef { import("./BitcoinHelpers.js").FoundTransaction } BitcoinTransaction */
+/** @typedef { import("./BitcoinHelpers.js").TransactionInBlock } BitcoinTransaction */
 
 import EthereumHelpers from "./EthereumHelpers.js"
 

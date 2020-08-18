@@ -23,16 +23,29 @@ const BitcoinNetwork = {
 }
 
 /**
- * Found transaction details.
- * @typedef FoundTransaction
- * @type {Object}
+ * Partial details about a transaction; same fields as `Transaction`, but only
+ * the transaction ID is guaranteed to be present in a function that returns
+ * this type.
+ *
+ * @typedef {object} PartialTransactionInBlock
+ * @property {string} transactionID Transaction ID.
+ * @property {number} [outputPosition] Position of output in the transaction.
+ * @property {number} [value] Value of the output (satoshis).
+ */
+
+/**
+ * Complete details about a transaction in a block.
+ *
+ * @typedef {object} TransactionInBlock
  * @property {string} transactionID Transaction ID.
  * @property {number} outputPosition Position of output in the transaction.
  * @property {number} value Value of the output (satoshis).
  */
 
 /**
- * @typedef {Object} ParsedTransaction
+ * An extraction of a transaction's important fields as hex strings.
+ *
+ * @typedef {object} HexTransactionFields
  * @property {string} version The transaction version as an unprefixed hex
  *           string.
  * @property {string} txInVector The transaction input vector as an unprefixed
@@ -45,10 +58,23 @@ const BitcoinNetwork = {
  */
 
 /**
- * @typedef {Object} SPVProof
- * @extends {Proof}
- * @property {ParsedTransaction} parsedTransaction Parsed transaction with
+ * @typedef {object} SPVProofInfo
+ * @property {HexTransactionFields} parsedTransaction Parsed transaction with
  *           additional data useful in submitting SPV proofs, stored as buffers.
+ */
+
+/**
+ * @typedef {Proof & SPVProofInfo} SPVProof
+ */
+
+/**
+ * A handler that is notified whenever a new confirmation arrives for a given
+ * transaction id.
+ *
+ * @callback OnReceivedConfirmationHandler
+ * @param {{ transactionID: string, confirmations: number }} confirmationInfo
+ *        The transaction id whose confirmation was received, and the
+ *        total number of confirmations seen for that transaction id.
  */
 
 const BitcoinHelpers = {
@@ -162,7 +188,7 @@ const BitcoinHelpers = {
 
       const publicKey = secp256k1.publicKeyImport(publicKeyBytes, compress)
       const keyRing = KeyRing.fromKey(publicKey, compress)
-      const p2wpkhScript = Script.fromProgram(0, keyRing.getKeyHash())
+      const p2wpkhScript = Script.fromProgram(0, keyRing.getKeyHash(null))
 
       // Serialize address to a format specific to given network.
       return p2wpkhScript.getAddress().toString(network)
@@ -185,11 +211,14 @@ const BitcoinHelpers = {
      *
      * @param {string} address A Bitcoin address.
      *
-     * @return {string} A Bitcoin script for the given address, as a Buffer
+     * @return {Buffer} A Bitcoin script for the given address, as a Buffer
      *         of bytes.
      */
     toRawScript: function(address) {
-      return Script.fromAddress(address).toRaw()
+      // Reading of the Script.toRaw code makes it clear this will always be a
+      // Buffer, and indeed the bcoin code itself `assert`s it in several
+      // places.
+      return /** @type {Buffer} */ (Script.fromAddress(address).toRaw())
     }
   },
   /**
@@ -238,7 +267,7 @@ const BitcoinHelpers = {
      * @param {number} expectedValue The expected value of the transaction
      *        to fetch.
      *
-     * @return {Promise<FoundTransaction>} A promise to an object of
+     * @return {Promise<TransactionInBlock>} A promise to an object of
      *         transactionID, outputPosition, and value, that resolves with
      *         either null if such a transaction could not be found, or the
      *         information about the transaction that was found.
@@ -258,7 +287,7 @@ const BitcoinHelpers = {
      * @param {number} expectedValue The expected value of the transaction
      *        to fetch.
      *
-     * @return {Promise<FoundTransaction>} A promise to an object of
+     * @return {Promise<TransactionInBlock>} A promise to an object of
      *         transactionID, outputPosition, and value, that resolves with
      *         either null if such a transaction could not be found, or the
      *         information about the transaction that was found.
@@ -279,7 +308,7 @@ const BitcoinHelpers = {
      * @param {string} bitcoinAddress Bitcoin address to watch.
      * @param {number} expectedValue The expected value to watch for.
      *
-     * @return {Promise<FoundTransaction>} A promise to the found
+     * @return {Promise<TransactionInBlock>} A promise to the found
      *         transaction once it is seen on the chain.
      */
     findOrWaitFor: async function(bitcoinAddress, expectedValue) {
@@ -339,8 +368,8 @@ const BitcoinHelpers = {
      * @param {string} transactionID A hex Bitcoin transaction id hash.
      * @param {number} requiredConfirmations The number of required
      *        confirmations to wait before returning.
-     * @param {function} [onReceivedConfirmation] A callback that fires when a
-     *        confirmation is seen.
+     * @param {OnReceivedConfirmationHandler} [onReceivedConfirmation] A
+     *        callback that fires when a confirmation is seen.
      *
      * @return {Promise<number>} A promise to the final number of confirmations
      *         observed that was at least equal to the required confirmations.
@@ -396,7 +425,8 @@ const BitcoinHelpers = {
      * @param {number} confirmations The number of confirmations to include
      *        in the proof.
      *
-     * @return {SPVProof} The proof data, plus the parsed transaction for the proof.
+     * @return {Promise<SPVProof>} The proof data, plus the parsed transaction
+     *         for the proof.
      */
     getSPVProof: async function(transactionID, confirmations) {
       return await BitcoinHelpers.withElectrumClient(async electrumClient => {
@@ -418,8 +448,8 @@ const BitcoinHelpers = {
      * @param {string} signedTransaction The signed transaction in
      *        hexadecimal format.
      *
-     * @return {Promise<FoundTransaction>} A partial FoundTransaction with
-     *         the transactionID field set.
+     * @return {Promise<PartialTransactionInBlock>} Partial information for the
+     *         broadcast transaction with the transactionID field set.
      */
     broadcast: async function(signedTransaction) {
       return await BitcoinHelpers.withElectrumClient(async electrumClient => {
@@ -437,7 +467,7 @@ const BitcoinHelpers = {
      *
      * @param {string} unsignedTransaction Unsigned raw bitcoin transaction
      *        in hexadecimal format.
-     * @param {uint32} inputIndex Index number of input to be signed.
+     * @param {number} inputIndex Index number of input to be signed.
      * @param {string} r Signature's `r` value in hexadecimal format.
      * @param {string} s Signature's `s` value in hexadecimal format.
      * @param {string} publicKey 64-byte signer's public key's concatenated
@@ -476,7 +506,10 @@ const BitcoinHelpers = {
       // Combine witness
       let signedTransaction
       try {
-        signedTransaction = bcoin.TX.fromRaw(unsignedTransaction, "hex").clone()
+        signedTransaction = bcoin.TX.fromRaw(
+          Buffer.from(unsignedTransaction, "hex"),
+          null
+        ).clone()
       } catch (err) {
         throw new Error(`failed to import transaction: [${err}]`)
       }
@@ -496,7 +529,7 @@ const BitcoinHelpers = {
      * @param {string} previousOutpoint Previous transaction's output to be
      *        used as an input. Provided in hexadecimal format, consists of
      *        32-byte transaction ID and 4-byte output index number.
-     * @param {uint32} inputSequence Input's sequence number. As per
+     * @param {number} inputSequence Input's sequence number. As per
      *        BIP-125 the value is used to indicate that transaction should
      *        be able to be replaced in the future. If input sequence is set
      *        to `0xffffffff` the transaction won't be replaceable.
@@ -580,7 +613,7 @@ const BitcoinHelpers = {
      * @param {number} expectedValue The expected value of the transaction
      *        to fetch.
      *
-     * @return {Promise<FoundTransaction>} A promise to an object of
+     * @return {Promise<TransactionInBlock>} A promise to an object of
      *         transactionID, outputPosition, and value, that resolves with
      *         either null if such a transaction could not be found, or the
      *         information about the transaction that was found.

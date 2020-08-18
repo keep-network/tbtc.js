@@ -54,7 +54,7 @@ export default class Client {
 
   /**
    * Get height of the latest mined block.
-   * @return {number} Height of the last mined block.
+   * @return {Promise<number>} Height of the last mined block.
    */
   async latestBlockHeight() {
     // Get header of the latest mined block.
@@ -69,7 +69,7 @@ export default class Client {
   /**
    * Get details of the transaction.
    * @param {string} txHash Hash of a transaction.
-   * @return {*} Transaction details.
+   * @return {Promise<any>} Transaction details.
    */
   async getTransaction(txHash) {
     const tx = await this.electrumClient
@@ -84,7 +84,7 @@ export default class Client {
   /**
    * Broadcast a transaction to the network.
    * @param {string} rawTX The raw transaction as a hexadecimal string.
-   * @return {string} The transaction hash as a hexadecimal string.
+   * @return {Promise<string>} The transaction hash as a hexadecimal string.
    */
   async broadcastTransaction(rawTX) {
     const txHash = await this.electrumClient
@@ -99,7 +99,7 @@ export default class Client {
   /**
    * Get unspent outputs sent to a script.
    * @param {string} script ScriptPubKey in a hexadecimal format.
-   * @return {*} List of unspent outputs. It includes transactions in the mempool.
+   * @return {Promise<any>} List of unspent outputs. It includes transactions in the mempool.
    */
   async getUnspentToScript(script) {
     const scriptHash = scriptToHash(script)
@@ -118,7 +118,7 @@ export default class Client {
    *
    * @param {string} script ScriptPubKey in a hexadecimal format.
    *
-   * @return {Object} Object with balance data.
+   * @return {Promise<any>} Object with balance data.
    */
   async getBalanceOfScript(script) {
     const scriptHash = scriptToHash(script)
@@ -140,7 +140,7 @@ export default class Client {
    * @param {string} script ScriptPubKey in a hexadecimal format.
    * @param {function} callback Is an async callback function called when an existing
    * transaction for the script is found or a new transaction is sent to the script.
-   * @return {any} Value resolved by the callback.
+   * @return {Promise<any>} Value resolved by the callback.
    */
   async onTransactionToScript(script, callback) {
     const scriptHash = scriptToHash(script)
@@ -211,7 +211,7 @@ export default class Client {
    * @param {function} callback Callback function called for the current block
    * and when a new block is mined. It passes to the callback a value returned by
    * [blockchain.headers.subscribe](https://electrumx.readthedocs.io/en/stable/protocol-methods.html#blockchain-headers-subscribe).
-   * @return {any} Value resolved by the callback.
+   * @return {Promise<any>} Value resolved by the callback.
    */
   async onNewBlock(callback) {
     // Subscribe for new block notifications.
@@ -263,7 +263,7 @@ export default class Client {
   /**
    * Get merkle root hash for block.
    * @param {number} blockHeight Block height.
-   * @return {string} Merkle root hash.
+   * @return {Promise<Buffer>} Merkle root hash.
    */
   async getMerkleRoot(blockHeight) {
     const header = await this.electrumClient
@@ -272,7 +272,7 @@ export default class Client {
         throw new Error(`failed to get block header: [${err}]`)
       })
 
-    return fromHex(header).slice(36, 68)
+    return Buffer.from(header, "hex").slice(36, 68)
   }
 
   /**
@@ -280,7 +280,7 @@ export default class Client {
    * @param {number} blockHeight Starting block height.
    * @param {number} confirmations Number of confirmations (subsequent blocks)
    * built on the starting block.
-   * @return {string} Concatenation of block headers in a hexadecimal format.
+   * @return {Promise<string>} Concatenation of block headers in a hexadecimal format.
    */
   async getHeadersChain(blockHeight, confirmations) {
     const headersChain = await this.electrumClient
@@ -292,38 +292,26 @@ export default class Client {
   }
 
   /**
-   * Get proof of transaction inclusion in the block. It produces proof as a
-   * concatenation of 32-byte values in a hexadecimal form. It converts the
-   * values to little endian form.
+   * Get proof of transaction inclusion in the block.
+   *
    * @param {string} txHash Hash of a transaction.
-   * @param {number} blockHeight Height of the block where transaction was confirmed.
-   * @return {string} Transaction inclusion proof in hexadecimal form.
+   * @param {number} blockHeight Height of the block where transaction was
+   *        confirmed.
+   * @return {Promise<any>} Transaction inclusion proof in hexadecimal form.
    */
-  // TODO: We should move this function to BitcoinSPV.js file as it's strictly
-  // related to bitcoin-spv. It just gets merkle from electrum and reverses
-  // endianess.
-  async getMerkleProof(txHash, blockHeight) {
-    const merkle = await this.electrumClient
+  async getTransactionMerkle(txHash, blockHeight) {
+    return await this.electrumClient
       .blockchain_transaction_getMerkle(txHash, blockHeight)
       .catch(err => {
         throw new Error(`failed to get transaction merkle: [${err}]`)
       })
-
-    let proof = Buffer.from("")
-
-    // Merkle tree
-    merkle.merkle.forEach(function(item) {
-      proof = Buffer.concat([proof, fromHex(item).reverse()])
-    })
-
-    return { proof: toHex(proof), position: merkle.pos }
   }
 
   /**
    * Finds index of output in a transaction for a given address.
    * @param {string} txHash Hash of a transaction.
    * @param {string} address Bitcoin address for the output.
-   * @return {number} Index of output in the transaction (0-indexed).
+   * @return {Promise<number>} Index of output in the transaction (0-indexed).
    */
   async findOutputForAddress(txHash, address) {
     const tx = await this.getTransaction(txHash).catch(err => {
@@ -346,7 +334,7 @@ export default class Client {
   /**
    * Gets a history of all transactions the script is involved in.
    * @param {string} script The script in raw hexadecimal format.
-   * @return {*} A list of transactions.
+   * @return {Promise<any>} A list of transactions.
    */
   async getTransactionsForScript(script) {
     const scriptHash = scriptToHash(script)
@@ -365,20 +353,12 @@ export default class Client {
   }
 }
 
-function fromHex(hex) {
-  return Buffer.from(hex, "hex")
-}
-
-function toHex(bytes) {
-  return Buffer.from(bytes).toString("hex")
-}
-
 /**
  * Converts ScriptPubKey to a script hash specified by the [Electrum Protocol](https://electrumx.readthedocs.io/en/stable/protocol-basics.html#script-hashes).
  * @param {string} script ScriptPubKey in a hexadecimal format.
- * @return {string} Script hash.
+ * @return {string} Script hash as a hex string.
  */
 function scriptToHash(script) {
-  const scriptHash = digest(fromHex(script)).reverse()
-  return toHex(scriptHash)
+  const scriptHash = digest(Buffer.from(script, "hex")).reverse()
+  return scriptHash.toString("hex")
 }
