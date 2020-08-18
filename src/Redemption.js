@@ -265,7 +265,7 @@ export default class Redemption {
     const provableTransaction = {
       transactionID: transactionID,
       // For filtering, see provideRedemptionProof call below.
-      outputPosition: "output position"
+      outputPosition: -1
     }
     const proofArgs = await this.deposit.constructFundingProof(
       provableTransaction,
@@ -279,7 +279,7 @@ export default class Redemption {
         // However, constructFundingProof includes it for deposit funding
         // proofs. Here, we filter it out to produce the right set of
         // parameters.
-        ...proofArgs.filter(_ => _ != "output position")
+        ...proofArgs.filter(_ => _ != -1)
       )
     )
 

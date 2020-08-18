@@ -509,7 +509,10 @@ export default class Deposit {
     return {}
   }
 
-  async getOwner() /* : Promise<string>*/ /* ETH address */ {
+  /**
+   * @return {Promise<string>} The ETH address of the deposit owner.
+   */
+  async getOwner() {
     return await this.factory
       .depositToken()
       .methods.ownerOf(this.address)
@@ -553,11 +556,6 @@ export default class Deposit {
     this.activeStatePromise.then(() => {
       activeHandler(this)
     })
-  }
-
-  onReadyForProof(proofHandler /* : (prove)=>void*/) {
-    // prove(txHash) is a thing, will submit funding proof for the given
-    // Bitcoin txHash; no verification initially.
   }
 
   /**
@@ -1101,6 +1099,9 @@ export default class Deposit {
     )
   }
 
+  /**
+   * @param {{ x: string, y: string }} publicKeyPoint
+   */
   async publicKeyPointToBitcoinAddress(publicKeyPoint) {
     return BitcoinHelpers.Address.publicKeyPointToP2WPKHAddress(
       publicKeyPoint.x,
@@ -1109,22 +1110,37 @@ export default class Deposit {
     )
   }
 
-  // Given a Bitcoin transaction and the number of confirmations that need to
-  // be proven constructs an SPV proof and returns the raw parameters that
-  // would be given to an on-chain contract.
-  //
-  // These are:
-  // - version
-  // - txInVector
-  // - txOutVector
-  // - locktime
-  // - outputPosition
-  // - merkleProof
-  // - txInBlockIndex
-  // - chainHeaders
-  //
-  // Constructed this way to serve both qualify + mint and simple
-  // qualification flows.
+  /**
+   * Given a Bitcoin transaction and the number of confirmations that need to
+   * be proven constructs an SPV proof and returns the raw parameters that
+   * would be given to an on-chain contract.
+   *
+   * These are:
+   * - version
+   * - txInVector
+   * - txOutVector
+   * - locktime
+   * - outputPosition
+   * - merkleProof
+   * - txInBlockIndex
+   * - chainHeaders
+   *
+   * Constructed this way to serve both qualify + mint and simple
+   * qualification flows.
+   *
+   * @param {{ transactionID: string, outputPosition: number }} bitcoinTransaction
+   *        The transaction id to construct the proof for and the output
+   *        position of interest.
+   * @param {number} confirmations The number of confirmations that the proof
+   *        should show the given transaction has received. Must be >= the
+   *        number of confirmations the transaction has already received.
+   *
+   * @return {Promise<[Buffer,Buffer,Buffer,Buffer,number,Buffer,number,Buffer]>}
+   *         The version, input vector, output vector, locktime, output
+   *         position, merkle proof, index of the transaction its containing
+   *         block, and chain headers as an array in the order that these need
+   *         to be passed to on-chain proof verification functions.
+   */
   async constructFundingProof(bitcoinTransaction, confirmations) {
     const { transactionID, outputPosition } = bitcoinTransaction
     const {
