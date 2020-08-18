@@ -180,14 +180,14 @@ and `src/Redemption.js` (until more details are filled in here...).
 
 Handles to the Ethereum `TruffleContract` instances are directly available on
 the `tbtc.Deposit` object. Here is how these map to Solidity files in the
-https://github.com/keep-network/tbtc/tree/v0.6.0[tBTC repository]:
+https://github.com/keep-network/tbtc/tree/master[tBTC repository]:
 
-* `tbtc.Deposit.systemContract`: `TBTCSystem.sol`
-* `tbtc.Deposit.depositFactoryTokenContract`: `DepositFactory.sol`
-* `tbtc.Deposit.tokenContract`: `TBTCToken.sol`
-* `tbtc.Deposit.depositTokenContract`: `TBTCDepositToken.sol`
-* `tbtc.Deposit.vendingMachineContract`: `VendingMachine.sol`
-* `tbtc.Deposit.feeRebateTokenContract`: `FeeRebateToken.sol`
+* `tbtc.Deposit.system()`: `TBTCSystem.sol`
+* `tbtc.Deposit.depositFactory()`: `DepositFactory.sol`
+* `tbtc.Deposit.token()`: `TBTCToken.sol`
+* `tbtc.Deposit.depositToken()`: `TBTCDepositToken.sol`
+* `tbtc.Deposit.vendingMachine()`: `VendingMachine.sol`
+* `tbtc.Deposit.feeRebateToken()`: `FeeRebateToken.sol`
 
 Finally, the per-deposit contract is available directly on the returned deposit;
 in the example code above, this would be `deposit.contract`. This corresponds
