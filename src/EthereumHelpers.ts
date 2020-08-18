@@ -219,10 +219,10 @@ type Artifact = {
  *         on-chain error if possible.
  */
 async function sendSafelyRetryable(
-  boundContractMethod,
-  sendParams,
-  forceSend,
-  totalAttempts
+  boundContractMethod:ContractCall,
+  sendParams:ContractCallOptions,
+  forceSend:boolean,
+  totalAttempts:number
 ) {
   for (let attempt = 1; true; attempt++) {
     try {
