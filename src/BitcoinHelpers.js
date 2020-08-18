@@ -175,12 +175,20 @@ const BitcoinHelpers = {
      * @param {string} pubKeyHash A pubKeyHash as a string.
      * @param {string} network The Bitcoin network for the Bech32 address.
      *
-     * @return {string} A Bech32 address to
+     * @return {string} A Bech32 address corresponding to the given pubKeyHash
+     *         on the given network.
      */
     pubKeyHashToBech32: function(pubKeyHash, network) {
-      return Script.fromProgram(0, Buffer.from(pubKeyHash, "hex"))
-        .getAddress()
-        .toBech32(network)
+      const address = Script.fromProgram(
+        0,
+        Buffer.from(pubKeyHash, "hex")
+      ).getAddress()
+
+      if (address === null) {
+        throw new Error(`Malformed PubKeyHash: ${pubKeyHash}`)
+      }
+
+      return address.toBech32(network)
     },
     /**
      * Converts public key to bitcoin Witness Public Key Hash Address according to
@@ -198,10 +206,19 @@ const BitcoinHelpers = {
 
       const publicKey = secp256k1.publicKeyImport(publicKeyBytes, compress)
       const keyRing = KeyRing.fromKey(publicKey, compress)
-      const p2wpkhScript = Script.fromProgram(0, keyRing.getKeyHash(null))
+      const p2wpkhAddress = Script.fromProgram(
+        0,
+        keyRing.getKeyHash(null)
+      ).getAddress()
+
+      if (p2wpkhAddress === null) {
+        throw new Error(
+          `Could not derive p2wpkh address from public key ${publicKeyString}.`
+        )
+      }
 
       // Serialize address to a format specific to given network.
-      return p2wpkhScript.getAddress().toString(network)
+      return p2wpkhAddress.toString(network)
     },
     /**
      * Converts a Bitcoin ScriptPubKey address string to a hex script
