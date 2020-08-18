@@ -4,8 +4,9 @@ import BitcoinHelpers from "./BitcoinHelpers.js"
 
 import EthereumHelpers from "./EthereumHelpers.js"
 
-import web3Utils from "web3-utils"
-const { toBN } = web3Utils
+import {toBN} from "web3-utils"
+
+import type {DepositBaseClass, RedemptionDetails} from './CommonTypes'
 
 /**
  * Details of a given redemption at a given point in time.
@@ -17,12 +18,22 @@ const { toBN } = web3Utils
  * @property {Buffer} digest The raw digest bytes.
  */
 
+interface AutoSubmitState {
+  broadcastTransactionID:Promise<string>,
+  confirmations: Promise<{ transactionID: string, requiredConfirmations: number }>,
+  proofTransaction:Promise<void>
+}
+
 /**
  * Details of a given unsigned transaction
  * @typedef {Object} UnsignedTransactionDetails
  * @property {string} hex The raw transaction hex string.
- * @property {digest} digest The transaction's digest.
+ * @property {Buffer} digest The transaction's digest.
  */
+interface UnsignedTransactionDetails {
+  hex:HexString,
+  digest:string
+}
 
 /**
  * The Redemption class encapsulates the operations that finalize an already-
@@ -42,16 +53,22 @@ const { toBN } = web3Utils
  */
 export default class Redemption {
   // deposit/*: Deposit*/
+  public deposit:DepositBaseClass
 
   // redemptionDetails/*: Promise<RedemptionDetails>*/
-  // unsignedTransaction/*: Promise<UnsignedTransactionDetails>*/
+  public redemptionDetails: Promise<RedemptionDetails>
+  // unsignedTransactionDetails/*: Promise<UnsignedTransactionDetails>*/
+  public unsignedTransactionDetails: Promise<UnsignedTransactionDetails>
   // signedTransaction/*: Promise<SignedTransactionDetails>*/
+  public signedTransaction: Promise<string>
 
   // withdrawnEmitter/*: EventEmitter*/
+  public withdrawnEmitter: EventEmitter
+  public receivedConfirmationEmitter: EventEmitter
 
   constructor(
-    deposit /* : Deposit*/,
-    redemptionDetails /* : RedemptionDetails?*/
+    deposit:DepositBaseClass /* : Deposit*/,
+    redemptionDetails?:RedemptionDetails /* : RedemptionDetails?*/
   ) {
     this.deposit = deposit
     this.withdrawnEmitter = new EventEmitter()
@@ -136,10 +153,11 @@ export default class Redemption {
 
   /**
    * @typedef {Object} AutoSubmitState
-   * @prop {Promise<BitcoinTransaction>} signedTransaction
-   * @prop {Promise<{ transaction: FoundTransaction, requiredConfirmations: Number }>} confirmations
+   * @prop {Promise<BitcoinTransaction>} broadcastTransactionID
+   * @prop {Promise<{ transactionID: string, requiredConfirmations: Number }>} confirmations
    * @prop {Promise<EthereumTransaction>} proofTransaction
    */
+  public autoSubmittingState?:AutoSubmitState;
   /**
    * This method enables the redemption's auto-submission capabilities.
    *
@@ -151,12 +169,12 @@ export default class Redemption {
    *         rejected, and they are in a sequence where later promises will be
    *         rejected by earlier ones.
    */
-  autoSubmit() {
+  autoSubmit():AutoSubmitState {
     if (this.autoSubmittingState) {
       return this.autoSubmittingState
     }
 
-    const state = (this.autoSubmittingState = {})
+    const state = (this.autoSubmittingState = {} as AutoSubmitState)
 
     state.broadcastTransactionID = this.signedTransaction.then(
       async signedTransaction => {
@@ -181,11 +199,12 @@ export default class Redemption {
             `Broadcasting signed redemption transaction to Bitcoin chain ` +
               `for deposit ${this.deposit.address}...`
           )
-          transaction = await BitcoinHelpers.Transaction.broadcast(
+          return (await BitcoinHelpers.Transaction.broadcast(
             signedTransaction
-          )
+          )).transactionID
+        } else {
+          return transaction.transactionID
         }
-        return transaction.transactionID
       }
     )
 
@@ -240,7 +259,7 @@ export default class Redemption {
    *        the proof; if this is not provided, looks up the required
    *        confirmations via the deposit.
    */
-  async proveWithdrawal(transactionID, confirmations) {
+  async proveWithdrawal(transactionID:HexString, confirmations:number) {
     if (!confirmations) {
       // 0 still triggers a lookup
       confirmations = (
@@ -251,7 +270,7 @@ export default class Redemption {
     const provableTransaction = {
       transactionID: transactionID,
       // For filtering, see provideRedemptionProof call below.
-      outputPosition: "output position"
+      outputPosition: Number.NEGATIVE_INFINITY
     }
     const proofArgs = await this.deposit.constructFundingProof(
       provableTransaction,
@@ -265,18 +284,18 @@ export default class Redemption {
         // However, constructFundingProof includes it for deposit funding
         // proofs. Here, we filter it out to produce the right set of
         // parameters.
-        ...proofArgs.filter(_ => _ != "output position")
+        ...proofArgs.filter((_:Buffer|number|string) => _ !== Number.NEGATIVE_INFINITY)
       )
     )
 
     this.withdrawnEmitter.emit("withdrawn", transactionID)
   }
 
-  onBitcoinTransactionSigned(transactionHandler /* : (transaction)=>void*/) {
+  onBitcoinTransactionSigned(transactionHandler : (transaction:string)=>void) {
     this.signedTransaction.then(transactionHandler)
   }
 
-  onWithdrawn(withdrawalHandler /* : (txHash)=>void*/) {
+  onWithdrawn(withdrawalHandler : (txHash:HexString)=>void) {
     // bitcoin txHash
     this.withdrawnEmitter.on("withdrawn", withdrawalHandler)
   }
@@ -289,7 +308,7 @@ export default class Redemption {
    *        A handler that passes an object with the transactionID and
    *        confirmations as its parameter
    */
-  onReceivedConfirmation(onReceivedConfirmationHandler) {
+  onReceivedConfirmation(onReceivedConfirmationHandler: (transactionID:HexString, confirmations:number)=>void) {
     this.receivedConfirmationEmitter.on(
       "receivedConfirmation",
       onReceivedConfirmationHandler
@@ -307,7 +326,7 @@ export default class Redemption {
    *         details, or the result of looking these up on-chain if none were
    *         past.
    */
-  async getLatestRedemptionDetails(existingRedemptionDetails) {
+  async getLatestRedemptionDetails(existingRedemptionDetails:RedemptionDetails|undefined):Promise<RedemptionDetails> {
     if (existingRedemptionDetails) {
       return existingRedemptionDetails
     }

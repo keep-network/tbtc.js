@@ -1,7 +1,6 @@
 {
   "name": "@keep-network/tbtc.js",
   "version": "0.18.0-rc",
-  "type": "module",
   "description": "tbtc.js provides JS bindings to the tBTC system that establishes a TBTC ERC20 token supply-pegged to BTC.",
   "repository": {
     "type": "git",
@@ -11,14 +10,17 @@
     "url": "https://github.com/keep-network/tbtc.js/issues"
   },
   "homepage": "https://github.com/keep-network/tbtc.js",
-  "main": "index.js",
+  "main": "build/index.js",
+  "types": "build/index.d.ts",
   "bin": "./bin/tbtc.js",
   "files": [
     "bin/",
     "src/",
+    "build/",
     "index.js"
   ],
   "scripts": {
+    "build": "tsc",
     "test": "mocha --timeout 10000",
     "lint": "npm run lint:js",
     "lint:fix": "npm run lint:fix:js",
@@ -45,8 +47,9 @@
     "chai": "^4.2.0",
     "eslint": "^6.8.0",
     "eslint-config-keep": "git+https://github.com/keep-network/eslint-config-keep.git#0.3.0",
-    "prettier": "^1.19.1",
     "fs": "0.0.1-security",
-    "mocha": "^6.2.0"
+    "mocha": "^6.2.0",
+    "prettier": "^1.19.1",
+    "typescript": "^3.9.7"
   }
 }

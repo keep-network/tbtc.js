@@ -1,26 +1,27 @@
 import bcoin from "bcoin/lib/bcoin-browser.js"
 import secp256k1 from "bcrypto/lib/secp256k1.js"
 import BcryptoSignature from "bcrypto/lib/internal/signature.js"
-import BcoinPrimitives from "bcoin/lib/primitives/index.js"
-import BcoinScript from "bcoin/lib/script/index.js"
+import {KeyRing} from "bcoin/lib/primitives/index.js"
+import {Script} from "bcoin/lib/script/index.js"
 
 import { BitcoinSPV } from "./lib/BitcoinSPV.js"
 /** @typedef { import("./lib/BitcoinSPV.js").Proof } Proof */
+import type {Proof} from './lib/BitcoinSPV'
 import { BitcoinTxParser } from "./lib/BitcoinTxParser.js"
 import ElectrumClient from "./lib/ElectrumClient.js"
 /** @typedef { import("./lib/ElectrumClient.js").Config } ElectrumConfig */
+import type {Config as ElectrumConfig} from "./lib/ElectrumClient"
 
 import BN from "bn.js"
-
-const { KeyRing } = BcoinPrimitives
-const { Script } = BcoinScript
 
 /** @enum {string} */
 const BitcoinNetwork = {
   TESTNET: "testnet",
-  MAINNET: "mainnet",
+  MAINNET: "main",
   SIMNET: "simnet"
 }
+
+export type BitcoinNetworkType = "testnet" |"main" | "simnet"
 
 /**
  * Found transaction details.
@@ -30,6 +31,11 @@ const BitcoinNetwork = {
  * @property {number} outputPosition Position of output in the transaction.
  * @property {number} value Value of the output (satoshis).
  */
+export interface FoundTransaction{
+  transactionID:string,
+  outputPosition:number,
+  value:number,
+}
 
 /**
  * @typedef {Object} ParsedTransaction
@@ -43,6 +49,12 @@ const BitcoinNetwork = {
  * @property {string} locktime The transaction locktime as an unprefixed hex
  *           string.
  */
+interface ParsedTransaction{
+  version:string,
+  txInVector:string,
+  txOutVector:string,
+  locktime:string,
+}
 
 /**
  * @typedef {Object} SPVProof
@@ -51,13 +63,17 @@ const BitcoinNetwork = {
  *           additional data useful in submitting SPV proofs, stored as buffers.
  */
 
+interface SPVProof extends Proof {
+  parsedTransaction:ParsedTransaction;
+}
+
 const BitcoinHelpers = {
   satoshisPerBtc: new BN(10).pow(new BN(8)),
 
   Network: BitcoinNetwork,
 
   /** @type {ElectrumConfig?} */
-  electrumConfig: null,
+  electrumConfig: null as ElectrumConfig|null,
 
   /**
    * Updates the config to use for Electrum client connections. Electrum is
@@ -66,7 +82,7 @@ const BitcoinHelpers = {
    * @param {ElectrumConfig} newConfig The config to use for future Electrum
    *        connections.
    */
-  setElectrumConfig: function(newConfig) {
+  setElectrumConfig: function(newConfig:ElectrumConfig) {
     BitcoinHelpers.electrumConfig = newConfig
   },
 
@@ -82,7 +98,7 @@ const BitcoinHelpers = {
    *
    * @return {Buffer} The signature in the DER format.
    */
-  signatureDER: function(r, s) {
+  signatureDER: function(r:string, s:string) {
     const size = secp256k1.size
     const signature = new BcryptoSignature(
       size,
@@ -114,18 +130,18 @@ const BitcoinHelpers = {
    * @return {string} An unprefixed, concatenated hex representation of the two
    *         given coordinates.
    */
-  publicKeyPointToPublicKeyString: function(publicKeyX, publicKeyY) {
+  publicKeyPointToPublicKeyString: function(publicKeyX:HexString, publicKeyY:HexString):HexString {
     return `${publicKeyX.replace("0x", "")}${publicKeyY.replace("0x", "")}`
   },
   Address: {
-    pubKeyHashFrom: function(address) {
-      const script = bcoin.Script.fromAddress(address)
+    pubKeyHashFrom: function(address:string) {
+      const script = Script.fromAddress(address)
       return script.getWitnessPubkeyhash()
     },
     publicKeyPointToP2WPKHAddress: function(
-      publicKeyX,
-      publicKeyY,
-      bitcoinNetwork
+      publicKeyX:HexString,
+      publicKeyY:HexString,
+      bitcoinNetwork:BitcoinNetworkType
     ) {
       return this.publicKeyToP2WPKHAddress(
         BitcoinHelpers.publicKeyPointToPublicKeyString(publicKeyX, publicKeyY),
@@ -136,12 +152,12 @@ const BitcoinHelpers = {
      * Converts the specified `pubKeyHash` to a valid Bech32 address for
      * the specified `network`.
      *
-     * @param {string} pubKeyHash A pubKeyHash as a string.
+     * @param {string} pubKeyHash A pubKeyHash as a hexadecimal string.
      * @param {string} network The Bitcoin network for the Bech32 address.
      *
      * @return {string} A Bech32 address to
      */
-    pubKeyHashToBech32: function(pubKeyHash, network) {
+    pubKeyHashToBech32: function(pubKeyHash:HexString, network:BitcoinNetworkType):string {
       return Script.fromProgram(0, Buffer.from(pubKeyHash, "hex"))
         .getAddress()
         .toBech32(network)
@@ -154,7 +170,7 @@ const BitcoinHelpers = {
      * @param {BitcoinNetwork} network Network for which address has to be calculated.
      * @return {string} A Bitcoin P2WPKH address for given network.
      */
-    publicKeyToP2WPKHAddress: function(publicKeyString, network) {
+    publicKeyToP2WPKHAddress: function(publicKeyString:string, network:BitcoinNetworkType) {
       const publicKeyBytes = Buffer.from(publicKeyString, "hex")
 
       // Witness program requires usage of compressed public keys.
@@ -176,7 +192,7 @@ const BitcoinHelpers = {
      * @return {string} A Bitcoin script for the given address, as an
      *         unprefixed hex string.
      */
-    toScript: function(address) {
+    toScript: function(address:string):HexString {
       return BitcoinHelpers.Address.toRawScript(address).toString("hex")
     },
     /**
@@ -185,10 +201,10 @@ const BitcoinHelpers = {
      *
      * @param {string} address A Bitcoin address.
      *
-     * @return {string} A Bitcoin script for the given address, as a Buffer
+     * @return {Buffer} A Bitcoin script for the given address, as a Buffer
      *         of bytes.
      */
-    toRawScript: function(address) {
+    toRawScript: function(address:string):Buffer {
       return Script.fromAddress(address).toRaw()
     }
   },
@@ -211,7 +227,10 @@ const BitcoinHelpers = {
    *        completes (successfully or unsuccessfully).
    * @template T
    */
-  withElectrumClient: async function(block) {
+  withElectrumClient: async function<T>(block:(client:ElectrumClient)=>Promise<T>) {
+    if(BitcoinHelpers.electrumConfig === null){
+      throw new Error("No electrum config has been provided")
+    }
     const electrumClient = new ElectrumClient(BitcoinHelpers.electrumConfig)
 
     await electrumClient.connect()
@@ -243,7 +262,7 @@ const BitcoinHelpers = {
      *         either null if such a transaction could not be found, or the
      *         information about the transaction that was found.
      */
-    find: async function(bitcoinAddress, expectedValue) {
+    find: async function(bitcoinAddress:string, expectedValue:number):Promise<FoundTransaction> {
       const script = BitcoinHelpers.Address.toScript(bitcoinAddress)
 
       return await BitcoinHelpers.Transaction.findScript(script, expectedValue)
@@ -263,13 +282,17 @@ const BitcoinHelpers = {
      *         either null if such a transaction could not be found, or the
      *         information about the transaction that was found.
      */
-    findScript: async function(outputScript, expectedValue) {
-      return await BitcoinHelpers.withElectrumClient(electrumClient => {
-        return BitcoinHelpers.Transaction.findWithClient(
+    findScript: async function(outputScript:string, expectedValue:number):Promise<FoundTransaction> {
+      return await BitcoinHelpers.withElectrumClient(async electrumClient => {
+        const foundTx = await BitcoinHelpers.Transaction.findWithClient(
           electrumClient,
           outputScript,
           expectedValue
         )
+        if(foundTx === undefined){
+          throw new Error("No transaction could be found")
+        }
+        return foundTx
       })
     },
     /**
@@ -282,13 +305,13 @@ const BitcoinHelpers = {
      * @return {Promise<FoundTransaction>} A promise to the found
      *         transaction once it is seen on the chain.
      */
-    findOrWaitFor: async function(bitcoinAddress, expectedValue) {
+    findOrWaitFor: async function(bitcoinAddress:string, expectedValue:number):Promise<FoundTransaction> {
       return await BitcoinHelpers.withElectrumClient(async electrumClient => {
         const script = BitcoinHelpers.Address.toScript(bitcoinAddress)
 
         // This function is used as a callback to electrum client. It is
         // invoked when an existing or a new transaction is found.
-        const checkTransactions = async function(status) {
+        const checkTransactions = async function(status:boolean) {
           // If the status is set, transactions were seen for the
           // script.
           if (status) {
@@ -320,9 +343,9 @@ const BitcoinHelpers = {
      *         at least `requiredConfirmations` confirmations.
      */
     checkForConfirmations: async function(
-      transactionID,
-      requiredConfirmations
-    ) {
+      transactionID:HexString,
+      requiredConfirmations:number
+    ):Promise<number> {
       return BitcoinHelpers.withElectrumClient(async electrumClient => {
         const { confirmations } = await electrumClient.getTransaction(
           transactionID
@@ -346,10 +369,10 @@ const BitcoinHelpers = {
      *         observed that was at least equal to the required confirmations.
      */
     waitForConfirmations: async function(
-      transactionID,
-      requiredConfirmations,
-      onReceivedConfirmation
-    ) {
+      transactionID:HexString,
+      requiredConfirmations:number,
+      onReceivedConfirmation:(tx:{ transactionID:HexString, confirmations:number })=>void
+    ):Promise<number> {
       return BitcoinHelpers.withElectrumClient(async electrumClient => {
         const checkConfirmations = async function() {
           return BitcoinHelpers.withElectrumClient(async electrumClient => {
@@ -383,7 +406,7 @@ const BitcoinHelpers = {
      * @return {Promise<number>} The estimated fee to execute the provided
      *         transaction.
      */
-    estimateFee: async function(tbtcConstantsContract) {
+    estimateFee: async function(tbtcConstantsContract:any):Promise<number> {
       return tbtcConstantsContract.methods.getMinimumRedemptionFee().call()
     },
     /**
@@ -396,9 +419,9 @@ const BitcoinHelpers = {
      * @param {number} confirmations The number of confirmations to include
      *        in the proof.
      *
-     * @return {SPVProof} The proof data, plus the parsed transaction for the proof.
+     * @return {Promise<SPVProof>} The proof data, plus the parsed transaction for the proof.
      */
-    getSPVProof: async function(transactionID, confirmations) {
+    getSPVProof: async function(transactionID:HexString, confirmations:number):Promise<SPVProof> {
       return await BitcoinHelpers.withElectrumClient(async electrumClient => {
         const spv = new BitcoinSPV(electrumClient)
         const proof = await spv.getTransactionProof(
@@ -421,7 +444,7 @@ const BitcoinHelpers = {
      * @return {Promise<FoundTransaction>} A partial FoundTransaction with
      *         the transactionID field set.
      */
-    broadcast: async function(signedTransaction) {
+    broadcast: async function(signedTransaction:HexString) {
       return await BitcoinHelpers.withElectrumClient(async electrumClient => {
         const transactionID = await electrumClient.broadcastTransaction(
           signedTransaction
@@ -447,12 +470,12 @@ const BitcoinHelpers = {
      *         signature.
      */
     addWitnessSignature: function(
-      unsignedTransaction,
-      inputIndex,
-      r,
-      s,
-      publicKey
-    ) {
+      unsignedTransaction:HexString,
+      inputIndex:number,
+      r:HexString,
+      s:HexString,
+      publicKey:HexString
+    ):HexString {
       // Signature
       let signatureDER
       try {
@@ -461,7 +484,7 @@ const BitcoinHelpers = {
         throw new Error(`failed to convert signature to DER format: [${err}]`)
       }
 
-      const hashType = Buffer.from([bcoin.Script.hashType.ALL])
+      const hashType = Buffer.from([Script.hashType.ALL])
       const sig = Buffer.concat([signatureDER, hashType])
 
       // Public Key
@@ -507,11 +530,11 @@ const BitcoinHelpers = {
      * @return {string} Raw bitcoin transaction in hexadecimal format.
      */
     constructOneInputOneOutputWitnessTransaction(
-      previousOutpoint,
-      inputSequence,
-      outputValue,
-      outputScript
-    ) {
+      previousOutpoint:HexString,
+      inputSequence:number,
+      outputValue:number,
+      outputScript:HexString
+    ):HexString {
       // Input
       const prevOutpoint = bcoin.Outpoint.fromRaw(
         Buffer.from(previousOutpoint, "hex")
@@ -546,7 +569,7 @@ const BitcoinHelpers = {
      *
      * @return {Promise<Array>} A promise to the found array of transactions.
      */
-    findAllUnspent: async function(bitcoinAddress) {
+    findAllUnspent: async function(bitcoinAddress:string):Promise<FoundTransaction[]> {
       return await BitcoinHelpers.withElectrumClient(async electrumClient => {
         const script = BitcoinHelpers.Address.toScript(bitcoinAddress)
         return BitcoinHelpers.Transaction.findAllUnspentWithClient(
@@ -562,10 +585,10 @@ const BitcoinHelpers = {
      *
      * @return {Promise<Number>} A promise to the confirmed balance in satoshis.
      */
-    getBalance: async function(bitcoinAddress) {
+    getBalance: async function(bitcoinAddress:string):Promise<number> {
       return await BitcoinHelpers.withElectrumClient(async electrumClient => {
         const script = BitcoinHelpers.Address.toScript(bitcoinAddress)
-        return (await electrumClient.getBalanceOfScript(script)).confirmed
+        return ((await electrumClient.getBalanceOfScript(script)) as any).confirmed
       })
     },
 
@@ -586,10 +609,10 @@ const BitcoinHelpers = {
      *         information about the transaction that was found.
      */
     findWithClient: async function(
-      electrumClient,
-      receiverScript,
-      expectedValue
-    ) {
+      electrumClient:ElectrumClient,
+      receiverScript:string,
+      expectedValue:number
+    ):Promise<FoundTransaction|undefined> {
       const unspentTransactions = await electrumClient.getUnspentToScript(
         receiverScript
       )
@@ -603,6 +626,7 @@ const BitcoinHelpers = {
           }
         }
       }
+      return undefined
     },
     /**
      * Finds all transactions to the given `receiverScript` using the
@@ -615,7 +639,7 @@ const BitcoinHelpers = {
      *         transactionID, outputPosition, and value. Resolves with
      *         empty if no transactions exist.
      */
-    findAllUnspentWithClient: async function(electrumClient, receiverScript) {
+    findAllUnspentWithClient: async function(electrumClient:ElectrumClient, receiverScript:string):Promise<FoundTransaction[]> {
       const unspentTransactions = await electrumClient.getUnspentToScript(
         receiverScript
       )
