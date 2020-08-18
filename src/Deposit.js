@@ -407,8 +407,9 @@ export default class Deposit {
    * @type {Promise<BitcoinTransaction>}
    */
   get fundingTransaction() {
-    // Lazily initalized.
-    return (this._fundingTransaction =
+    // Lazily initialized.
+    /** @type {Promise<BitcoinTransaction>} */
+    this._fundingTransaction =
       this._fundingTransaction ||
       this.bitcoinAddress.then(async address => {
         const expectedValue = await this.getLotSizeSatoshis()
@@ -419,7 +420,9 @@ export default class Deposit {
           address,
           expectedValue.toNumber()
         )
-      }))
+      })
+
+    return this._fundingTransaction
   }
 
   /**
@@ -433,8 +436,9 @@ export default class Deposit {
    * @type {Promise<FundingConfirmations>}
    */
   get fundingConfirmations() {
-    // Lazily initalized.
-    return (this._fundingConfirmations =
+    // Lazily initialized.
+    /** @type {Promise<FundingConfirmations>} */
+    this._fundingConfirmations =
       this._fundingConfirmations ||
       this.fundingTransaction.then(async transaction => {
         const requiredConfirmations = parseInt(
@@ -463,7 +467,9 @@ export default class Deposit {
         )
 
         return { transaction, requiredConfirmations }
-      }))
+      })
+
+    return this._fundingConfirmations
   }
 
   /**
