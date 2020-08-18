@@ -1,4 +1,7 @@
 /** @typedef { import("web3").default } Web3 */
+import type Web3 from 'web3'
+import type {Contract, EventOptions, ContractSendMethod, SendOptions, EventData} from 'web3-eth-contract'
+import type {TransactionReceipt} from 'web3-core'
 
 /**
  * Checks whether the given web3 instance is connected to Ethereum mainnet.
@@ -7,7 +10,7 @@
  * @return {Promise<boolean>} True if the web3 instance is aimed at Ethereum
  *         mainnet, false otherwise.
  */
-async function isMainnet(web3) {
+async function isMainnet(web3:Web3) {
   return (await web3.eth.getChainId()) == 0x1
 }
 
@@ -24,23 +27,26 @@ async function isMainnet(web3) {
  * @return {Object} A key-value dictionary of the event's parameters.
  */
 function readEventFromTransaction(
-  web3,
-  transaction,
-  sourceContract,
-  eventName
+  web3:Web3,
+  transaction:TransactionReceipt,
+  sourceContract:Contract,
+  eventName:string
 ) {
   const eventABI = sourceContract.options.jsonInterface.find(
     entry => entry.type == "event" && entry.name == eventName
   )
+  if(eventABI === undefined){
+    throw new Error(`Event ${eventName} could not be found in transaction ${transaction.transactionHash}`)
+  }
 
-  return Object.values(transaction.events)
+  return Object.values(transaction.events?? [])
     .filter(
       event =>
         event.address == sourceContract.options.address &&
-        event.raw.topics[0] == eventABI.signature
+        event?.raw?.topics[0] == (eventABI as any).signature
     )
     .map(_ =>
-      web3.eth.abi.decodeLog(eventABI.inputs, _.raw.data, _.raw.topics.slice(1))
+      web3.eth.abi.decodeLog(eventABI.inputs!, _.raw!.data, _.raw!.topics.slice(1))
     )[0]
 }
 
@@ -56,7 +62,7 @@ function readEventFromTransaction(
  * @return {Promise<Object>} A promise that will be fulfilled by the event
  *         object once it is received.
  */
-function getEvent(sourceContract, eventName, filter) {
+function getEvent(sourceContract:Contract, eventName:string, filter?:EventOptions['filter']):Promise<EventData> {
   return new Promise((resolve, reject) => {
     // As a workaround for a problem with MetaMask version 7.1.1 where subscription
     // for events doesn't work correctly we pull past events in a loop until
@@ -84,7 +90,7 @@ function getEvent(sourceContract, eventName, filter) {
   })
 }
 
-async function getExistingEvent(source, eventName, filter) {
+async function getExistingEvent(source:Contract, eventName:string, filter?:EventOptions['filter']) {
   const events = await source.getPastEvents(eventName, {
     fromBlock: 0,
     toBlock: "latest",
@@ -100,7 +106,7 @@ async function getExistingEvent(source, eventName, filter) {
  * @param {string} bytesString An Ethereum-encoded `bytes` string
  * @return {string} The hexadecimal string.
  */
-function bytesToRaw(bytesString) {
+function bytesToRaw(bytesString:HexString):string {
   return bytesString.replace("0x", "").slice(2)
 }
 
@@ -123,7 +129,7 @@ function bytesToRaw(bytesString) {
  *         method. Fails the promise if gas estimation fails, extracting an
  *         on-chain error if possible.
  */
-async function sendSafely(boundContractMethod, sendParams, forceSend) {
+async function sendSafely(boundContractMethod:ContractSendMethod&{call(params:any):any}, sendParams?:SendOptions, forceSend:boolean = false):Promise<TransactionReceipt> {
   try {
     // Clone `sendParams` so we aren't exposed to providers that modify `sendParams`.
     const gasEstimate = await boundContractMethod.estimateGas({ ...sendParams })
@@ -164,6 +170,13 @@ async function sendSafely(boundContractMethod, sendParams, forceSend) {
   }
 }
 
+type Artifact = {
+  contractName:string,
+  abi:any,
+  networks:{[netId:string]:{
+    address:string
+  }}
+}
 /**
  * Wraps the {@link sendSafely} method with a retry logic.
  * @see {@link sendSafely}
@@ -219,8 +232,8 @@ async function sendSafelyRetryable(
  * @param {string} networkId
  * @return {Contract}
  */
-function getDeployedContract(artifact, web3, networkId) {
-  function lookupAddress(artifact) {
+function getDeployedContract(artifact:Artifact, web3:Web3, networkId:string) {
+  function lookupAddress(artifact:Artifact) {
     const deploymentInfo = artifact.networks[networkId]
     if (!deploymentInfo) {
       throw new Error(
@@ -232,7 +245,7 @@ function getDeployedContract(artifact, web3, networkId) {
 
   const contract = new web3.eth.Contract(artifact.abi)
   contract.options.address = lookupAddress(artifact)
-  contract.options.from = web3.eth.defaultAccount
+  contract.options.from = web3.eth.defaultAccount ?? undefined
   contract.options.handleRevert = true
 
   return contract

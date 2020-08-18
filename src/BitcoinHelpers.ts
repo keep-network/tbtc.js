@@ -6,11 +6,11 @@ import {Script} from "bcoin/lib/script/index.js"
 
 import { BitcoinSPV } from "./lib/BitcoinSPV.js"
 /** @typedef { import("./lib/BitcoinSPV.js").Proof } Proof */
-import {Proof} from './lib/BitcoinSPV'
+import type {Proof} from './lib/BitcoinSPV'
 import { BitcoinTxParser } from "./lib/BitcoinTxParser.js"
 import ElectrumClient from "./lib/ElectrumClient.js"
 /** @typedef { import("./lib/ElectrumClient.js").Config } ElectrumConfig */
-import {Config as ElectrumConfig} from "./lib/ElectrumClient"
+import type {Config as ElectrumConfig} from "./lib/ElectrumClient"
 
 import BN from "bn.js"
 
@@ -21,7 +21,7 @@ const BitcoinNetwork = {
   SIMNET: "simnet"
 }
 
-type BitcoinNetworkType = "testnet" |"main" | "simnet"
+export type BitcoinNetworkType = "testnet" |"main" | "simnet"
 
 /**
  * Found transaction details.
@@ -31,7 +31,7 @@ type BitcoinNetworkType = "testnet" |"main" | "simnet"
  * @property {number} outputPosition Position of output in the transaction.
  * @property {number} value Value of the output (satoshis).
  */
-interface FoundTransaction{
+export interface FoundTransaction{
   transactionID:string,
   outputPosition:number,
   value:number,

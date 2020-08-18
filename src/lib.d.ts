@@ -36,6 +36,7 @@ declare module "bcoin/lib/bcoin-browser.js" {
           })):Output
     }
 }
+
 declare module "bcrypto/lib/secp256k1.js" {
     class ECDSA{
         get size():number;
@@ -45,7 +46,7 @@ declare module "bcrypto/lib/secp256k1.js" {
     const ECDSAimpl:ECDSA
     export default ECDSAimpl;
 }
-declare module "bcrypto/lib/internal/signature.js" {}
+
 declare module "bcoin/lib/primitives/index.js" {
     export class KeyRing{
         static fromKey(key:Buffer, compress?:boolean):KeyRing;
@@ -55,6 +56,7 @@ declare module "bcoin/lib/primitives/index.js" {
         getKeyHash():Buffer;
     }
 }
+
 declare module "bcoin/lib/script/index.js" {
     type network = `main`|`testnet`|`regtest`|`segnet4`|'simnet'
     class Address{
@@ -81,3 +83,16 @@ declare module "bcrypto/lib/internal/signature.js" {
 }
 
 type HexString=string
+
+/*
+declare module "@keep-network/tbtc/artifacts/TBTCConstants.json" { const any:any; export default any; }
+declare module "@keep-network/tbtc/artifacts/TBTCSystem.json"{ const any:any; export default any; } 
+declare module "@keep-network/tbtc/artifacts/TBTCDepositToken.json"{ const any:any; export default any; } 
+declare module "@keep-network/tbtc/artifacts/Deposit.json"{ const any:any; export default any; }
+declare module "@keep-network/tbtc/artifacts/DepositFactory.json"{ const any:any; export default any; } 
+declare module "@keep-network/tbtc/artifacts/TBTCToken.json"{ const any:any; export default any; } 
+declare module "@keep-network/tbtc/artifacts/FeeRebateToken.json"{ const any:any; export default any; } 
+declare module "@keep-network/tbtc/artifacts/VendingMachine.json"{ const any:any; export default any; } 
+declare module "@keep-network/tbtc/artifacts/FundingScript.json"{ const any:any; export default any; } 
+declare module "@keep-network/keep-ecdsa/artifacts/BondedECDSAKeep.json"{ const any:any; export default any; }
+*/

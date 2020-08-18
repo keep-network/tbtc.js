@@ -9,6 +9,7 @@
     "forceConsistentCasingInFileNames": true,
     "noUnusedLocals": true,
     "declaration": true,
+    "resolveJsonModule": true,
     "noUnusedParameters": true
   },
   "exclude": ["node_modules", "build"]

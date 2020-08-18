@@ -1,11 +1,13 @@
 import EventEmitter from "events"
 
-import BitcoinHelpers from "./BitcoinHelpers.js"
+import BitcoinHelpers, {FoundTransaction as BitcoinTransaction} from "./BitcoinHelpers.js"
 /** @typedef { import("./BitcoinHelpers.js").FoundTransaction } BitcoinTransaction */
 
 import EthereumHelpers from "./EthereumHelpers.js"
 
 /** @typedef { import("web3").default.Web3.eth.Contract } Contract */
+import type {Contract} from 'web3-eth-contract'
+import type {AbiItem} from 'web3-utils'
 
 import Redemption from "./Redemption.js"
 
@@ -20,8 +22,10 @@ import VendingMachineJSON from "@keep-network/tbtc/artifacts/VendingMachine.json
 import FundingScriptJSON from "@keep-network/tbtc/artifacts/FundingScript.json"
 import BondedECDSAKeepJSON from "@keep-network/keep-ecdsa/artifacts/BondedECDSAKeep.json"
 
-import web3Utils from "web3-utils"
-const { toBN } = web3Utils
+import {toBN} from "web3-utils"
+import type BN from 'bn.js'
+import type {TBTCConfig, DepositBaseClass, KeyPoint, RedemptionDetails} from './CommonTypes'
+
 
 /** @typedef { import("bn.js") } BN */
 /** @typedef { import("./TBTC").TBTCConfig } TBTCConfig */
@@ -59,7 +63,7 @@ export class DepositFactory {
    *
    * @param {TBTCConfig} config The config to use for this factory.
    */
-  static async withConfig(config) {
+  static async withConfig(config:TBTCConfig) {
     const statics = new DepositFactory(config)
     await statics.resolveContracts()
 
@@ -68,10 +72,11 @@ export class DepositFactory {
     return statics
   }
 
+  public State: typeof DepositStates
   /**
    * @param {TBTCConfig} config The config to use for this factory.
    */
-  constructor(config) {
+  constructor(public config:TBTCConfig) {
     /** @package */
     this.config = config
 
@@ -101,7 +106,7 @@ export class DepositFactory {
    *
    * @return {Promise<Deposit>} The new deposit with the given lot size.
    */
-  async withSatoshiLotSize(satoshiLotSize) {
+  async withSatoshiLotSize(satoshiLotSize:BN) {
     const isLotSizeAllowed = await this.systemContract.methods
       .isAllowedLotSize(satoshiLotSize.toString())
       .call()
@@ -126,10 +131,20 @@ export class DepositFactory {
    *
    * @return {Promise<Deposit>} The deposit at the given address.
    */
-  async withAddress(depositAddress) {
+  async withAddress(depositAddress:HexString) {
     return await Deposit.forAddress(this, depositAddress)
   }
 
+  public constantsContract!:Contract
+  public systemContract!:Contract
+  public tokenContract!:Contract
+  public depositTokenContract!:Contract
+  public feeRebateTokenContract!:Contract
+  public depositContract!:Contract
+  public depositLogContract!:Contract
+  public depositFactoryContract!:Contract
+  public vendingMachineContract!:Contract
+  public fundingScriptContract!:Contract
   // Await the deployed() functions of all contract dependencies.
   /** @private */
   async resolveContracts() {
@@ -146,15 +161,15 @@ export class DepositFactory {
       [DepositFactoryJSON, "depositFactoryContract"],
       [FundingScriptJSON, "fundingScriptContract"],
       [VendingMachineJSON, "vendingMachineContract"]
-    ]
+    ] as [any, string][]
 
     contracts.map(([artifact, propertyName]) => {
       const contract = EthereumHelpers.getDeployedContract(
         artifact,
         web3,
-        networkId
+        String(networkId)
       )
-      this[propertyName] = contract
+      Object.assign(this, {[propertyName]: contract})
     })
 
     /**
@@ -219,14 +234,18 @@ export class DepositFactory {
    *
    * @param {BN} lotSize The lot size to use, in satoshis.
    */
-  async createNewDepositContract(lotSize) {
+  async createNewDepositContract(lotSize:BN) {
     const creationCost = toBN(
       await this.systemContract.methods.getNewDepositFeeEstimate().call()
     )
 
-    const accountBalance = await this.config.web3.eth.getBalance(
-      this.config.web3.eth.defaultAccount
-    )
+    const defaultAccount = this.config.web3.eth.defaultAccount
+    if(defaultAccount === null){
+      throw new Error("No default account set on the web3 provider")
+    }
+    const accountBalance = toBN(await this.config.web3.eth.getBalance(
+      defaultAccount
+    ))
 
     if (creationCost.lt(accountBalance)) {
       throw new Error(
@@ -263,13 +282,31 @@ export class DepositFactory {
 
 // Bitcoin address handlers are given the deposit's Bitcoin address.
 /** @typedef {(address: string)=>void} BitcoinAddressHandler */
+type BitcoinAddressHandler = (address: string)=>void
 // Active handlers are given the deposit that just entered the ACTIVE state.
 /** @typedef {(deposit: Deposit)=>void} ActiveHandler */
+type ActiveHandler = (deposit: Deposit)=>void
 
-export default class Deposit {
+type EthereumTransaction = any // EthereumTransaction is the result of sending a rtx with send()
+  interface AutoSubmitState {
+    fundingTransaction:Promise<BitcoinTransaction>,
+    fundingConfirmations:Promise<{ transaction: BitcoinTransaction, requiredConfirmations: number }>,
+    proofTransaction:Promise<EthereumTransaction>,
+    mintedTBTC:Promise<BN>
+  }
+
+  interface FundingConfirmations{
+    transaction:BitcoinTransaction,
+    requiredConfirmations:number
+  }
+
+export default class Deposit implements DepositBaseClass {
   // factory/*: DepositFactory*/;
+  public factory: DepositFactory;
   // address/*: string*/;
+  public address: string;
   // keepContract/*: string*/;
+  public keepContract:Contract;
   // contract/*: any*/;
 
   // bitcoinAddress/*: Promise<string>*/;
@@ -279,7 +316,7 @@ export default class Deposit {
    * @param {DepositFactory} factory
    * @param {BN} satoshiLotSize
    */
-  static async forLotSize(factory, satoshiLotSize) {
+  static async forLotSize(factory:DepositFactory, satoshiLotSize:BN) {
     console.debug(
       "Creating new deposit contract with lot size",
       satoshiLotSize.toString(),
@@ -294,14 +331,14 @@ export default class Deposit {
         `keep at address ${keepAddress}...`
     )
     const web3 = factory.config.web3
-    const contract = new web3.eth.Contract(DepositJSON.abi, depositAddress)
-    contract.options.from = web3.eth.defaultAccount
+    const contract = new web3.eth.Contract(DepositJSON.abi as AbiItem[], depositAddress)
+    contract.options.from = web3.eth.defaultAccount ?? undefined
     contract.options.handleRevert = true
     const keepContract = new web3.eth.Contract(
-      BondedECDSAKeepJSON.abi,
+      BondedECDSAKeepJSON.abi as AbiItem[],
       keepAddress
     )
-    keepContract.options.from = web3.eth.defaultAccount
+    keepContract.options.from = web3.eth.defaultAccount ?? undefined
     keepContract.options.handleRevert = true
 
     return new Deposit(factory, contract, keepContract)
@@ -311,11 +348,11 @@ export default class Deposit {
    * @param {DepositFactory} factory
    * @param {string} address
    */
-  static async forAddress(factory, address) {
+  static async forAddress(factory:DepositFactory, address:HexString) {
     console.debug(`Looking up Deposit contract at address ${address}...`)
     const web3 = factory.config.web3
-    const contract = new web3.eth.Contract(DepositJSON.abi, address)
-    contract.options.from = web3.eth.defaultAccount
+    const contract = new web3.eth.Contract(DepositJSON.abi as AbiItem[], address)
+    contract.options.from = web3.eth.defaultAccount ?? undefined
     contract.options.handleRevert = true
 
     console.debug(`Looking up Created event for deposit ${address}...`)
@@ -333,10 +370,10 @@ export default class Deposit {
     const keepAddress = createdEvent.returnValues._keepAddress
     console.debug(`Found keep address ${keepAddress}.`)
     const keepContract = new web3.eth.Contract(
-      BondedECDSAKeepJSON.abi,
+      BondedECDSAKeepJSON.abi as AbiItem[],
       keepAddress
     )
-    keepContract.options.from = web3.eth.defaultAccount
+    keepContract.options.from = web3.eth.defaultAccount ?? undefined
     keepContract.options.handleRevert = true
 
     return new Deposit(factory, contract, keepContract)
@@ -346,16 +383,21 @@ export default class Deposit {
    * @param {DepositFactory} factory
    * @param {any | string} tdt
    */
-  static async forTDT(factory, tdt) {
+  static async forTDT(factory:DepositFactory, tdt:any | string) {
     return new Deposit(factory, "")
   }
 
+  public contract:Contract
+  public activeStatePromise:Promise<boolean>
+  public publicKeyPoint:Promise<KeyPoint>
+  public bitcoinAddress:Promise<string>
+  public receivedFundingConfirmationEmitter:EventEmitter
   /**
    * @param {DepositFactory} factory
    * @param {TruffleContract} depositContract
    * @param {TruffleContract} keepContract
    */
-  constructor(factory, depositContract, keepContract) {
+  constructor(factory:DepositFactory, depositContract:Contract, keepContract:Contract) {
     if (!keepContract) {
       throw new Error("Keep contract required for Deposit instantiation.")
     }
@@ -379,11 +421,12 @@ export default class Deposit {
 
   // /------------------------------- Accessors -------------------------------
 
+  public _fundingTransaction?:Promise<BitcoinTransaction>
   /**
    * Promise to when a Bitcoin funding transaction is found for the address.
    * @type {Promise<BitcoinTransaction>}
    */
-  get fundingTransaction() {
+  get fundingTransaction():Promise<BitcoinTransaction> {
     // Lazily initalized.
     return (this._fundingTransaction =
       this._fundingTransaction ||
@@ -402,11 +445,12 @@ export default class Deposit {
    * @property {BitcoinTransaction} transaction
    * @property {number} requiredConfirmations
    */
+  public _fundingConfirmations?:Promise<FundingConfirmations>
   /**
    * Promise to when the deposit funding transaction is sufficiently confirmed.
    * @type {Promise<FundingConfirmations>}
    */
-  get fundingConfirmations() {
+  get fundingConfirmations():Promise<FundingConfirmations> {
     // Lazily initalized.
     return (this._fundingConfirmations =
       this._fundingConfirmations ||
@@ -510,7 +554,7 @@ export default class Deposit {
    *        wallet. Note that exceptions in this handler are not managed, so
    *        the handler itself should deal with its own failure possibilities.
    */
-  onBitcoinAddressAvailable(bitcoinAddressHandler) {
+  onBitcoinAddressAvailable(bitcoinAddressHandler:BitcoinAddressHandler) {
     this.bitcoinAddress.then(bitcoinAddressHandler)
   }
 
@@ -525,16 +569,18 @@ export default class Deposit {
    *        so the handler itself should deal with its own failure
    *        possibilities.
    */
-  onActive(activeHandler) {
+  onActive(activeHandler:ActiveHandler) {
     this.activeStatePromise.then(() => {
       activeHandler(this)
     })
   }
 
-  onReadyForProof(proofHandler /* : (prove)=>void*/) {
+  /*
+  onReadyForProof(proofHandler /* : (prove)=>void) {
     // prove(txHash) is a thing, will submit funding proof for the given
     // Bitcoin txHash; no verification initially.
   }
+  */
 
   /**
    * Registers a handler for notification when the Bitcoin funding transaction
@@ -544,7 +590,10 @@ export default class Deposit {
    *        A handler that receives an object with the transactionID and
    *        confirmations as its parameter.
    */
-  onReceivedFundingConfirmation(onReceivedFundingConfirmationHandler) {
+  onReceivedFundingConfirmation(onReceivedFundingConfirmationHandler:(fundingConfirmation:{
+    transactionID:string,
+    confirmations:number
+  })=>void) {
     this.receivedFundingConfirmationEmitter.on(
       "receivedFundingConfirmation",
       onReceivedFundingConfirmationHandler
@@ -668,7 +717,7 @@ export default class Deposit {
       "Transfer"
     )
 
-    return toBN(transferEvent.value).div(toBN(10).pow(18))
+    return toBN(transferEvent.value).div(toBN(10).pow(toBN(18)))
   }
 
   /**
@@ -730,7 +779,7 @@ export default class Deposit {
    *         redeemer address, and a redemption request from a party that has
    *         insufficient TBTC to redeem.
    */
-  async requestRedemption(redeemerAddress) {
+  async requestRedemption(redeemerAddress:string):Promise<Redemption> {
     const inVendingMachine = await this.inVendingMachine()
     const thisAccount = this.factory.config.web3.eth.defaultAccount
     const owner = await this.getOwner()
@@ -827,7 +876,9 @@ export default class Deposit {
       this.factory.systemContract,
       "RedemptionRequested"
     )
-    const redemptionDetails = this.redemptionDetailsFromEvent(redemptionRequest)
+    // Casted to <any> to get around a deficiency of Typescript
+    // See https://github.com/microsoft/TypeScript/issues/15300
+    const redemptionDetails = this.redemptionDetailsFromEvent(redemptionRequest as any)
 
     return new Redemption(this, redemptionDetails)
   }
@@ -839,7 +890,7 @@ export default class Deposit {
    * Returns a promise to the redemption details, or to null if there is no
    * current redemption in progress.
    */
-  async getLatestRedemptionDetails() {
+  async getLatestRedemptionDetails():Promise<RedemptionDetails|null> {
     // If the contract is ACTIVE, there's definitely no redemption. This can
     // be generalized to a state check that the contract is either
     // AWAITING_WITHDRAWAL_SIGNATURE or AWAITING_WITHDRAWAL_PROOF, but let's
@@ -858,7 +909,8 @@ export default class Deposit {
       return null
     }
 
-    return this.redemptionDetailsFromEvent(redemptionRequest.returnValues)
+    // See other calls to redemptionDetailsFromEvent for rational on casting to <any>
+    return this.redemptionDetailsFromEvent(redemptionRequest.returnValues as any)
   }
 
   // /------------------------------- Helpers ---------------------------------
@@ -870,6 +922,7 @@ export default class Deposit {
    * @prop {Promise<EthereumTransaction>} proofTransaction
    * @prop {Promise<number>} mintedTBTC
    */
+  public autoSubmittingState?:AutoSubmitState
   /**
    * This method enables the deposit's auto-submission capabilities. In
    * auto-submit mode, the deposit will automatically monitor for a new
@@ -892,13 +945,13 @@ export default class Deposit {
    *         rejected, and they are in a sequence where later promises will be
    *         rejected by earlier ones.
    */
-  autoSubmit() {
+  autoSubmit():AutoSubmitState {
     // Only enable auto-submitting once.
     if (this.autoSubmittingState) {
       return this.autoSubmittingState
     }
     /** @type {AutoSubmitState} */
-    const state = (this.autoSubmittingState = {})
+    const state = (this.autoSubmittingState = {} as AutoSubmitState)
     state.fundingTransaction = this.fundingTransaction
     state.fundingConfirmations = this.fundingConfirmations
 
@@ -924,13 +977,13 @@ export default class Deposit {
     return state
   }
 
-  autoMint() {
+  autoMint():AutoSubmitState {
     // Only enable auto-submitting once.
     if (this.autoSubmittingState) {
       return this.autoSubmittingState
     }
     /** @type {AutoSubmitState} */
-    const state = (this.autoSubmittingState = {})
+    const state = (this.autoSubmittingState = {} as AutoSubmitState)
     state.fundingTransaction = this.fundingTransaction
     state.fundingConfirmations = this.fundingConfirmations
 
@@ -968,7 +1021,7 @@ export default class Deposit {
         )
         console.debug(`Minted`, transferEvent.value, `TBTC.`)
 
-        return toBN(transferEvent.value).div(toBN(10).pow(18))
+        return toBN(transferEvent.value).div(toBN(10).pow(toBN(18)))
       }
     )
 
@@ -986,7 +1039,7 @@ export default class Deposit {
   //
   // Returns a promise that will be fulfilled once the public key is
   // available, with a public key point with x and y properties.
-  async findOrWaitForPublicKeyPoint() {
+  async findOrWaitForPublicKeyPoint():Promise<KeyPoint> {
     const signerPubkeyEvent = await this.readPublishedPubkeyEvent()
     if (signerPubkeyEvent) {
       console.debug(
@@ -1062,7 +1115,7 @@ export default class Deposit {
     )
   }
 
-  async publicKeyPointToBitcoinAddress(publicKeyPoint) {
+  async publicKeyPointToBitcoinAddress(publicKeyPoint:KeyPoint) {
     return BitcoinHelpers.Address.publicKeyPointToP2WPKHAddress(
       publicKeyPoint.x,
       publicKeyPoint.y,
@@ -1086,7 +1139,7 @@ export default class Deposit {
   //
   // Constructed this way to serve both qualify + mint and simple
   // qualification flows.
-  async constructFundingProof(bitcoinTransaction, confirmations) {
+  async constructFundingProof(bitcoinTransaction:Omit<BitcoinTransaction, 'value'>, confirmations:number) {
     const { transactionID, outputPosition } = bitcoinTransaction
     const {
       parsedTransaction,
@@ -1109,12 +1162,27 @@ export default class Deposit {
       Buffer.from(merkleProof, "hex"),
       txInBlockIndex,
       Buffer.from(chainHeaders, "hex")
+    ] as [
+      Buffer,
+      Buffer,
+      Buffer,
+      Buffer,
+      number,
+      Buffer,
+      string,
+      Buffer
     ]
   }
 
   redemptionDetailsFromEvent(
-    redemptionRequestedEventArgs
-  ) /* : RedemptionDetails*/ {
+    redemptionRequestedEventArgs:{
+      _utxoValue:string,
+      _redeemerOutputScript:string,
+      _requestedFee:string,
+      _outpoint:string,
+      _digest:string
+    }
+  ):RedemptionDetails /* : RedemptionDetails*/ {
     const {
       _utxoValue,
       _redeemerOutputScript,
@@ -1314,7 +1382,7 @@ export default class Deposit {
    * @param {string} digest Digest to check approval for.
    * @return {boolean} True if signature approved, false if not (fraud).
    */
-  async wasSignatureApproved(digest) {
+  async wasSignatureApproved(digest:string) {
     const events = await this.keepContract.getPastEvents("SignatureRequested", {
       fromBlock: 0,
       toBlock: "latest",
@@ -1332,7 +1400,7 @@ export default class Deposit {
    * @param {*} signedDigest The digest signed by the signature vrs tuple.
    * @param {*} preimage The sha256 preimage of the digest.
    */
-  async provideFundingECDSAFraudProof(v, r, s, signedDigest, preimage) {
+  async provideFundingECDSAFraudProof(v:number, r:HexString, s:HexString, signedDigest:HexString, preimage:HexString) {
     await EthereumHelpers.sendSafely(
       this.contract.methods.provideFundingECDSAFraudProof(
         v,
@@ -1353,7 +1421,7 @@ export default class Deposit {
    * @param {*} signedDigest The digest signed by the signature vrs tuple.
    * @param {*} preimage The sha256 preimage of the digest.
    */
-  async provideECDSAFraudProof(v, r, s, signedDigest, preimage) {
+  async provideECDSAFraudProof(v:number, r:HexString, s:HexString, signedDigest:HexString, preimage:HexString) {
     await EthereumHelpers.sendSafely(
       this.contract.methods.provideECDSAFraudProof(
         v,

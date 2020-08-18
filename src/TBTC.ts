@@ -17,6 +17,7 @@ import TBTCSystemJSON from "@keep-network/tbtc/artifacts/TBTCSystem.json"
  * @property {BitcoinNetwork} bitcoinNetwork
  * @property {ElectrumConfig} electrum
  */
+import type {TBTCConfig} from './CommonTypes'
 
 /**
  * The entry point to the TBTC system. Call `TBTC.withConfig()` and pass the
@@ -34,7 +35,7 @@ export class TBTC {
    *        configured Bitcoin and Ethereum networks are either both mainnet or
    *        both testnet.
    */
-  static async withConfig(config, networkMatchCheck = true) {
+  static async withConfig(config:TBTCConfig, networkMatchCheck = true) {
     const ethereumMainnet = await EthereumHelpers.isMainnet(config.web3)
     const bitcoinMainnet =
       config.bitcoinNetwork == BitcoinHelpers.Network.MAINNET
@@ -58,13 +59,14 @@ export class TBTC {
     return new TBTC(depositFactory, constants, config)
   }
 
+  public satoshisPerTbtc:BN
   /**
    *
    * @param {DepositFactory} depositFactory
    * @param {Constants} constants
    * @param {TBTCConfig} config
    */
-  constructor(depositFactory, constants, config) {
+  constructor(public depositFactory:DepositFactory, public constants:Constants, public config:TBTCConfig) {
     /** @package */
     this.depositFactory = depositFactory
     /** @package */
@@ -91,7 +93,7 @@ export default {
    * @param {TBTCConfig} config
    * @param {boolean} networkMatchCheck
    */
-  withConfig: async (config, networkMatchCheck = true) => {
+  withConfig: async (config:TBTCConfig, networkMatchCheck = true) => {
     return await TBTC.withConfig(config, networkMatchCheck)
   },
   BitcoinNetwork: BitcoinHelpers.Network
