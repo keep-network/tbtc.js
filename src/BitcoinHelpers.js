@@ -298,7 +298,7 @@ const BitcoinHelpers = {
      * @param {number} expectedValue The expected value of the transaction
      *        to fetch.
      *
-     * @return {Promise<TransactionInBlock>} A promise to an object of
+     * @return {Promise<TransactionInBlock?>} A promise to an object of
      *         transactionID, outputPosition, and value, that resolves with
      *         either null if such a transaction could not be found, or the
      *         information about the transaction that was found.
@@ -318,7 +318,7 @@ const BitcoinHelpers = {
      * @param {number} expectedValue The expected value of the transaction
      *        to fetch.
      *
-     * @return {Promise<TransactionInBlock>} A promise to an object of
+     * @return {Promise<TransactionInBlock?>} A promise to an object of
      *         transactionID, outputPosition, and value, that resolves with
      *         either null if such a transaction could not be found, or the
      *         information about the transaction that was found.
@@ -362,6 +362,9 @@ const BitcoinHelpers = {
 
             return result
           }
+
+          // Return null if status is unset so we continue receiving events.
+          return null
         }
 
         return electrumClient.onTransactionToScript(script, checkTransactions)
@@ -377,9 +380,9 @@ const BitcoinHelpers = {
      * @param {number} requiredConfirmations A number of required
      *        confirmations below which this function will return null.
      *
-     * @return {Promise<number>} A promise to the current number of
-     *         confirmations for the given `transaction`, iff that transaction has
-     *         at least `requiredConfirmations` confirmations.
+     * @return {Promise<number?>} A promise to the current number of
+     *         confirmations for the given `transaction`, iff that transaction
+     *         has at least `requiredConfirmations` confirmations.
      */
     checkForConfirmations: async function(
       transactionID,
@@ -392,6 +395,8 @@ const BitcoinHelpers = {
         if (confirmations >= requiredConfirmations) {
           return confirmations
         }
+
+        return null
       })
     },
     /**
@@ -426,6 +431,10 @@ const BitcoinHelpers = {
             if (confirmations >= requiredConfirmations) {
               return confirmations
             }
+
+            // Return null if required confirmations have not been reached so we
+            // continue to receive notifications.
+            return null
           })
         }
 
@@ -646,7 +655,7 @@ const BitcoinHelpers = {
      * @param {number} expectedValue The expected value of the transaction
      *        to fetch.
      *
-     * @return {Promise<TransactionInBlock>} A promise to an object of
+     * @return {Promise<TransactionInBlock?>} A promise to an object of
      *         transactionID, outputPosition, and value, that resolves with
      *         either null if such a transaction could not be found, or the
      *         information about the transaction that was found.
@@ -669,6 +678,8 @@ const BitcoinHelpers = {
           }
         }
       }
+
+      return null
     },
     /**
      * Finds all transactions to the given `receiverScript` using the
