@@ -33,6 +33,8 @@ export class TBTC {
    * @param {boolean} [networkMatchCheck=true] When true, ensures that the
    *        configured Bitcoin and Ethereum networks are either both mainnet or
    *        both testnet.
+   *
+   * @return {Promise<TBTC>}
    */
   static async withConfig(config, networkMatchCheck = true) {
     const ethereumMainnet = await EthereumHelpers.isMainnet(config.web3)
@@ -90,6 +92,7 @@ export default {
   /**
    * @param {TBTCConfig} config
    * @param {boolean} networkMatchCheck
+   * @return {Promise<TBTC>}
    */
   withConfig: async (config, networkMatchCheck = true) => {
     return await TBTC.withConfig(config, networkMatchCheck)
