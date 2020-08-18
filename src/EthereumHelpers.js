@@ -62,14 +62,19 @@ function readEventFromTransaction(
     entry => entry.type == "event" && entry.name == eventName
   ))
 
-  return Object.values(transaction.events)
+  return Object.values(transaction.events || {})
     .filter(
       event =>
         event.address == sourceContract.options.address &&
+        event.raw &&
         event.raw.topics[0] == eventABI.signature
     )
     .map(_ =>
-      web3.eth.abi.decodeLog(eventABI.inputs, _.raw.data, _.raw.topics.slice(1))
+      web3.eth.abi.decodeLog(
+        eventABI.inputs || [],
+        (_.raw && _.raw.data) || "",
+        (_.raw && _.raw.topics.slice(1)) || []
+      )
     )[0]
 }
 
@@ -255,8 +260,10 @@ async function sendSafelyRetryable(
  */
 function buildContract(web3, contractABI, address) {
   const contract = new web3.eth.Contract(contractABI)
-  contract.options.address = address
-  contract.options.from = web3.eth.defaultAccount
+  if (address) {
+    contract.options.address = address
+  }
+  contract.options.from = web3.eth.defaultAccount || undefined
   // @ts-ignore A newer version of Web3 is needed to include handleRevert.
   contract.options.handleRevert = true
 
