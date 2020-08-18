@@ -55,7 +55,7 @@ if (process.argv[0].includes("tbtc.js")) {
   args = process.argv.slice(1) // invoked directly, no node
 }
 
-/** @type {(tbtc: TBTCInstance)=>Promise<string>} */
+/** @type {((tbtc: TBTCInstance)=>Promise<string>) | null} */
 let action = null
 
 switch (args[0]) {
@@ -96,7 +96,7 @@ switch (args[0]) {
     break
 }
 
-if (!action) {
+if (action === null) {
   console.log(`
 Unknown command ${args[0]} or bad parameters. Supported commands:
     deposit <lot-size-satoshis> [--no-mint]
@@ -122,7 +122,11 @@ Unknown command ${args[0]} or bad parameters. Supported commands:
   process.exit(1)
 }
 
-async function runAction() {
+/**
+ * @param {(function(TBTCInstance): Promise<string>)} action
+ * @return {Promise<string>}
+ */
+async function runAction(action) {
   web3.eth.defaultAccount = (await web3.eth.getAccounts())[0]
 
   const tbtc = await TBTC.withConfig({
@@ -134,7 +138,7 @@ async function runAction() {
   return action(tbtc)
 }
 
-runAction()
+runAction(action)
   .then(result => {
     console.log("Action completed with final result:", result)
 
