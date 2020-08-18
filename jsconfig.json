@@ -6,6 +6,8 @@
     "resolveJsonModule": true,
     "maxNodeModuleJsDepth": 2,
     "esModuleInterop": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
     "checkJs": true
   }
 }
