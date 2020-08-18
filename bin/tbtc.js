@@ -44,6 +44,8 @@ engine.addProvider(
 )
 
 // -------------------------------- SETUP --------------------------------------
+// @ts-ignore Web3's provider interface seems to be inaccurate with respect to
+// what actually works, since ProviderEngine works just fine here.
 const web3 = new Web3(engine)
 engine.start()
 
