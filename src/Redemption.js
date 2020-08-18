@@ -10,6 +10,8 @@ import BitcoinHelpers from "./BitcoinHelpers.js"
 import EthereumHelpers from "./EthereumHelpers.js"
 /** @typedef { import("./EthereumHelpers.js").TransactionReceipt } TransactionReceipt */
 
+/** @typedef { import("./Deposit.js").default } Deposit */
+
 const { toBN } = web3Utils
 
 /**
@@ -46,18 +48,12 @@ const { toBN } = web3Utils
  * registered.
  */
 export default class Redemption {
-  // deposit/*: Deposit*/
-
-  // redemptionDetails/*: Promise<RedemptionDetails>*/
-  // unsignedTransaction/*: Promise<UnsignedTransactionDetails>*/
-  // signedTransaction/*: Promise<SignedTransactionDetails>*/
-
-  // withdrawnEmitter/*: EventEmitter*/
-
-  constructor(
-    deposit /* : Deposit*/,
-    redemptionDetails /* : RedemptionDetails?*/
-  ) {
+  /**
+   * @param {Deposit} deposit The deposit this redemption is attached to.
+   * @param {RedemptionDetails} redemptionDetails The details of this
+   *        redemption (which should already be in progress).
+   */
+  constructor(deposit, redemptionDetails) {
     this.deposit = deposit
     this.withdrawnEmitter = new EventEmitter()
     this.receivedConfirmationEmitter = new EventEmitter()
@@ -290,12 +286,37 @@ export default class Redemption {
     return proofReceipt
   }
 
-  onBitcoinTransactionSigned(transactionHandler /* : (transaction)=>void*/) {
+  /**
+   * A callback that receives a raw Bitcoin transaction as an unprefixed
+   * hexadecimal string. The return value is ignored.
+   *
+   * @callback RawBitcoinTransactionHandler
+   * @param {string} rawTransactionHex The raw Bitcoin transaction as an
+   *        unprefixed hexadecimal string.
+   */
+
+  /**
+   * @param {RawBitcoinTransactionHandler} transactionHandler
+   */
+  onBitcoinTransactionSigned(transactionHandler) {
     this.signedTransaction.then(transactionHandler)
   }
 
-  onWithdrawn(withdrawalHandler /* : (txHash)=>void*/) {
-    // bitcoin txHash
+  /**
+   * A callback that receives a Bitcoin transaction id as an unprefixed
+   * hexadecimal string. The return value is ignored.
+   *
+   * @callback BitcoinTransactionIdHandler
+   * @param {string} transactionID The Bitcoin transaction id as an unprefixed
+   *        hexadecimal string.
+   */
+
+  /**
+   * @param {BitcoinTransactionIdHandler} withdrawalHandler The handler that
+   *        should be called when the redemption transaction is proven. Passes
+   *        the transaction id of the redeeming Bitcoin transaction.
+   */
+  onWithdrawn(withdrawalHandler) {
     this.withdrawnEmitter.on("withdrawn", withdrawalHandler)
   }
 
