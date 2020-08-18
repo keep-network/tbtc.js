@@ -50,7 +50,7 @@ async function isMainnet(web3) {
  *        event is being read.
  * @param {string} eventName The name of the event to be read.
  *
- * @return {Object} A key-value dictionary of the event's parameters.
+ * @return {any} A key-value dictionary of the event's parameters.
  */
 function readEventFromTransaction(
   web3,
@@ -82,7 +82,7 @@ function readEventFromTransaction(
  * @param {object} [filter] An additional filter to apply to the event being
  *        searched for.
  *
- * @return {Promise<Object>} A promise that will be fulfilled by the event
+ * @return {Promise<any>} A promise that will be fulfilled by the event
  *         object once it is received.
  */
 function getEvent(sourceContract, eventName, filter) {
@@ -113,8 +113,22 @@ function getEvent(sourceContract, eventName, filter) {
   })
 }
 
-async function getExistingEvent(source, eventName, filter) {
-  const events = await source.getPastEvents(eventName, {
+/**
+ * Looks up an existing event named `eventName` on `sourceContract`, searching
+ * past blocks for it and then returning it. Respects additional filtering rules
+ * set in the passed `filter` object, if available. Does not wait for any new
+ * events.
+ *
+ * @param {Contract} sourceContract The web3 Contract that emits the event.
+ * @param {string} eventName The name of the event to wait on.
+ * @param {object} [filter] An additional filter to apply to the event being
+ *        searched for.
+ *
+ * @return {Promise<any>} A promise that will be fulfilled by the event object
+ *         once it is found.
+ */
+async function getExistingEvent(sourceContract, eventName, filter) {
+  const events = await sourceContract.getPastEvents(eventName, {
     fromBlock: 0,
     toBlock: "latest",
     filter
