@@ -16,7 +16,7 @@ const { KeyRing } = BcoinPrimitives
 const { Script } = BcoinScript
 
 /** @enum {string} */
-const BitcoinNetwork = {
+export const BitcoinNetwork = {
   TESTNET: "testnet",
   MAINNET: "mainnet",
   SIMNET: "simnet"

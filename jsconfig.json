@@ -1,8 +1,11 @@
 {
   "compilerOptions": {
     "module": "es6",
-    "target": "es6"
-  },
-  "checkJs": true,
-  "exclude": ["node_modules"]
+    "target": "es6",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "maxNodeModuleJsDepth": 2,
+    "esModuleInterop": true,
+    "checkJs": true
+  }
 }

@@ -1,27 +1,32 @@
-import EventEmitter from "events"
-
-import BitcoinHelpers from "./BitcoinHelpers.js"
-
-import EthereumHelpers from "./EthereumHelpers.js"
+import { EventEmitter } from "events"
 
 import web3Utils from "web3-utils"
+/** @typedef { import("bn.js") } BN */
+
+import BitcoinHelpers from "./BitcoinHelpers.js"
+/** @typedef { import("./BitcoinHelpers.js").TransactionInBlock } BitcoinTransaction */
+/** @typedef { import("./BitcoinHelpers.js").OnReceivedConfirmationHandler } OnReceivedConfirmationHandler */
+
+import EthereumHelpers from "./EthereumHelpers.js"
+/** @typedef { import("./EthereumHelpers.js").TransactionReceipt } TransactionReceipt */
+
 const { toBN } = web3Utils
 
 /**
  * Details of a given redemption at a given point in time.
  * @typedef {Object} RedemptionDetails
  * @property {BN} utxoValue The value of the UTXO in the redemption.
- * @property {Buffer} redeemerOutputScript The raw redeemer output script bytes.
+ * @property {string} redeemerOutputScript The raw redeemer output script bytes.
  * @property {BN} requestedFee The fee for the redemption transaction.
- * @property {Buffer} outpoint The raw outpoint bytes.
- * @property {Buffer} digest The raw digest bytes.
+ * @property {string} outpoint The raw outpoint bytes.
+ * @property {string} digest The raw digest bytes.
  */
 
 /**
  * Details of a given unsigned transaction
  * @typedef {Object} UnsignedTransactionDetails
  * @property {string} hex The raw transaction hex string.
- * @property {digest} digest The transaction's digest.
+ * @property {string} digest The transaction's digest as a hex string.
  */
 
 /**
@@ -57,8 +62,10 @@ export default class Redemption {
     this.withdrawnEmitter = new EventEmitter()
     this.receivedConfirmationEmitter = new EventEmitter()
 
+    /** @type {Promise<RedemptionDetails>} */
     this.redemptionDetails = this.getLatestRedemptionDetails(redemptionDetails)
 
+    /** @type {Promise<UnsignedTransactionDetails>} */
     this.unsignedTransactionDetails = this.redemptionDetails.then(details => {
       const outputValue = details.utxoValue.sub(details.requestedFee)
       const unsignedTransaction = BitcoinHelpers.Transaction.constructOneInputOneOutputWitnessTransaction(
@@ -136,9 +143,9 @@ export default class Redemption {
 
   /**
    * @typedef {Object} AutoSubmitState
-   * @prop {Promise<BitcoinTransaction>} signedTransaction
-   * @prop {Promise<{ transaction: FoundTransaction, requiredConfirmations: Number }>} confirmations
-   * @prop {Promise<EthereumTransaction>} proofTransaction
+   * @prop {Promise<string>} broadcastTransactionID
+   * @prop {Promise<{ transactionID: string, requiredConfirmations: Number }>} confirmations
+   * @prop {Promise<TransactionReceipt>} proofTransaction
    */
   /**
    * This method enables the redemption's auto-submission capabilities.
@@ -156,9 +163,7 @@ export default class Redemption {
       return this.autoSubmittingState
     }
 
-    const state = (this.autoSubmittingState = {})
-
-    state.broadcastTransactionID = this.signedTransaction.then(
+    const broadcastTransactionID = this.signedTransaction.then(
       async signedTransaction => {
         console.debug(
           `Looking for existing signed redemption transaction on Bitcoin ` +
@@ -171,6 +176,7 @@ export default class Redemption {
         // FIXME Check that the transaction spends the right UTXO, not just
         // FIXME that it's the right amount to the right address. outpoint
         // FIXME compared against vin is probably the move here.
+        /** @type {import("./BitcoinHelpers.js").PartialTransactionInBlock} */
         let transaction = await BitcoinHelpers.Transaction.findScript(
           EthereumHelpers.bytesToRaw(redeemerOutputScript),
           expectedValue
@@ -189,34 +195,32 @@ export default class Redemption {
       }
     )
 
-    state.confirmations = state.broadcastTransactionID.then(
-      async transactionID => {
-        const requiredConfirmations = parseInt(
-          await this.deposit.factory.constantsContract.methods
-            .getTxProofDifficultyFactor()
-            .call()
-        )
+    const confirmations = broadcastTransactionID.then(async transactionID => {
+      const requiredConfirmations = parseInt(
+        await this.deposit.factory.constantsContract.methods
+          .getTxProofDifficultyFactor()
+          .call()
+      )
 
-        console.debug(
-          `Waiting for ${requiredConfirmations} confirmations for ` +
-            `Bitcoin transaction ${transactionID}...`
-        )
-        await BitcoinHelpers.Transaction.waitForConfirmations(
-          transactionID,
-          requiredConfirmations,
-          ({ transactionID, confirmations }) => {
-            this.receivedConfirmationEmitter.emit("receivedConfirmation", {
-              transactionID,
-              confirmations
-            })
-          }
-        )
+      console.debug(
+        `Waiting for ${requiredConfirmations} confirmations for ` +
+          `Bitcoin transaction ${transactionID}...`
+      )
+      await BitcoinHelpers.Transaction.waitForConfirmations(
+        transactionID,
+        requiredConfirmations,
+        ({ transactionID, confirmations }) => {
+          this.receivedConfirmationEmitter.emit("receivedConfirmation", {
+            transactionID,
+            confirmations
+          })
+        }
+      )
 
-        return { transactionID, requiredConfirmations }
-      }
-    )
+      return { transactionID, requiredConfirmations }
+    })
 
-    state.proofTransaction = state.confirmations.then(
+    const proofTransaction = confirmations.then(
       async ({ transactionID, requiredConfirmations }) => {
         console.debug(
           `Transaction is sufficiently confirmed; submitting redemption ` +
@@ -225,9 +229,15 @@ export default class Redemption {
         return this.proveWithdrawal(transactionID, requiredConfirmations)
       }
     )
-    // TODO bumpFee if needed
 
-    return state
+    this.autoSubmittingState = {
+      broadcastTransactionID,
+      confirmations,
+      proofTransaction
+    }
+
+    // TODO bumpFee if needed
+    return this.autoSubmittingState
   }
 
   /**
@@ -258,7 +268,7 @@ export default class Redemption {
       confirmations
     )
 
-    await EthereumHelpers.sendSafely(
+    const proofReceipt = EthereumHelpers.sendSafely(
       this.deposit.contract.methods.provideRedemptionProof(
         // Redemption proof does not take the output position as a
         // parameter, as all redemption transactions are one-input-one-output
@@ -269,7 +279,11 @@ export default class Redemption {
       )
     )
 
-    this.withdrawnEmitter.emit("withdrawn", transactionID)
+    proofReceipt.then(() =>
+      this.withdrawnEmitter.emit("withdrawn", transactionID)
+    )
+
+    return proofReceipt
   }
 
   onBitcoinTransactionSigned(transactionHandler /* : (transaction)=>void*/) {
