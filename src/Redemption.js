@@ -197,8 +197,9 @@ export default class Redemption {
 
     const confirmations = broadcastTransactionID.then(async transactionID => {
       const requiredConfirmations = parseInt(
-        await this.deposit.factory.constantsContract.methods
-          .getTxProofDifficultyFactor()
+        await this.deposit.factory
+          .constants()
+          .methods.getTxProofDifficultyFactor()
           .call()
       )
 
@@ -254,7 +255,10 @@ export default class Redemption {
     if (!confirmations) {
       // 0 still triggers a lookup
       confirmations = (
-        await this.deposit.factory.constantsContract.getTxProofDifficultyFactor()
+        await this.deposit.factory
+          .constants()
+          .methods.getTxProofDifficultyFactor()
+          .call()
       ).toNumber()
     }
 
