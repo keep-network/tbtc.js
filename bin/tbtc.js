@@ -1,11 +1,12 @@
 #!/usr/bin/env node --experimental-modules
-import Web3 from "web3"
-import TBTC from "../index.js"
-
-import ProviderEngine from "web3-provider-engine"
 import Subproviders from "@0x/subproviders"
+import Web3 from "web3"
+import ProviderEngine from "web3-provider-engine"
+import TBTC from "../index.js"
+/** @typedef {import('../src/TBTC.js').ElectrumConfig} ElectrumConfig */
+/** @typedef {import('../src/TBTC.js').TBTC} TBTCInstance */
 
-/** @type {{ [name: string]: import("../src/TBTC.js").ElectrumConfig }} */
+/** @type {{ [name: string]: ElectrumConfig }} */
 const electrumConfigs = {
   testnet: {
     server: "electrumx-server.test.tbtc.network",
@@ -51,6 +52,8 @@ let args = process.argv.slice(2)
 if (process.argv[0].includes("tbtc.js")) {
   args = process.argv.slice(1) // invoked directly, no node
 }
+
+/** @type {(tbtc: TBTCInstance)=>Promise<string>} */
 let action = null
 
 switch (args[0]) {
