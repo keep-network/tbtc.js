@@ -55,24 +55,30 @@ let action = null
 
 switch (args[0]) {
   case "deposit":
-    if (args.length == 2 && bnOrNull(args[1])) {
+    {
       let mint = true
       if (args.length == 3 && args[2] == "--no-mint") {
         mint = false
+        args.pop() // drop --no-mint
       }
-      action = async tbtc => {
-        return await createDeposit(tbtc, web3.utils.toBN(args[1]), mint)
+      if (args.length == 2 && bnOrNull(args[1])) {
+        action = async tbtc => {
+          return await createDeposit(tbtc, web3.utils.toBN(args[1]), mint)
+        }
       }
     }
     break
   case "resume":
-    if (args.length == 2 && web3.utils.isAddress(args[1])) {
+    {
       let mint = true
       if (args.length == 3 && args[2] == "--no-mint") {
         mint = false
+        args.pop() // drop --no-mint
       }
-      action = async tbtc => {
-        return await resumeDeposit(tbtc, args[1], mint)
+      if (args.length == 2 && web3.utils.isAddress(args[1])) {
+        action = async tbtc => {
+          return await resumeDeposit(tbtc, args[1], mint)
+        }
       }
     }
     break
