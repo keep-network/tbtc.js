@@ -172,7 +172,7 @@ export default class Redemption {
         // FIXME Check that the transaction spends the right UTXO, not just
         // FIXME that it's the right amount to the right address. outpoint
         // FIXME compared against vin is probably the move here.
-        /** @type {import("./BitcoinHelpers.js").PartialTransactionInBlock} */
+        /** @type {import("./BitcoinHelpers.js").PartialTransactionInBlock?} */
         let transaction = await BitcoinHelpers.Transaction.findScript(
           EthereumHelpers.bytesToRaw(redeemerOutputScript),
           expectedValue
@@ -244,7 +244,7 @@ export default class Redemption {
    * @param {string} transactionID A hexadecimal transaction id hash for the
    *        transaction that completes the withdrawal of this deposit's BTC.
    * @param {number} confirmations The number of confirmations required for
-   *        the proof; if this is not provided, looks up the required
+   *        the proof; if this is not provided or is 0, looks up the required
    *        confirmations via the deposit.
    */
   async proveWithdrawal(transactionID, confirmations) {
@@ -337,7 +337,8 @@ export default class Redemption {
 
   /**
    * Fetches the latest redemption details from the chain. These can change
-   * after fee bumps.
+   * after fee bumps. Throws if the deposit does not have a redemption
+   * currently in progress.
    *
    * @param {RedemptionDetails} existingRedemptionDetails An optional override
    *        to shortcut explicit redemption detail lookup.
@@ -351,6 +352,13 @@ export default class Redemption {
       return existingRedemptionDetails
     }
 
-    return await this.deposit.getLatestRedemptionDetails()
+    const latestDetails = await this.deposit.getLatestRedemptionDetails()
+    if (!latestDetails) {
+      throw new Error(
+        `No redemption currently in progress for deposit at address ${this.deposit.address}`
+      )
+    }
+
+    return latestDetails
   }
 }
