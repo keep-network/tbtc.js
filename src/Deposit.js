@@ -243,7 +243,10 @@ export class DepositFactory {
     )
 
     const accountBalance = toBN(
-      await this.config.web3.eth.getBalance(this.config.web3.eth.defaultAccount)
+      // FIXME Need systemic handling of default from address.
+      await this.config.web3.eth.getBalance(
+        this.config.web3.eth.defaultAccount || ""
+      )
     )
 
     if (creationCost.lt(accountBalance)) {
@@ -867,10 +870,8 @@ export default class Deposit {
    * Fetches the latest redemption details from the chain. These can change
    * after fee bumps.
    *
-   * Returns a promise to the redemption details, or to null if there is no
-   * current redemption in progress.
-   *
-   * @return {Promise<RedemptionDetails>}
+   * @return {Promise<RedemptionDetails?>} A promise to the redemption details,
+   *         or to null if there is no current redemption in progress.
    */
   async getLatestRedemptionDetails() {
     // If the contract is ACTIVE, there's definitely no redemption. This can
