@@ -5,6 +5,17 @@ import ProviderEngine from "web3-provider-engine"
 import TBTC from "../index.js"
 /** @typedef {import('../src/TBTC.js').ElectrumConfig} ElectrumConfig */
 /** @typedef {import('../src/TBTC.js').TBTC} TBTCInstance */
+/** @typedef {import('../src/Deposit.js').default} Deposit */
+/** @typedef {import('bn.js')} BN */
+
+/**
+ * An action that runs a set command on a given TBTC instance and returns a
+ * string for console output.
+ *
+ * @callback CommandAction
+ * @param {TBTCInstance} tbtc An initialized TBTC instance.
+ * @return {Promise<string>} The output of the command.
+ */
 
 /** @type {{ [name: string]: ElectrumConfig }} */
 const electrumConfigs = {
@@ -55,7 +66,7 @@ if (process.argv[0].includes("tbtc.js")) {
   args = process.argv.slice(1) // invoked directly, no node
 }
 
-/** @type {((tbtc: TBTCInstance)=>Promise<string>) | null} */
+/** @type {CommandAction | null} */
 let action = null
 
 switch (args[0]) {
@@ -123,7 +134,7 @@ Unknown command ${args[0]} or bad parameters. Supported commands:
 }
 
 /**
- * @param {(function(TBTCInstance): Promise<string>)} action
+ * @param {CommandAction} action
  * @return {Promise<string>}
  */
 async function runAction(action) {
@@ -138,7 +149,7 @@ async function runAction(action) {
   return action(tbtc)
 }
 
-runAction(action)
+runAction(/** @type {CommandAction} */ (action))
   .then(result => {
     console.log("Action completed with final result:", result)
 
@@ -150,18 +161,36 @@ runAction(action)
     process.exit(1)
   })
 
+/**
+ * @param {TBTCInstance} tbtc
+ * @param {BN} satoshiLotSize
+ * @param {boolean} mintOnActive
+ * @return {Promise<string>}
+ */
 async function createDeposit(tbtc, satoshiLotSize, mintOnActive) {
   const deposit = await tbtc.Deposit.withSatoshiLotSize(satoshiLotSize)
 
   return runDeposit(deposit, mintOnActive)
 }
 
+/**
+ * @param {TBTCInstance} tbtc
+ * @param {string} depositAddress
+ * @param {boolean} mintOnActive
+ * @return {Promise<string>}
+ */
 async function resumeDeposit(tbtc, depositAddress, mintOnActive) {
   const deposit = await tbtc.Deposit.withAddress(depositAddress)
 
   return runDeposit(deposit, mintOnActive)
 }
 
+/**
+ * @param {TBTCInstance} tbtc
+ * @param {string} depositAddress
+ * @param {string} redeemerAddress
+ * @return {Promise<string>}
+ */
 async function redeemDeposit(tbtc, depositAddress, redeemerAddress) {
   return new Promise(async (resolve, reject) => {
     try {
@@ -183,6 +212,11 @@ async function redeemDeposit(tbtc, depositAddress, redeemerAddress) {
   })
 }
 
+/**
+ * @param {Deposit} deposit
+ * @param {boolean} mintOnActive
+ * @return {Promise<string>}
+ */
 async function runDeposit(deposit, mintOnActive) {
   deposit.autoSubmit()
 
@@ -209,7 +243,7 @@ async function runDeposit(deposit, mintOnActive) {
           console.log("Deposit is active, minting...")
           const tbtc = await deposit.mintTBTC()
 
-          resolve(tbtc)
+          resolve(tbtc.toString())
         } else {
           resolve("Deposit is active. Minting disabled by parameter.")
         }
@@ -220,6 +254,10 @@ async function runDeposit(deposit, mintOnActive) {
   })
 }
 
+/**
+ * @param {string} str
+ * @return {BN?}
+ */
 function bnOrNull(str) {
   try {
     return web3.utils.toBN(str)
