@@ -17,6 +17,9 @@ async function runExample() {
       "https://:e18ef5ef295944928dd87411bc678f19@ropsten.infura.io/v3/59fb36a36fa4474b890c13dd30038be5"
     )
   )
+
+  // @ts-ignore Web3's provider interface seems to be inaccurate with respect to
+  // what actually works, since ProviderEngine works just fine here.
   const web3 = new Web3(engine)
   engine.start()
 
@@ -26,21 +29,9 @@ async function runExample() {
     web3: web3,
     bitcoinNetwork: "testnet",
     electrum: {
-      testnet: {
-        server: "electrumx-server.test.tbtc.network",
-        port: 50002,
-        protocol: "ssl"
-      },
-      testnetPublic: {
-        server: "testnet1.bauerj.eu",
-        port: 50002,
-        protocol: "ssl"
-      },
-      testnetWS: {
-        server: "electrumx-server.test.tbtc.network",
-        port: 8443,
-        protocol: "wss"
-      }
+      server: "electrumx-server.test.tbtc.network",
+      port: 8443,
+      protocol: "wss"
     }
   })
 
