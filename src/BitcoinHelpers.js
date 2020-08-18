@@ -1,3 +1,5 @@
+/** @typedef { import("web3-eth-contract").Contract } EthereumContract */
+
 import bcoin from "bcoin/lib/bcoin-browser.js"
 import secp256k1 from "bcrypto/lib/secp256k1.js"
 import BcryptoSignature from "bcrypto/lib/internal/signature.js"
@@ -144,10 +146,18 @@ const BitcoinHelpers = {
     return `${publicKeyX.replace("0x", "")}${publicKeyY.replace("0x", "")}`
   },
   Address: {
-    pubKeyHashFrom: function(address) {
-      const script = bcoin.Script.fromAddress(address)
-      return script.getWitnessPubkeyhash()
-    },
+    /**
+     * Converts the a public key point, specified as distinct X and Y
+     * components represented as hex strings, to a Bitcoin P2WPKH address for
+     * the specified Bitcoin network.
+     *
+     * @param {string} publicKeyX The X component of a public key.
+     * @param {string} publicKeyY The Y component of a public key.
+     * @param {BitcoinNetwork} bitcoinNetwork The Bitcoin network to generate an
+     *        address for.
+     *
+     * @return {string} The Bitcoin P2WPKH address for the given network.
+     */
     publicKeyPointToP2WPKHAddress: function(
       publicKeyX,
       publicKeyY,
@@ -317,7 +327,9 @@ const BitcoinHelpers = {
 
         // This function is used as a callback to electrum client. It is
         // invoked when an existing or a new transaction is found.
-        const checkTransactions = async function(status) {
+        const checkTransactions = async function(
+          /** @type {string?} */ status
+        ) {
           // If the status is set, transactions were seen for the
           // script.
           if (status) {
@@ -402,8 +414,8 @@ const BitcoinHelpers = {
     /**
      * Estimates the fee that would be needed for a given transaction.
      *
-     * @param {object} tbtcConstantsContract The TBTCConstants contract that
-     *        provides the stub value for this function.
+     * @param {EthereumContract} tbtcConstantsContract The TBTCConstants
+     *        contract that provides the stub value for this function.
      *
      * @warning This is a stub. Currently it takes the TBTCConstants
      *          contract and returns its reported minimum fee, rather than
