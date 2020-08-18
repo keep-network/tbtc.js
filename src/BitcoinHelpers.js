@@ -268,6 +268,10 @@ const BitcoinHelpers = {
    * @template T
    */
   withElectrumClient: async function(block) {
+    if (BitcoinHelpers.electrumConfig === null) {
+      throw new Error("Electrum client not configured.")
+    }
+
     const electrumClient = new ElectrumClient(BitcoinHelpers.electrumConfig)
 
     await electrumClient.connect()
