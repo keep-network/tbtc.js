@@ -1,7 +1,8 @@
 /** @typedef { import("web3").default } Web3 */
 import type Web3 from 'web3'
-import type {Contract, EventOptions, ContractSendMethod, SendOptions, EventData} from 'web3-eth-contract'
-import type {TransactionReceipt} from 'web3-core'
+import type {Contract, EventOptions, EstimateGasOptions, EventData} from 'web3-eth-contract'
+import type {TransactionReceipt, PromiEvent} from 'web3-core'
+import type BN from 'bn.js'
 
 /**
  * Checks whether the given web3 instance is connected to Ethereum mainnet.
@@ -12,6 +13,29 @@ import type {TransactionReceipt} from 'web3-core'
  */
 async function isMainnet(web3:Web3) {
   return (await web3.eth.getChainId()) == 0x1
+}
+
+// Types modified from 'web3-eth-contract' because those types are wrong and can't be fixed
+// through type augmentation
+// 'from' should be optional as if it's not given web3 will use the from assigned to the contract
+// See https://github.com/ethereum/web3.js/blob/01518219cd74fc1a016ca6615158fe52daa94722/packages/web3-eth-contract/src/index.js#L357
+interface ContractCallOptions {
+  from?: string;
+  gasPrice?: string;
+  gas?: number;
+  value?: number | string | BN;
+}
+
+interface ContractCall {
+  send(
+    options: ContractCallOptions,
+    callback?: (err: Error, transactionHash: string) => void
+  ): PromiEvent<TransactionReceipt>;
+  estimateGas(
+    options: EstimateGasOptions,
+    callback?: (err: Error, gas: number) => void
+  ): Promise<number>;
+  call(params:any):any;
 }
 
 /**
@@ -129,7 +153,7 @@ function bytesToRaw(bytesString:HexString):string {
  *         method. Fails the promise if gas estimation fails, extracting an
  *         on-chain error if possible.
  */
-async function sendSafely(boundContractMethod:ContractSendMethod&{call(params:any):any}, sendParams?:SendOptions, forceSend:boolean = false):Promise<TransactionReceipt> {
+async function sendSafely(boundContractMethod:ContractCall, sendParams?:ContractCallOptions, forceSend:boolean = false):Promise<TransactionReceipt> {
   try {
     // Clone `sendParams` so we aren't exposed to providers that modify `sendParams`.
     const gasEstimate = await boundContractMethod.estimateGas({ ...sendParams })
@@ -158,7 +182,7 @@ async function sendSafely(boundContractMethod:ContractSendMethod&{call(params:an
       }
 
       if (forceSend) {
-        return boundContractMethod.send(sendParams)
+        return boundContractMethod.send(sendParams ?? {})
       } else {
         // If we weren't able to get a better error from `call`, throw the
         // original exception.
