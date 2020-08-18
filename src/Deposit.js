@@ -247,7 +247,7 @@ export class DepositFactory {
       await this.config.web3.eth.getBalance(this.config.web3.eth.defaultAccount)
     )
 
-    if (creationCost.lt(accountBalance)) {
+    if (creationCost.gt(accountBalance)) {
       throw new Error(
         `Insufficient balance ${accountBalance.toString()} to open ` +
           `deposit (required: ${creationCost.toString()}).`
