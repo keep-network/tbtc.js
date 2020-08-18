@@ -10,10 +10,33 @@ import TBTCConstantsJSON from "@keep-network/tbtc/artifacts/TBTCConstants.json"
 
 const { toBN } = web3Utils
 
+/**
+ * The constants resolved from on-chain via the constants contract.
+ * @typedef {object} ConstantFields
+ * @property {BN} BENEFICIARY_REWARD_DIVISOR
+ * @property {BN} SATOSHI_MULTIPLIER
+ * @property {BN} DEPOSIT_TERM
+ * @property {BN} TX_PROOF_DIFFICULTY_FACTOR
+ * @property {BN} REDEMPTION_SIGNATURE_TIMEOUT
+ * @property {BN} INCREASE_FEE_TIMER
+ * @property {BN} REDEMPTION_PROOF_TIMEOUT
+ * @property {BN} MINIMUM_REDEMPTION_FEE
+ * @property {BN} FUNDING_PROOF_TIMEOUT
+ * @property {BN} SIGNING_GROUP_FORMATION_TIMEOUT
+ * @property {BN} COURTESY_CALL_DURATION
+ * @property {BN} AUCTION_DURATION
+ * @property {BN} PERMITTED_FEE_BUMPS
+ */
+
+/**
+ * @typedef {Constants & ConstantFields} ResolvedConstants
+ */
+
+/** @mixin ResolvedConstants */
 class Constants {
   /**
    * @param {TBTCConfig} config The config to use for this constants instance.
-   * @return {Promise<Constants>} The TBTC constants.
+   * @return {Promise<ResolvedConstants>} The TBTC constants.
    */
   static async withConfig(config) {
     const { web3 } = config
@@ -49,7 +72,10 @@ class Constants {
     const calls = members.map(([constantGetter, constantName]) => {
       const call = tbtcConstantsContract.methods[constantGetter]().call
       return new Promise((resolve, reject) => {
-        const request = call.request(null, (error, value) => {
+        const request = call.request(null, (
+          /** @type {any} */ error,
+          /** @type {string} */ value
+        ) => {
           if (error) {
             reject(error)
           } else {
@@ -63,46 +89,24 @@ class Constants {
     batch.execute()
     const results = await Promise.all(calls)
 
-    const constants = {}
-    results.forEach(constantEntry => {
-      Object.assign(constants, constantEntry)
-    })
+    /** @type {ConstantFields} */
+    const constants = Object.assign({}, ...results)
 
-    return new Constants(constants, tbtcConstantsContract)
+    return /** @type {ResolvedConstants} */ (new Constants(
+      constants,
+      tbtcConstantsContract
+    ))
   }
 
+  /**
+   * @param {ConstantFields} constants
+   * @param {Contract} contract
+   */
   constructor(constants, contract) {
     /** @type {Contract} */
     this.contract = contract
 
     Object.assign(this, constants)
-
-    /** @type {BN} */
-    this.BENEFICIARY_REWARD_DIVISOR
-    /** @type {BN} */
-    this.SATOSHI_MULTIPLIER
-    /** @type {BN} */
-    this.DEPOSIT_TERM
-    /** @type {BN} */
-    this.TX_PROOF_DIFFICULTY_FACTOR
-    /** @type {BN} */
-    this.REDEMPTION_SIGNATURE_TIMEOUT
-    /** @type {BN} */
-    this.INCREASE_FEE_TIMER
-    /** @type {BN} */
-    this.REDEMPTION_PROOF_TIMEOUT
-    /** @type {BN} */
-    this.MINIMUM_REDEMPTION_FEE
-    /** @type {BN} */
-    this.FUNDING_PROOF_TIMEOUT
-    /** @type {BN} */
-    this.SIGNING_GROUP_FORMATION_TIMEOUT
-    /** @type {BN} */
-    this.COURTESY_CALL_DURATION
-    /** @type {BN} */
-    this.AUCTION_DURATION
-    /** @type {BN} */
-    this.PERMITTED_FEE_BUMPS
   }
 }
 
