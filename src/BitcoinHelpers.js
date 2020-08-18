@@ -576,8 +576,6 @@ const BitcoinHelpers = {
      * by the `bitcoinAddress`.
      *
      * @param {string} bitcoinAddress Bitcoin address to check.
-     *
-     * @return {Promise<Array>} A promise to the found array of transactions.
      */
     findAllUnspent: async function(bitcoinAddress) {
       return await BitcoinHelpers.withElectrumClient(async electrumClient => {
@@ -646,9 +644,10 @@ const BitcoinHelpers = {
      * @param {ElectrumClient} electrumClient An already-initialized Electrum client.
      * @param {string} receiverScript A receiver script.
      *
-     * @return {Promise<Array>} A promise to an array of objects containing
-     *         transactionID, outputPosition, and value. Resolves with
-     *         empty if no transactions exist.
+     * @return {Promise<TransactionInBlock[]>} A promise to an array of
+     *         transactions with accompanying information about the output
+     *         position and value pointed at the specified receiver script.
+     *         Resolves with an empty array if no such transactions exist.
      */
     findAllUnspentWithClient: async function(electrumClient, receiverScript) {
       const unspentTransactions = await electrumClient.getUnspentToScript(
