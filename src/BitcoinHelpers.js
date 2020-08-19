@@ -18,7 +18,7 @@ const { Script } = BcoinScript
 /** @enum {string} */
 export const BitcoinNetwork = {
   TESTNET: "testnet",
-  MAINNET: "mainnet",
+  MAINNET: "main",
   SIMNET: "simnet"
 }
 
