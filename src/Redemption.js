@@ -275,7 +275,7 @@ export default class Redemption {
         // However, constructFundingProof includes it for deposit funding
         // proofs. Here, we filter it out to produce the right set of
         // parameters.
-        ...proofArgs.filter(_ => _ != -1)
+        ...proofArgs.filter(_ => _ !== -1)
       )
     )
 

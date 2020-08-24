@@ -530,7 +530,7 @@ export default class Deposit {
 
   async inVendingMachine() /* : Promise<boolean>*/ {
     return (
-      (await this.getOwner()) == this.factory.vendingMachine().options.address
+      (await this.getOwner()) === this.factory.vendingMachine().options.address
     )
   }
 
