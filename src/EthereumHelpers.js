@@ -50,7 +50,7 @@ async function isMainnet(web3) {
  *        event is being read.
  * @param {string} eventName The name of the event to be read.
  *
- * @return {Object} A key-value dictionary of the event's parameters.
+ * @return {any} A key-value dictionary of the event's parameters.
  */
 function readEventFromTransaction(
   web3,
@@ -62,14 +62,19 @@ function readEventFromTransaction(
     entry => entry.type == "event" && entry.name == eventName
   ))
 
-  return Object.values(transaction.events)
+  return Object.values(transaction.events || {})
     .filter(
       event =>
         event.address == sourceContract.options.address &&
+        event.raw &&
         event.raw.topics[0] == eventABI.signature
     )
     .map(_ =>
-      web3.eth.abi.decodeLog(eventABI.inputs, _.raw.data, _.raw.topics.slice(1))
+      web3.eth.abi.decodeLog(
+        eventABI.inputs || [],
+        (_.raw && _.raw.data) || "",
+        (_.raw && _.raw.topics.slice(1)) || []
+      )
     )[0]
 }
 
@@ -82,7 +87,7 @@ function readEventFromTransaction(
  * @param {object} [filter] An additional filter to apply to the event being
  *        searched for.
  *
- * @return {Promise<Object>} A promise that will be fulfilled by the event
+ * @return {Promise<any>} A promise that will be fulfilled by the event
  *         object once it is received.
  */
 function getEvent(sourceContract, eventName, filter) {
@@ -113,8 +118,22 @@ function getEvent(sourceContract, eventName, filter) {
   })
 }
 
-async function getExistingEvent(source, eventName, filter) {
-  const events = await source.getPastEvents(eventName, {
+/**
+ * Looks up an existing event named `eventName` on `sourceContract`, searching
+ * past blocks for it and then returning it. Respects additional filtering rules
+ * set in the passed `filter` object, if available. Does not wait for any new
+ * events.
+ *
+ * @param {Contract} sourceContract The web3 Contract that emits the event.
+ * @param {string} eventName The name of the event to wait on.
+ * @param {object} [filter] An additional filter to apply to the event being
+ *        searched for.
+ *
+ * @return {Promise<any>} A promise that will be fulfilled by the event object
+ *         once it is found.
+ */
+async function getExistingEvent(sourceContract, eventName, filter) {
+  const events = await sourceContract.getPastEvents(eventName, {
     fromBlock: 0,
     toBlock: "latest",
     filter
@@ -241,8 +260,10 @@ async function sendSafelyRetryable(
  */
 function buildContract(web3, contractABI, address) {
   const contract = new web3.eth.Contract(contractABI)
-  contract.options.address = address
-  contract.options.from = web3.eth.defaultAccount
+  if (address) {
+    contract.options.address = address
+  }
+  contract.options.from = web3.eth.defaultAccount || undefined
   // @ts-ignore A newer version of Web3 is needed to include handleRevert.
   contract.options.handleRevert = true
 

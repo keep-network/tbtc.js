@@ -1,3 +1,5 @@
+/** @typedef { import("web3-eth-contract").Contract } EthereumContract */
+
 import bcoin from "bcoin/lib/bcoin-browser.js"
 import secp256k1 from "bcrypto/lib/secp256k1.js"
 import BcryptoSignature from "bcrypto/lib/internal/signature.js"
@@ -18,7 +20,7 @@ const { Script } = BcoinScript
 /** @enum {string} */
 export const BitcoinNetwork = {
   TESTNET: "testnet",
-  MAINNET: "mainnet",
+  MAINNET: "main",
   SIMNET: "simnet"
 }
 
@@ -144,10 +146,18 @@ const BitcoinHelpers = {
     return `${publicKeyX.replace("0x", "")}${publicKeyY.replace("0x", "")}`
   },
   Address: {
-    pubKeyHashFrom: function(address) {
-      const script = bcoin.Script.fromAddress(address)
-      return script.getWitnessPubkeyhash()
-    },
+    /**
+     * Converts the a public key point, specified as distinct X and Y
+     * components represented as hex strings, to a Bitcoin P2WPKH address for
+     * the specified Bitcoin network.
+     *
+     * @param {string} publicKeyX The X component of a public key.
+     * @param {string} publicKeyY The Y component of a public key.
+     * @param {BitcoinNetwork} bitcoinNetwork The Bitcoin network to generate an
+     *        address for.
+     *
+     * @return {string} The Bitcoin P2WPKH address for the given network.
+     */
     publicKeyPointToP2WPKHAddress: function(
       publicKeyX,
       publicKeyY,
@@ -165,12 +175,20 @@ const BitcoinHelpers = {
      * @param {string} pubKeyHash A pubKeyHash as a string.
      * @param {string} network The Bitcoin network for the Bech32 address.
      *
-     * @return {string} A Bech32 address to
+     * @return {string} A Bech32 address corresponding to the given pubKeyHash
+     *         on the given network.
      */
     pubKeyHashToBech32: function(pubKeyHash, network) {
-      return Script.fromProgram(0, Buffer.from(pubKeyHash, "hex"))
-        .getAddress()
-        .toBech32(network)
+      const address = Script.fromProgram(
+        0,
+        Buffer.from(pubKeyHash, "hex")
+      ).getAddress()
+
+      if (address === null) {
+        throw new Error(`Malformed PubKeyHash: ${pubKeyHash}`)
+      }
+
+      return address.toBech32(network)
     },
     /**
      * Converts public key to bitcoin Witness Public Key Hash Address according to
@@ -188,10 +206,19 @@ const BitcoinHelpers = {
 
       const publicKey = secp256k1.publicKeyImport(publicKeyBytes, compress)
       const keyRing = KeyRing.fromKey(publicKey, compress)
-      const p2wpkhScript = Script.fromProgram(0, keyRing.getKeyHash(null))
+      const p2wpkhAddress = Script.fromProgram(
+        0,
+        keyRing.getKeyHash(null)
+      ).getAddress()
+
+      if (p2wpkhAddress === null) {
+        throw new Error(
+          `Could not derive p2wpkh address from public key ${publicKeyString}.`
+        )
+      }
 
       // Serialize address to a format specific to given network.
-      return p2wpkhScript.getAddress().toString(network)
+      return p2wpkhAddress.toString(network)
     },
     /**
      * Converts a Bitcoin ScriptPubKey address string to a hex script
@@ -241,6 +268,10 @@ const BitcoinHelpers = {
    * @template T
    */
   withElectrumClient: async function(block) {
+    if (BitcoinHelpers.electrumConfig === null) {
+      throw new Error("Electrum client not configured.")
+    }
+
     const electrumClient = new ElectrumClient(BitcoinHelpers.electrumConfig)
 
     await electrumClient.connect()
@@ -267,7 +298,7 @@ const BitcoinHelpers = {
      * @param {number} expectedValue The expected value of the transaction
      *        to fetch.
      *
-     * @return {Promise<TransactionInBlock>} A promise to an object of
+     * @return {Promise<TransactionInBlock?>} A promise to an object of
      *         transactionID, outputPosition, and value, that resolves with
      *         either null if such a transaction could not be found, or the
      *         information about the transaction that was found.
@@ -287,7 +318,7 @@ const BitcoinHelpers = {
      * @param {number} expectedValue The expected value of the transaction
      *        to fetch.
      *
-     * @return {Promise<TransactionInBlock>} A promise to an object of
+     * @return {Promise<TransactionInBlock?>} A promise to an object of
      *         transactionID, outputPosition, and value, that resolves with
      *         either null if such a transaction could not be found, or the
      *         information about the transaction that was found.
@@ -317,7 +348,9 @@ const BitcoinHelpers = {
 
         // This function is used as a callback to electrum client. It is
         // invoked when an existing or a new transaction is found.
-        const checkTransactions = async function(status) {
+        const checkTransactions = async function(
+          /** @type {string?} */ status
+        ) {
           // If the status is set, transactions were seen for the
           // script.
           if (status) {
@@ -329,6 +362,9 @@ const BitcoinHelpers = {
 
             return result
           }
+
+          // Return null if status is unset so we continue receiving events.
+          return null
         }
 
         return electrumClient.onTransactionToScript(script, checkTransactions)
@@ -344,9 +380,9 @@ const BitcoinHelpers = {
      * @param {number} requiredConfirmations A number of required
      *        confirmations below which this function will return null.
      *
-     * @return {Promise<number>} A promise to the current number of
-     *         confirmations for the given `transaction`, iff that transaction has
-     *         at least `requiredConfirmations` confirmations.
+     * @return {Promise<number?>} A promise to the current number of
+     *         confirmations for the given `transaction`, iff that transaction
+     *         has at least `requiredConfirmations` confirmations.
      */
     checkForConfirmations: async function(
       transactionID,
@@ -359,6 +395,8 @@ const BitcoinHelpers = {
         if (confirmations >= requiredConfirmations) {
           return confirmations
         }
+
+        return null
       })
     },
     /**
@@ -393,6 +431,10 @@ const BitcoinHelpers = {
             if (confirmations >= requiredConfirmations) {
               return confirmations
             }
+
+            // Return null if required confirmations have not been reached so we
+            // continue to receive notifications.
+            return null
           })
         }
 
@@ -402,8 +444,8 @@ const BitcoinHelpers = {
     /**
      * Estimates the fee that would be needed for a given transaction.
      *
-     * @param {object} tbtcConstantsContract The TBTCConstants contract that
-     *        provides the stub value for this function.
+     * @param {EthereumContract} tbtcConstantsContract The TBTCConstants
+     *        contract that provides the stub value for this function.
      *
      * @warning This is a stub. Currently it takes the TBTCConstants
      *          contract and returns its reported minimum fee, rather than
@@ -577,7 +619,10 @@ const BitcoinHelpers = {
      *
      * @param {string} bitcoinAddress Bitcoin address to check.
      *
-     * @return {Promise<Array>} A promise to the found array of transactions.
+     * @return {Promise<TransactionInBlock[]>} A promise to an array of
+     *         transactions with accompanying information about the output
+     *         position and value pointed at the specified receiver script.
+     *         Resolves with an empty array if no such transactions exist.
      */
     findAllUnspent: async function(bitcoinAddress) {
       return await BitcoinHelpers.withElectrumClient(async electrumClient => {
@@ -593,12 +638,14 @@ const BitcoinHelpers = {
      *
      * @param {string} bitcoinAddress Bitcoin address to check.
      *
-     * @return {Promise<Number>} A promise to the confirmed balance in satoshis.
+     * @return {Promise<number>} A promise to the confirmed balance in satoshis.
      */
     getBalance: async function(bitcoinAddress) {
       return await BitcoinHelpers.withElectrumClient(async electrumClient => {
         const script = BitcoinHelpers.Address.toScript(bitcoinAddress)
-        return (await electrumClient.getBalanceOfScript(script)).confirmed
+        return Number(
+          (await electrumClient.getBalanceOfScript(script)).confirmed
+        )
       })
     },
 
@@ -613,7 +660,7 @@ const BitcoinHelpers = {
      * @param {number} expectedValue The expected value of the transaction
      *        to fetch.
      *
-     * @return {Promise<TransactionInBlock>} A promise to an object of
+     * @return {Promise<TransactionInBlock?>} A promise to an object of
      *         transactionID, outputPosition, and value, that resolves with
      *         either null if such a transaction could not be found, or the
      *         information about the transaction that was found.
@@ -636,6 +683,8 @@ const BitcoinHelpers = {
           }
         }
       }
+
+      return null
     },
     /**
      * Finds all transactions to the given `receiverScript` using the
@@ -644,9 +693,10 @@ const BitcoinHelpers = {
      * @param {ElectrumClient} electrumClient An already-initialized Electrum client.
      * @param {string} receiverScript A receiver script.
      *
-     * @return {Promise<Array>} A promise to an array of objects containing
-     *         transactionID, outputPosition, and value. Resolves with
-     *         empty if no transactions exist.
+     * @return {Promise<TransactionInBlock[]>} A promise to an array of
+     *         transactions with accompanying information about the output
+     *         position and value pointed at the specified receiver script.
+     *         Resolves with an empty array if no such transactions exist.
      */
     findAllUnspentWithClient: async function(electrumClient, receiverScript) {
       const unspentTransactions = await electrumClient.getUnspentToScript(

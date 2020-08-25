@@ -10,6 +10,8 @@ import BitcoinHelpers from "./BitcoinHelpers.js"
 import EthereumHelpers from "./EthereumHelpers.js"
 /** @typedef { import("./EthereumHelpers.js").TransactionReceipt } TransactionReceipt */
 
+/** @typedef { import("./Deposit.js").default } Deposit */
+
 const { toBN } = web3Utils
 
 /**
@@ -46,18 +48,12 @@ const { toBN } = web3Utils
  * registered.
  */
 export default class Redemption {
-  // deposit/*: Deposit*/
-
-  // redemptionDetails/*: Promise<RedemptionDetails>*/
-  // unsignedTransaction/*: Promise<UnsignedTransactionDetails>*/
-  // signedTransaction/*: Promise<SignedTransactionDetails>*/
-
-  // withdrawnEmitter/*: EventEmitter*/
-
-  constructor(
-    deposit /* : Deposit*/,
-    redemptionDetails /* : RedemptionDetails?*/
-  ) {
+  /**
+   * @param {Deposit} deposit The deposit this redemption is attached to.
+   * @param {RedemptionDetails} redemptionDetails The details of this
+   *        redemption (which should already be in progress).
+   */
+  constructor(deposit, redemptionDetails) {
     this.deposit = deposit
     this.withdrawnEmitter = new EventEmitter()
     this.receivedConfirmationEmitter = new EventEmitter()
@@ -176,7 +172,7 @@ export default class Redemption {
         // FIXME Check that the transaction spends the right UTXO, not just
         // FIXME that it's the right amount to the right address. outpoint
         // FIXME compared against vin is probably the move here.
-        /** @type {import("./BitcoinHelpers.js").PartialTransactionInBlock} */
+        /** @type {import("./BitcoinHelpers.js").PartialTransactionInBlock?} */
         let transaction = await BitcoinHelpers.Transaction.findScript(
           EthereumHelpers.bytesToRaw(redeemerOutputScript),
           expectedValue
@@ -197,8 +193,9 @@ export default class Redemption {
 
     const confirmations = broadcastTransactionID.then(async transactionID => {
       const requiredConfirmations = parseInt(
-        await this.deposit.factory.constantsContract.methods
-          .getTxProofDifficultyFactor()
+        await this.deposit.factory
+          .constants()
+          .methods.getTxProofDifficultyFactor()
           .call()
       )
 
@@ -247,21 +244,24 @@ export default class Redemption {
    * @param {string} transactionID A hexadecimal transaction id hash for the
    *        transaction that completes the withdrawal of this deposit's BTC.
    * @param {number} confirmations The number of confirmations required for
-   *        the proof; if this is not provided, looks up the required
+   *        the proof; if this is not provided or is 0, looks up the required
    *        confirmations via the deposit.
    */
   async proveWithdrawal(transactionID, confirmations) {
     if (!confirmations) {
       // 0 still triggers a lookup
       confirmations = (
-        await this.deposit.factory.constantsContract.getTxProofDifficultyFactor()
+        await this.deposit.factory
+          .constants()
+          .methods.getTxProofDifficultyFactor()
+          .call()
       ).toNumber()
     }
 
     const provableTransaction = {
       transactionID: transactionID,
       // For filtering, see provideRedemptionProof call below.
-      outputPosition: "output position"
+      outputPosition: -1
     }
     const proofArgs = await this.deposit.constructFundingProof(
       provableTransaction,
@@ -275,7 +275,7 @@ export default class Redemption {
         // However, constructFundingProof includes it for deposit funding
         // proofs. Here, we filter it out to produce the right set of
         // parameters.
-        ...proofArgs.filter(_ => _ != "output position")
+        ...proofArgs.filter(_ => _ !== -1)
       )
     )
 
@@ -286,12 +286,37 @@ export default class Redemption {
     return proofReceipt
   }
 
-  onBitcoinTransactionSigned(transactionHandler /* : (transaction)=>void*/) {
+  /**
+   * A callback that receives a raw Bitcoin transaction as an unprefixed
+   * hexadecimal string. The return value is ignored.
+   *
+   * @callback RawBitcoinTransactionHandler
+   * @param {string} rawTransactionHex The raw Bitcoin transaction as an
+   *        unprefixed hexadecimal string.
+   */
+
+  /**
+   * @param {RawBitcoinTransactionHandler} transactionHandler
+   */
+  onBitcoinTransactionSigned(transactionHandler) {
     this.signedTransaction.then(transactionHandler)
   }
 
-  onWithdrawn(withdrawalHandler /* : (txHash)=>void*/) {
-    // bitcoin txHash
+  /**
+   * A callback that receives a Bitcoin transaction id as an unprefixed
+   * hexadecimal string. The return value is ignored.
+   *
+   * @callback BitcoinTransactionIdHandler
+   * @param {string} transactionID The Bitcoin transaction id as an unprefixed
+   *        hexadecimal string.
+   */
+
+  /**
+   * @param {BitcoinTransactionIdHandler} withdrawalHandler The handler that
+   *        should be called when the redemption transaction is proven. Passes
+   *        the transaction id of the redeeming Bitcoin transaction.
+   */
+  onWithdrawn(withdrawalHandler) {
     this.withdrawnEmitter.on("withdrawn", withdrawalHandler)
   }
 
@@ -312,7 +337,8 @@ export default class Redemption {
 
   /**
    * Fetches the latest redemption details from the chain. These can change
-   * after fee bumps.
+   * after fee bumps. Throws if the deposit does not have a redemption
+   * currently in progress.
    *
    * @param {RedemptionDetails} existingRedemptionDetails An optional override
    *        to shortcut explicit redemption detail lookup.
@@ -326,6 +352,13 @@ export default class Redemption {
       return existingRedemptionDetails
     }
 
-    return await this.deposit.getLatestRedemptionDetails()
+    const latestDetails = await this.deposit.getLatestRedemptionDetails()
+    if (!latestDetails) {
+      throw new Error(
+        `No redemption currently in progress for deposit at address ${this.deposit.address}`
+      )
+    }
+
+    return latestDetails
   }
 }
