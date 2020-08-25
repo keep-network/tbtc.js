@@ -193,7 +193,19 @@ async function sendSafely(boundContractMethod, sendParams, forceSend) {
         ...sendParams
       })
     } else {
-      throw exception // rethrow the exception if we don't handle it
+      // If we're not force-sending, use `call` to throw the true error reason
+      // (`estimateGas` doesn't return error messages, it only throws an
+      // out-of-gas).
+      // @ts-ignore A newer version of Web3 is needed to include call in TS.
+      await boundContractMethod.call({
+        from: "",
+        ...sendParams
+      })
+
+      // If `call` doesn't throw an error, something has gone quite awry; since
+      // we couldn't estimate gas, throw the original exception, since that's
+      // where things first went sideways.
+      throw exception
     }
   }
 }
