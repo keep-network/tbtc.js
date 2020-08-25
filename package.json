@@ -25,7 +25,7 @@
     "lint:js": "npm run lint:js:eslint && npm run lint:js:types",
     "lint:fix:js": "eslint --fix .",
     "lint:js:eslint": "eslint .",
-    "lint:js:types": "!(npx tsc --allowJs --noEmit $(cat jsconfig.json | jq -r '.compilerOptions | to_entries | map([\"--\\(.key)\",.value]) | flatten | join(\" \")') src/**.js | grep \"^\\(src\\|bin\\|test\\|examples\\)/\") # comment any other passed arguments"
+    "lint:js:types": "!(npx tsc --allowJs --noEmit $(cat jsconfig.json | jq -r '.compilerOptions | to_entries | map([\"--\\(.key)\",.value]) | flatten | join(\" \")') src/**.js bin/**.js examples/**.js | grep \"^\\(src\\|bin\\|test\\|examples\\)/\") # comment any other passed arguments"
   },
   "author": "Antonio Salazar Cardozo <antonio@thesis.co>",
   "license": "MIT",
