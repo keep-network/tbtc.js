@@ -192,12 +192,7 @@ export default class Redemption {
     )
 
     const confirmations = broadcastTransactionID.then(async transactionID => {
-      const requiredConfirmations = parseInt(
-        await this.deposit.factory
-          .constants()
-          .methods.getTxProofDifficultyFactor()
-          .call()
-      )
+      const requiredConfirmations = await this.deposit.requiredConfirmations
 
       console.debug(
         `Waiting for ${requiredConfirmations} confirmations for ` +
@@ -206,10 +201,11 @@ export default class Redemption {
       await BitcoinHelpers.Transaction.waitForConfirmations(
         transactionID,
         requiredConfirmations,
-        ({ transactionID, confirmations }) => {
+        ({ transactionID, confirmations, requiredConfirmations }) => {
           this.receivedConfirmationEmitter.emit("receivedConfirmation", {
             transactionID,
-            confirmations
+            confirmations,
+            requiredConfirmations
           })
         }
       )
@@ -325,8 +321,8 @@ export default class Redemption {
    * has received a confirmation
    *
    * @param {OnReceivedConfirmationHandler} onReceivedConfirmationHandler
-   *        A handler that passes an object with the transactionID and
-   *        confirmations as its parameter
+   *        A handler that passes an object with the transactionID,
+   *        confirmations, and requiredConfirmations as its parameter
    */
   onReceivedConfirmation(onReceivedConfirmationHandler) {
     this.receivedConfirmationEmitter.on(

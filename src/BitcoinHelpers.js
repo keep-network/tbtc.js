@@ -74,9 +74,10 @@ export const BitcoinNetwork = {
  * transaction id.
  *
  * @callback OnReceivedConfirmationHandler
- * @param {{ transactionID: string, confirmations: number }} confirmationInfo
- *        The transaction id whose confirmation was received, and the
- *        total number of confirmations seen for that transaction id.
+ * @param {{ transactionID: string, confirmations: number, requiredConfirmations: number }} confirmationInfo
+ *        The transaction id whose confirmation was received, the
+ *        total number of confirmations seen for that transaction id,
+ *        and the required confirmations for that transaction id.
  */
 
 const BitcoinHelpers = {
@@ -425,7 +426,11 @@ const BitcoinHelpers = {
             )
 
             if (typeof onReceivedConfirmation === "function" && confirmations) {
-              onReceivedConfirmation({ transactionID, confirmations })
+              onReceivedConfirmation({
+                transactionID,
+                confirmations,
+                requiredConfirmations
+              })
             }
 
             if (confirmations >= requiredConfirmations) {

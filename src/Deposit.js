@@ -425,6 +425,26 @@ export default class Deposit {
   }
 
   /**
+   * Promise to the required number of confirmations.
+   * @return {Promise<number>}
+   */
+  get requiredConfirmations() {
+    // Lazily initialized.
+    this._requiredConfirmations =
+      this._requiredConfirmations ||
+      (async () => {
+        return parseInt(
+          await this.factory
+            .constants()
+            .methods.getTxProofDifficultyFactor()
+            .call()
+        )
+      })()
+
+    return this._requiredConfirmations
+  }
+
+  /**
    * @typedef FundingConfirmations
    * @type {Object}
    * @property {BitcoinTransaction} transaction
@@ -440,12 +460,7 @@ export default class Deposit {
     this._fundingConfirmations =
       this._fundingConfirmations ||
       this.fundingTransaction.then(async transaction => {
-        const requiredConfirmations = parseInt(
-          await this.factory
-            .constants()
-            .methods.getTxProofDifficultyFactor()
-            .call()
-        )
+        const requiredConfirmations = await this.requiredConfirmations
 
         console.debug(
           `Waiting for ${requiredConfirmations} confirmations for ` +
@@ -454,12 +469,13 @@ export default class Deposit {
         await BitcoinHelpers.Transaction.waitForConfirmations(
           transaction.transactionID,
           requiredConfirmations,
-          ({ transactionID, confirmations }) => {
+          ({ transactionID, confirmations, requiredConfirmations }) => {
             this.receivedFundingConfirmationEmitter.emit(
               "receivedFundingConfirmation",
               {
                 transactionID,
-                confirmations
+                confirmations,
+                requiredConfirmations
               }
             )
           }
@@ -571,8 +587,8 @@ export default class Deposit {
    * has received a confirmation.
    *
    * @param {OnReceivedConfirmationHandler} onReceivedFundingConfirmationHandler
-   *        A handler that receives an object with the transactionID and
-   *        confirmations as its parameter.
+   *        A handler that receives an object with the transactionID,
+   *        confirmations, and requiredConfirmations as its parameter.
    */
   onReceivedFundingConfirmation(onReceivedFundingConfirmationHandler) {
     this.receivedFundingConfirmationEmitter.on(
