@@ -454,12 +454,13 @@ export default class Deposit {
         await BitcoinHelpers.Transaction.waitForConfirmations(
           transaction.transactionID,
           requiredConfirmations,
-          ({ transactionID, confirmations }) => {
+          ({ transactionID, confirmations, requiredConfirmations }) => {
             this.receivedFundingConfirmationEmitter.emit(
               "receivedFundingConfirmation",
               {
                 transactionID,
-                confirmations
+                confirmations,
+                requiredConfirmations
               }
             )
           }
@@ -571,8 +572,8 @@ export default class Deposit {
    * has received a confirmation.
    *
    * @param {OnReceivedConfirmationHandler} onReceivedFundingConfirmationHandler
-   *        A handler that receives an object with the transactionID and
-   *        confirmations as its parameter.
+   *        A handler that receives an object with the transactionID,
+   *        confirmations, and requiredConfirmations as its parameter.
    */
   onReceivedFundingConfirmation(onReceivedFundingConfirmationHandler) {
     this.receivedFundingConfirmationEmitter.on(
