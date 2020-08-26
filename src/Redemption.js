@@ -192,12 +192,7 @@ export default class Redemption {
     )
 
     const confirmations = broadcastTransactionID.then(async transactionID => {
-      const requiredConfirmations = parseInt(
-        await this.deposit.factory
-          .constants()
-          .methods.getTxProofDifficultyFactor()
-          .call()
-      )
+      const requiredConfirmations = await this.deposit.requiredConfirmations
 
       console.debug(
         `Waiting for ${requiredConfirmations} confirmations for ` +
