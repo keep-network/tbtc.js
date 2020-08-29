@@ -21,7 +21,8 @@ const { Script } = BcoinScript
 export const BitcoinNetwork = {
   TESTNET: "testnet",
   MAINNET: "main",
-  SIMNET: "simnet"
+  SIMNET: "simnet",
+  REGTEST: "regtest"
 }
 
 /**
