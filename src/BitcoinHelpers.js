@@ -1,6 +1,6 @@
 /** @typedef { import("web3-eth-contract").Contract } EthereumContract */
 
-import bcoin from "bcoin/lib/bcoin-browser.js"
+import bcoin from "bcoin"
 import secp256k1 from "bcrypto/lib/secp256k1.js"
 import BcryptoSignature from "bcrypto/lib/internal/signature.js"
 import BcoinPrimitives from "bcoin/lib/primitives/index.js"
