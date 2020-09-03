@@ -5,6 +5,8 @@
 /** @typedef { import("web3-utils").AbiItem } AbiItem */
 /** @typedef { import("web3-core").TransactionReceipt } TransactionReceipt */
 
+import { backoffRetrier } from "./lib/backoff"
+
 /**
  * @typedef {object} DeploymentInfo
  * @property {string} address The address a contract is deployed at on a given
@@ -233,29 +235,9 @@ async function sendSafelyRetryable(
   forceSend,
   totalAttempts
 ) {
-  for (let attempt = 1; true; attempt++) {
-    try {
-      console.debug(`sending transaction; attempt number ${attempt}`)
-
-      return await sendSafely(boundContractMethod, sendParams, forceSend)
-    } catch (exception) {
-      if (attempt === totalAttempts) {
-        console.debug(`last attempt ${attempt} failed; throwing exception`)
-        throw exception
-      }
-
-      const backoffMillis = Math.pow(2, attempt) * 1000
-      const jitterMillis = Math.floor(Math.random() * 100)
-      const waitMillis = backoffMillis + jitterMillis
-
-      console.debug(
-        `attempt ${attempt} failed: ${exception}; ` +
-          `retrying after ${waitMillis} milliseconds`
-      )
-
-      await new Promise(resolve => setTimeout(resolve, waitMillis))
-    }
-  }
+  return backoffRetrier(totalAttempts)(async () => {
+    return await sendSafely(boundContractMethod, sendParams, forceSend)
+  })
 }
 
 /**
