@@ -1,20 +1,19 @@
-/*
-const ElectrumClient = require("../src/ElectrumClient")
-const fs = require("fs")
-const chai = require("chai")
+import ElectrumClient, { scriptToHash } from "../src/lib/ElectrumClient.js"
+import fs from "fs"
+import chai from "chai"
 const assert = chai.assert
-const config = require("../../../src/config/config.json")
+
+const txData = fs.readFileSync("./test/data/tx.json", "utf8")
+const tx = JSON.parse(txData)
+
+const client = new ElectrumClient({
+  server: "electrumx-server.test.tbtc.network",
+  port: 8443,
+  protocol: "wss"
+})
 
 describe("ElectrumClient", async () => {
-  let client
-  let tx
-
   before(async () => {
-    const txData = fs.readFileSync("./test/data/tx.json", "utf8")
-    tx = JSON.parse(txData)
-
-    client = new ElectrumClient.Client(config.electrum.testnetPublic)
-
     await client.connect()
   })
 
@@ -46,14 +45,19 @@ describe("ElectrumClient", async () => {
     assert.deepEqual(result, expectedResult)
   })
 
-  it("getMerkleProof", async () => {
-    const expectedResult = tx.merkleProof
+  it("getTransactionMerkle", async () => {
+    const expectedResult = tx.merkleProof.match(/.{1,64}/g).map(hex =>
+      hex
+        .match(/[a-fA-F0-9]{2}/g)
+        .reverse()
+        .join("")
+    )
     const expectedPosition = tx.indexInBlock
-    const result = await client.getMerkleProof(tx.hash, tx.blockHeight)
+    const result = await client.getTransactionMerkle(tx.hash, tx.blockHeight)
 
-    assert.equal(result.proof, expectedResult, "unexpected result")
+    assert.deepEqual(result.merkle, expectedResult, "unexpected result")
 
-    assert.equal(result.position, expectedPosition, "unexpected result")
+    assert.equal(result.pos, expectedPosition, "unexpected result")
   })
 
   it("getHeadersChain", async () => {
@@ -161,7 +165,7 @@ describe("ElectrumClient", async () => {
       const mockEventEmission = function() {
         client.electrumClient.subscribe.emit(
           "blockchain.scripthash.subscribe",
-          [ElectrumClient.scriptToHash(script1), expectedStatus]
+          [scriptToHash(script1), expectedStatus]
         )
       }
 
@@ -193,12 +197,12 @@ describe("ElectrumClient", async () => {
       const mockEventsEmission = function() {
         client.electrumClient.subscribe.emit(
           "blockchain.scripthash.subscribe",
-          [ElectrumClient.scriptToHash(script2), unexpectedStatus]
+          [scriptToHash(script2), unexpectedStatus]
         )
 
         client.electrumClient.subscribe.emit(
           "blockchain.scripthash.subscribe",
-          [ElectrumClient.scriptToHash(script1), expectedStatus]
+          [scriptToHash(script1), expectedStatus]
         )
       }
 
@@ -247,10 +251,7 @@ describe("ElectrumClient", async () => {
         },
         reason => {
           // onRejected
-          assert.include(
-            reason.toString(),
-            "No such mempool or blockchain transaction"
-          )
+          assert.include(reason.toString(), "Transaction not found")
         }
       )
 
@@ -284,4 +285,4 @@ describe("ElectrumClient", async () => {
       console.log("result", result)
     })
   })
-})*/
+})

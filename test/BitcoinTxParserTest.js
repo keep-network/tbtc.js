@@ -1,18 +1,11 @@
-/*
-const BitcoinTxParser = require("../src/BitcoinTxParser.js")
+import { BitcoinTxParser } from "../src/lib/BitcoinTxParser.js"
+import fs from "fs"
+import chai from "chai"
 
-const chai = require("chai")
-const assert = chai.assert
-const fs = require("fs")
+const txData = fs.readFileSync("./test/data/tx.json", "utf8")
+const tx = JSON.parse(txData)
 
 describe("BitcoinTxParser", async () => {
-  let tx
-
-  before(async () => {
-    const txData = fs.readFileSync("./test/data/tx.json", "utf8")
-    tx = JSON.parse(txData)
-  })
-
   it("parses witness transaction details", async () => {
     const result = await BitcoinTxParser.parse(tx.hex)
 
@@ -23,7 +16,7 @@ describe("BitcoinTxParser", async () => {
       locktime: tx.locktime
     }
 
-    assert.deepEqual(result, expectedResult)
+    chai.assert.deepEqual(result, expectedResult)
   })
 
   it("parses legacy transaction details", async () => {
@@ -41,6 +34,6 @@ describe("BitcoinTxParser", async () => {
       locktime: "00000000"
     }
 
-    assert.deepEqual(result, expectedResult)
+    chai.assert.deepEqual(result, expectedResult)
   })
-})*/
+})
