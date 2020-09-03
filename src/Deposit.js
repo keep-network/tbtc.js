@@ -430,6 +430,7 @@ export default class Deposit {
    */
   get requiredConfirmations() {
     // Lazily initialized.
+    /** @type {Promise<number>} */
     this._requiredConfirmations =
       this._requiredConfirmations ||
       (async () => {
