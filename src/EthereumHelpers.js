@@ -241,6 +241,31 @@ async function sendSafelyRetryable(
 }
 
 /**
+ * Calls the bound contract method (using `.call`, that is as a read-only call)
+ * and retries up to `totalAttempts` number of times, or 3 if unspecified.
+ *
+ * @param {ContractSendMethod} boundContractMethod A bound web3 contract method
+ *        with `estimateGas`, `send`, and `call` variants available.
+ * @param {Partial<SendOptions>} [sendParams] The parameters to pass to `call`.
+ * @param {number} [totalAttempts=3] Total attempts which should be performed in
+ *        case of an error before rethrowing it to the caller.
+ *
+ * @return {Promise<any>} A promise to the result of sending the bound contract
+ *         method. Fails the promise if gas estimation fails, extracting an
+ *         on-chain error if possible.
+ */
+async function callWithRetry(boundContractMethod, sendParams, totalAttempts) {
+  const retries = typeof totalAttempts === "undefined" ? 3 : totalAttempts
+  return backoffRetrier(retries)(async () => {
+    // @ts-ignore A newer version of Web3 is needed to include call in TS.
+    return await boundContractMethod.call({
+      from: "", // FIXME Need systemic handling of default from address.
+      ...sendParams
+    })
+  })
+}
+
+/**
  * Builds a web3.eth.Contract instance with the given ABI, pointed to the given
  * address, with a default `from` and revert handling set.
  *
@@ -297,6 +322,7 @@ export default {
   bytesToRaw,
   sendSafely,
   sendSafelyRetryable,
+  callWithRetry,
   buildContract,
   getDeployedContract
 }
