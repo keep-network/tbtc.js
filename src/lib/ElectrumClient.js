@@ -1,5 +1,6 @@
 import ElectrumClient from "electrum-client-js"
 import sha256 from "bcrypto/lib/sha256.js"
+import { backoffRetrier } from "./backoff"
 const { digest } = sha256
 
 /**
@@ -394,11 +395,14 @@ export default class Client {
    *         hexadecimal form.
    */
   async getTransactionMerkle(txHash, blockHeight) {
-    return await this.electrumClient
-      .blockchain_transaction_getMerkle(txHash, blockHeight)
-      .catch(err => {
-        throw new Error(`failed to get transaction merkle: [${err}]`)
-      })
+    return backoffRetrier(3, _ => _.message.includes("not in block at height"))(
+      async () =>
+        /** @type {TransactionMerkleBranch} */ (await this.electrumClient
+          .blockchain_transaction_getMerkle(txHash, blockHeight)
+          .catch(err => {
+            throw new Error(`failed to get transaction merkle: [${err}]`)
+          }))
+    )
   }
 
   /**
