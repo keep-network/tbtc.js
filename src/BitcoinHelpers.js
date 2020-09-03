@@ -1,6 +1,5 @@
 /** @typedef { import("web3-eth-contract").Contract } EthereumContract */
 
-import bcoin from "bcoin/lib/bcoin-browser.js"
 import secp256k1 from "bcrypto/lib/secp256k1.js"
 import BcryptoSignature from "bcrypto/lib/internal/signature.js"
 import BcoinPrimitives from "bcoin/lib/primitives/index.js"
@@ -14,7 +13,7 @@ import ElectrumClient from "./lib/ElectrumClient.js"
 
 import BN from "bn.js"
 
-const { KeyRing } = BcoinPrimitives
+const { KeyRing, Outpoint, Input, Output, TX } = BcoinPrimitives
 const { Script } = BcoinScript
 
 /** @enum {string} */
@@ -539,7 +538,7 @@ const BitcoinHelpers = {
         throw new Error(`failed to convert signature to DER format: [${err}]`)
       }
 
-      const hashType = Buffer.from([bcoin.Script.hashType.ALL])
+      const hashType = Buffer.from([Script.hashType.ALL])
       const sig = Buffer.concat([signatureDER, hashType])
 
       // Public Key
@@ -554,7 +553,7 @@ const BitcoinHelpers = {
       // Combine witness
       let signedTransaction
       try {
-        signedTransaction = bcoin.TX.fromRaw(
+        signedTransaction = TX.fromRaw(
           Buffer.from(unsignedTransaction, "hex"),
           null
         ).clone()
@@ -594,11 +593,11 @@ const BitcoinHelpers = {
       outputScript
     ) {
       // Input
-      const prevOutpoint = bcoin.Outpoint.fromRaw(
+      const prevOutpoint = Outpoint.fromRaw(
         Buffer.from(previousOutpoint, "hex")
       )
 
-      const input = bcoin.Input.fromOptions({
+      const input = Input.fromOptions({
         prevout: prevOutpoint,
         sequence: inputSequence
       })
@@ -606,13 +605,13 @@ const BitcoinHelpers = {
       // Output
       const rawOutputScript = Buffer.from(outputScript, "hex")
 
-      const output = bcoin.Output.fromOptions({
+      const output = Output.fromOptions({
         value: outputValue,
         script: rawOutputScript
       })
 
       // Transaction
-      const transaction = bcoin.TX.fromOptions({
+      const transaction = TX.fromOptions({
         inputs: [input],
         outputs: [output]
       })
