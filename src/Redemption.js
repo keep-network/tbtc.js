@@ -166,16 +166,18 @@ export default class Redemption {
             `chain for deposit ${this.deposit.address}...`
         )
 
-        const { utxoValue, requestedFee, redeemerOutputScript } = await this
-          .redemptionDetails
+        const {
+          utxoValue,
+          requestedFee,
+          redeemerOutputScript,
+          outpoint: fundingOutpoint
+        } = await this.redemptionDetails
         const expectedValue = utxoValue.sub(requestedFee).toNumber()
-        // FIXME Check that the transaction spends the right UTXO, not just
-        // FIXME that it's the right amount to the right address. outpoint
-        // FIXME compared against vin is probably the move here.
         /** @type {import("./BitcoinHelpers.js").PartialTransactionInBlock?} */
         let transaction = await BitcoinHelpers.Transaction.findScript(
           EthereumHelpers.bytesToRaw(redeemerOutputScript),
-          expectedValue
+          expectedValue,
+          fundingOutpoint
         )
 
         if (!transaction) {
