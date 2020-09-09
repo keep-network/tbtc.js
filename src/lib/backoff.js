@@ -50,13 +50,11 @@ export function retryAll(error) {
  * @template T
  * @param {number} retries The number of retries to perform before bubbling the
  *        failure out.
- * @param {ErrorMatcherFn} [matcher=retryAll] A matcher function that receives
- *        the error when an exception is thrown, and returns true if
+ * @param {ErrorMatcherFn} [errorMatcher=retryAll] A matcher function that
+ *        receives the error when an exception is thrown, and returns true if
  * @return {RetrierFn<T>}
  */
-export function backoffRetrier(retries, matcher) {
-  const errorMatcher = matcher || retryAll // default to always retrying
-
+export function backoffRetrier(retries, errorMatcher = retryAll) {
   return async (/** @type {() => Promise<any>} */ fn) => {
     for (let attempt = 0; attempt < retries; attempt++) {
       try {
