@@ -5,7 +5,7 @@
 /** @typedef { import("web3-utils").AbiItem } AbiItem */
 /** @typedef { import("web3-core").TransactionReceipt } TransactionReceipt */
 
-import { backoffRetrier } from "./lib/backoff"
+import { backoffRetrier } from "./lib/backoff.js"
 
 /**
  * @typedef {object} DeploymentInfo

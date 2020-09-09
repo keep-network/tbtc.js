@@ -1,6 +1,6 @@
 import ElectrumClient from "electrum-client-js"
-import { backoffRetrier } from "./backoff"
 import sha256 from "bcrypto/lib/sha256-browser.js"
+import { backoffRetrier } from "./backoff.js"
 const { digest } = sha256
 
 /**
