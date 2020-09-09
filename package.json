@@ -32,8 +32,7 @@
   "dependencies": {
     "@keep-network/keep-ecdsa": ">1.2.0-rc <1.2.0",
     "@keep-network/tbtc": ">1.1.0-rc <1.1.0",
-    "bcoin": "git+https://github.com/bcoin-org/bcoin.git#v2.1.2",
-    "bcrypto": "^4.1.0",
+    "bcoin": "git+https://github.com/keep-network/bcoin.git#355c21aec91128362668162fe5a309dbc0c59c75",
     "bufio": "^1.0.6",
     "electrum-client-js": "git+https://github.com/keep-network/electrum-client-js.git#v0.1.0",
     "web3-utils": "^1.2.8"

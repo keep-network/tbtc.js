@@ -1,8 +1,11 @@
 /** @typedef { import("web3-eth-contract").Contract } EthereumContract */
 
-import secp256k1 from "bcrypto/lib/secp256k1.js"
-import BcryptoSignature from "bcrypto/lib/internal/signature.js"
-import BcoinPrimitives from "bcoin/lib/primitives/index.js"
+import secp256k1 from "bcrypto/lib/secp256k1-browser.js"
+import KeyRing from "bcoin/lib/primitives/keyring.js"
+import Outpoint from "bcoin/lib/primitives/outpoint.js"
+import Input from "bcoin/lib/primitives/input.js"
+import Output from "bcoin/lib/primitives/output.js"
+import TX from "bcoin/lib/primitives/tx.js"
 import BcoinScript from "bcoin/lib/script/index.js"
 
 import { BitcoinSPV } from "./lib/BitcoinSPV.js"
@@ -13,7 +16,6 @@ import ElectrumClient from "./lib/ElectrumClient.js"
 
 import BN from "bn.js"
 
-const { KeyRing, Outpoint, Input, Output, TX } = BcoinPrimitives
 const { Script } = BcoinScript
 
 /** @enum {string} */
@@ -112,13 +114,6 @@ const BitcoinHelpers = {
    * @return {Buffer} The signature in the DER format.
    */
   signatureDER: function(r, s) {
-    const size = secp256k1.size
-    const signature = new BcryptoSignature(
-      size,
-      Buffer.from(r, "hex"),
-      Buffer.from(s, "hex")
-    )
-
     // Verifies if either of `r` or `s` values equals zero or is greater or equal
     // curve's order. If so throws an error.
     // Checks if `s` is a high value. As per BIP-0062 signature's `s` value should
@@ -127,10 +122,10 @@ const BitcoinHelpers = {
     // Checks `s` per BIP-62: signature's `s` value should be in a low half of
     // curve's order. If it's not, it's converted to `-s`.
     const bitcoinSignature = secp256k1.signatureNormalize(
-      signature.encode(size)
+      Buffer.from(r.concat(s), "hex")
     )
 
-    return BcryptoSignature.toDER(bitcoinSignature, size)
+    return secp256k1.signatureExport(bitcoinSignature)
   },
   /**
    * Takes the x and y coordinates of a public key point and returns a
@@ -192,6 +187,25 @@ const BitcoinHelpers = {
       return address.toBech32(network)
     },
     /**
+     * Converts a public key to the public key byte format expected by various
+     * bcoin functions.
+     *
+     * @param {string} publicKeyString Public key as a hexadecimal
+     *        representation of 64-byte concatenation of x and y coordinates.
+     * @return {{ x: Buffer, y: Buffer }} An object containing the x and y
+     *         components of the public key as separate buffers.
+     */
+    splitPublicKey: function(publicKeyString) {
+      const [xString, yString] = [
+        publicKeyString.substring(0, publicKeyString.length / 2),
+        publicKeyString.substring(publicKeyString.length / 2)
+      ]
+      return {
+        x: Buffer.from(xString, "hex"),
+        y: Buffer.from(yString, "hex")
+      }
+    },
+    /**
      * Converts public key to bitcoin Witness Public Key Hash Address according to
      * [BIP-173](https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki).
      * @param {string} publicKeyString Public key as a hexadecimal representation of
@@ -200,12 +214,13 @@ const BitcoinHelpers = {
      * @return {string} A Bitcoin P2WPKH address for given network.
      */
     publicKeyToP2WPKHAddress: function(publicKeyString, network) {
-      const publicKeyBytes = Buffer.from(publicKeyString, "hex")
-
       // Witness program requires usage of compressed public keys.
       const compress = true
 
-      const publicKey = secp256k1.publicKeyImport(publicKeyBytes, compress)
+      const publicKey = secp256k1.publicKeyImport(
+        BitcoinHelpers.Address.splitPublicKey(publicKeyString),
+        compress
+      )
       const keyRing = KeyRing.fromKey(publicKey, compress)
       const p2wpkhAddress = Script.fromProgram(
         0,
@@ -547,7 +562,7 @@ const BitcoinHelpers = {
       // Public Key
       let compressedPublicKey
       try {
-        const publicKeyBytes = Buffer.from(publicKey, "hex")
+        const publicKeyBytes = BitcoinHelpers.Address.splitPublicKey(publicKey)
         compressedPublicKey = secp256k1.publicKeyImport(publicKeyBytes, true)
       } catch (err) {
         throw new Error(`failed to import public key: [${err}]`)

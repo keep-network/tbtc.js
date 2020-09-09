@@ -1,7 +1,7 @@
 // JS implementation of merkle.py script from [summa-tx/bitcoin-spv] repository.
 //
 // [summa-tx/bitcoin-spv]: https://github.com/summa-tx/bitcoin-spv/
-import Hash256 from "bcrypto/lib/hash256.js"
+import Hash256 from "bcrypto/lib/hash256-browser.js"
 import BcryptoMerkle from "bcrypto/lib/merkle.js"
 const { deriveRoot } = BcryptoMerkle
 
