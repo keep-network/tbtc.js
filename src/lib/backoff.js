@@ -52,6 +52,8 @@ export function retryAll(error) {
  *        failure out.
  * @param {ErrorMatcherFn} [errorMatcher=retryAll] A matcher function that
  *        receives the error when an exception is thrown, and returns true if
+ *        the error should lead to a retry. A false return will rethrow the
+ *        error and terminate the retry loop.
  * @return {RetrierFn<T>}
  */
 export function backoffRetrier(retries, errorMatcher = retryAll) {
