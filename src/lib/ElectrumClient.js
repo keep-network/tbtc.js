@@ -10,6 +10,15 @@ const { digest } = sha256
  */
 
 /**
+ * @typedef {object} TransactionInput
+ * @property {object} scriptSig The scriptsig that unlocks the specified
+ *           outpoint for spending.
+ * @property {string} txid The id of the transaction the input UTXO comes from.
+ * @property {number} vout The vout from the specified txid that is being used
+ *           for this input.
+ */
+
+/**
  * @typedef {object} TransactionOutput
  * @property {number} n The 0-based index of the output.
  * @property {number} value The value of the output in BTC.
@@ -28,6 +37,7 @@ const { digest } = sha256
  *           string.
  * @property {string} txid The transaction ID (or transaction hash) as an
  *           unprefixed hex string.
+ * @property {TransactionInput[]} vin The vector of transaction inputs.
  * @property {TransactionOutput[]} vout The vector of transaction outputs.
  */
 

@@ -318,18 +318,21 @@ const BitcoinHelpers = {
      *        non-0x-prefixed hex string.
      * @param {number} expectedValue The expected value of the transaction
      *        to fetch.
+     * @param {string} [outpoint] If specified, only finds a transaction that
+     *        spends the specified outpoint.
      *
      * @return {Promise<TransactionInBlock?>} A promise to an object of
      *         transactionID, outputPosition, and value, that resolves with
      *         either null if such a transaction could not be found, or the
      *         information about the transaction that was found.
      */
-    findScript: async function(outputScript, expectedValue) {
+    findScript: async function(outputScript, expectedValue, outpoint) {
       return await BitcoinHelpers.withElectrumClient(electrumClient => {
         return BitcoinHelpers.Transaction.findWithClient(
           electrumClient,
           outputScript,
-          expectedValue
+          expectedValue,
+          outpoint
         )
       })
     },
@@ -664,6 +667,8 @@ const BitcoinHelpers = {
      * @param {string} receiverScript A receiver script.
      * @param {number} expectedValue The expected value of the transaction
      *        to fetch.
+     * @param {string} [outpoint] If specified, only finds a transaction that
+     *        spends the specified outpoint.
      *
      * @return {Promise<TransactionInBlock?>} A promise to an object of
      *         transactionID, outputPosition, and value, that resolves with
@@ -673,19 +678,38 @@ const BitcoinHelpers = {
     findWithClient: async function(
       electrumClient,
       receiverScript,
-      expectedValue
+      expectedValue,
+      outpoint
     ) {
       const unspentTransactions = await electrumClient.getUnspentToScript(
         receiverScript
       )
 
       for (const tx of unspentTransactions.reverse()) {
-        if (tx.value == expectedValue) {
-          return {
-            transactionID: tx.tx_hash,
-            outputPosition: tx.tx_pos,
-            value: tx.value
+        if (tx.value !== expectedValue) {
+          // Skip if the value doesn't match.
+          continue
+        }
+        if (typeof outpoint !== "undefined") {
+          const outpointMatches = (
+            await electrumClient.getTransaction(tx.tx_hash)
+          ).vin.some(({ txid, vout }) => {
+            const inputOutpoint = txid + vout
+            return inputOutpoint == outpoint
+          })
+
+          if (!outpointMatches) {
+            // If an outpoint filter is passed, skip if the outpoint isn't spent
+            // by the transaction.
+            continue
           }
+        }
+
+        // If neither of the above `continue`d, this is a match; return it.
+        return {
+          transactionID: tx.tx_hash,
+          outputPosition: tx.tx_pos,
+          value: tx.value
         }
       }
 
