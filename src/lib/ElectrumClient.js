@@ -1,5 +1,6 @@
 import ElectrumClient from "electrum-client-js"
 import sha256 from "bcrypto/lib/sha256.js"
+import { backoffRetrier } from "./backoff"
 const { digest } = sha256
 
 /**
@@ -7,6 +8,15 @@ const { digest } = sha256
  * @property {string[]} addresses The addresses associated with this
  *           ScriptPubKey; one for regular ScriptPubkeys, more for multisigs.
  * @property {"pubkeyhash" | string} type The type of ScriptPubKey.
+ */
+
+/**
+ * @typedef {object} TransactionInput
+ * @property {object} scriptSig The scriptsig that unlocks the specified
+ *           outpoint for spending.
+ * @property {string} txid The id of the transaction the input UTXO comes from.
+ * @property {number} vout The vout from the specified txid that is being used
+ *           for this input.
  */
 
 /**
@@ -28,6 +38,7 @@ const { digest } = sha256
  *           string.
  * @property {string} txid The transaction ID (or transaction hash) as an
  *           unprefixed hex string.
+ * @property {TransactionInput[]} vin The vector of transaction inputs.
  * @property {TransactionOutput[]} vout The vector of transaction outputs.
  */
 
@@ -394,11 +405,14 @@ export default class Client {
    *         hexadecimal form.
    */
   async getTransactionMerkle(txHash, blockHeight) {
-    return await this.electrumClient
-      .blockchain_transaction_getMerkle(txHash, blockHeight)
-      .catch(err => {
-        throw new Error(`failed to get transaction merkle: [${err}]`)
-      })
+    return backoffRetrier(3, _ => _.message.includes("not in block at height"))(
+      async () =>
+        /** @type {TransactionMerkleBranch} */ (await this.electrumClient
+          .blockchain_transaction_getMerkle(txHash, blockHeight)
+          .catch(err => {
+            throw new Error(`failed to get transaction merkle: [${err}]`)
+          }))
+    )
   }
 
   /**
