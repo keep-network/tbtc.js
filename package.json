@@ -43,6 +43,7 @@
   },
   "devDependencies": {
     "@0x/subproviders": "^6.0.8",
+    "web3": "^1.2.11",
     "chai": "^4.2.0",
     "eslint": "^6.8.0",
     "eslint-config-keep": "git+https://github.com/keep-network/eslint-config-keep.git#0.3.0",
