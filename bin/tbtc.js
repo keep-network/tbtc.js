@@ -1,4 +1,4 @@
-#!/usr/bin/env node --experimental-modules --experimental-json-modules
+#!/usr/bin/env NODE_BACKEND=js node --experimental-modules --experimental-json-modules
 import Subproviders from "@0x/subproviders"
 import Web3 from "web3"
 import ProviderEngine from "web3-provider-engine"
