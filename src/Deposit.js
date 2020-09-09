@@ -609,7 +609,9 @@ export default class Deposit {
    *         the deposit owner.
    */
   async mintTBTC() {
-    if (!(await this.contract.methods.inActive().call())) {
+    if (
+      !(await EthereumHelpers.callWithRetry(this.contract.methods.inActive()))
+    ) {
       throw new Error(
         "Can't mint TBTC with a deposit that isn't in ACTIVE state."
       )
