@@ -405,7 +405,9 @@ export default class Client {
    *         hexadecimal form.
    */
   async getTransactionMerkle(txHash, blockHeight) {
-    return backoffRetrier(3, _ => _.message.includes("not in block at height"))(
+    return backoffRetrier(3, err =>
+      err.message.includes("not in block at height")
+    )(
       async () =>
         /** @type {TransactionMerkleBranch} */ (await this.electrumClient
           .blockchain_transaction_getMerkle(txHash, blockHeight)
