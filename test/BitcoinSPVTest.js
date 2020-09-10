@@ -1,25 +1,19 @@
-/*
-const BitcoinSPV = require("../src/BitcoinSPV").BitcoinSPV
-const ElectrumClient = require("../src/ElectrumClient")
-const config = require("../../../src/config/config.json")
+import { BitcoinSPV } from "../src/lib/BitcoinSPV.js"
+import ElectrumClient from "../src/lib/ElectrumClient.js"
+import fs from "fs"
+import chai from "chai"
 
-const fs = require("fs")
-const chai = require("chai")
-const assert = chai.assert
+const txData = fs.readFileSync("./test/data/tx.json", "utf8")
+const tx = JSON.parse(txData)
+const electrumClient = new ElectrumClient({
+  server: "electrumx-server.test.tbtc.network",
+  port: 8443,
+  protocol: "wss"
+})
+const bitcoinSPV = new BitcoinSPV(electrumClient)
 
 describe("BitcoinSPV", async () => {
-  let tx
-  let electrumClient
-  let bitcoinSPV
-
   before(async () => {
-    const txData = fs.readFileSync("./test/data/tx.json", "utf8")
-    tx = JSON.parse(txData)
-
-    electrumClient = new ElectrumClient.Client(config.electrum.testnetPublic)
-
-    bitcoinSPV = new BitcoinSPV(electrumClient)
-
     await electrumClient.connect()
   })
 
@@ -40,7 +34,7 @@ describe("BitcoinSPV", async () => {
       tx.chainHeadersNumber
     )
 
-    assert.deepEqual(result, expectedResult)
+    chai.assert.deepEqual(result, expectedResult)
   })
 
   it("verifyMerkleProof", async () => {
@@ -55,6 +49,6 @@ describe("BitcoinSPV", async () => {
       blockHeight
     )
 
-    assert.isTrue(result)
+    chai.assert.isTrue(result)
   })
-})*/
+})

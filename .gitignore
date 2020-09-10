@@ -4,3 +4,5 @@ build/
 **.swp
 **.swo
 .DS_Store
+README.md
+types

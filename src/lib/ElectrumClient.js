@@ -1,6 +1,6 @@
 import ElectrumClient from "electrum-client-js"
 import sha256 from "bcrypto/lib/sha256.js"
-import { backoffRetrier } from "./backoff"
+import { backoffRetrier } from "./backoff.js"
 const { digest } = sha256
 
 /**
@@ -467,7 +467,7 @@ export default class Client {
  * @param {string} script ScriptPubKey in a hexadecimal format.
  * @return {string} Script hash as a hex string.
  */
-function scriptToHash(script) {
+export function scriptToHash(script) {
   /** @type {Buffer} */
   const scriptHash = digest(Buffer.from(script, "hex")).reverse()
   return scriptHash.toString("hex")

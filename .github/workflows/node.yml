@@ -17,7 +17,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [12.11.x]
+        node-version: [12.18.x]
 
     steps:
     - uses: actions/checkout@v2
@@ -28,9 +28,16 @@ jobs:
     - run: npm ci
     - run: npm run lint
     - run: npm run build --if-present
+    - run: npm run generate:types
     - run: npm test
       env:
         CI: true
+    - name: Install asciidoctor
+      run: sudo apt-get install asciidoctor
+    - name: Install pandoc
+      run: wget https://github.com/jgm/pandoc/releases/download/2.10.1/pandoc-2.10.1-1-amd64.deb && sudo dpkg -i pandoc-2.10.1-1-amd64.deb
+    - name: Convert readme to markdown
+      run: asciidoctor README.adoc -b docbook -o - | pandoc -f docbook -t gfm > README.md
     - if: contains(github.ref, 'releases/ropsten')
       name: Bump and publish npm package
       env:
