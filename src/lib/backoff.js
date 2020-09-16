@@ -57,7 +57,11 @@ export function retryAll(error) {
  * @return {RetrierFn<T>}
  */
 export function backoffRetrier(retries, errorMatcher = retryAll) {
-  return async (/** @type {() => Promise<any>} */ fn) => {
+  /**
+   * @param {function(): Promise<T>} fn
+   * @return {Promise<T>}
+   */
+  return async fn => {
     for (let attempt = 0; attempt < retries; attempt++) {
       try {
         console.debug(`making attempt number ${attempt}`)
