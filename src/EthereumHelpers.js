@@ -254,9 +254,12 @@ async function sendSafelyRetryable(
  *         method. Fails the promise if gas estimation fails, extracting an
  *         on-chain error if possible.
  */
-async function callWithRetry(boundContractMethod, sendParams, totalAttempts) {
-  const retries = typeof totalAttempts === "undefined" ? 3 : totalAttempts
-  return backoffRetrier(retries)(async () => {
+async function callWithRetry(
+  boundContractMethod,
+  sendParams,
+  totalAttempts = 3
+) {
+  return backoffRetrier(totalAttempts)(async () => {
     // @ts-ignore A newer version of Web3 is needed to include call in TS.
     return await boundContractMethod.call({
       from: "", // FIXME Need systemic handling of default from address.
