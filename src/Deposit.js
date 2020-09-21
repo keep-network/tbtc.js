@@ -1415,9 +1415,9 @@ export default class Deposit {
   /**
    * Notify the contract that the signers have failed to produce a redemption proof.
    */
-  async notifyRedemptionProofTimeout() {
+  async notifyRedemptionProofTimedOut() {
     await EthereumHelpers.sendSafely(
-      this.contract.methods.notifyRedemptionProofTimdOout()
+      this.contract.methods.notifyRedemptionProofTimedOut()
     )
   }
 
