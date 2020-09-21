@@ -393,7 +393,10 @@ export default class Deposit {
    * @param {string} tdtId
    */
   static async forTDT(factory, tdtId) {
-    return this.forAddress(factory, "0x" + toBN(tdtId).toString("hex"))
+    return this.forAddress(
+      factory,
+      factory.config.web3.utils.padLeft("0x" + toBN(tdtId).toString("hex"), 40)
+    )
   }
 
   /**
