@@ -52,7 +52,7 @@ engine.addProvider(
 engine.addProvider(
   new WebsocketSubprovider({
     rpcUrl:
-      rpc || "wss://ropsten.infura.io/ws/v3/414a548bc7434bbfb7a135b694b15aa4",
+      rpc || "wss://mainnet.infura.io/ws/v3/414a548bc7434bbfb7a135b694b15aa4",
     debug,
     origin: undefined
   })
