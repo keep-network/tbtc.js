@@ -149,6 +149,18 @@ export class DepositFactory {
   }
 
   /**
+   * Looks up an existing deposit corresponding to the given TDT id, and
+   * returns a tbtc.js Deposit wrapper for it.
+   *
+   * @param {string} tdtId The TDT id of the deposit's tBTC Deposit Token.
+   *
+   * @return {Promise<Deposit>} The deposit at the given address.
+   */
+  async withTdtId(tdtId) {
+    return await Deposit.forTDT(this, tdtId)
+  }
+
+  /**
    * @private
    *
    * Helper to ensure that the contract is defined before returning it. Throws
