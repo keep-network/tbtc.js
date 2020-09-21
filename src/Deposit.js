@@ -1323,7 +1323,7 @@ export default class Deposit {
   }
 
   /**
-   * Notify the contract that the deposit is severely undercollateralised,
+   * Notify the contract that the deposit is severely undercollateralized,
    * and begin liquidation of the signer bonds.
    *
    * The bonds are auctioned in a falling-price auction. The value of
@@ -1388,15 +1388,6 @@ export default class Deposit {
   async notifyFundingTimedOut() {
     await EthereumHelpers.sendSafely(
       this.contract.methods.notifyFundingTimedOut()
-    )
-  }
-
-  /**
-   * Notifies the contract that the courtesy period has elapsed.
-   */
-  async notifyCourtesyTimedOut() {
-    await EthereumHelpers.sendSafely(
-      this.contract.methods.notifyCourtesyTimedOut()
     )
   }
 
