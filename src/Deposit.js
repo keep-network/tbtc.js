@@ -55,6 +55,17 @@ export const DepositStates = {
   LIQUIDATION_IN_PROGRESS: 10,
   LIQUIDATED: 11
 }
+/**
+ * Returns the state name of the given numeric state id.
+ * @param {number} stateId The numeric state id, as defined on chain by the
+ *        deposit `DepositStates` library enum.
+ * @return {string | null} The state name, as defined by the tbtc.js
+ *         `DepositStates` enum.
+ */
+function nameOfState(stateId) {
+  // Find the right id, then take that entry's name.
+  return Object.entries(DepositStates).filter(([_, id]) => id == stateId)[0][0]
+}
 
 export class DepositFactory {
   /**
@@ -80,6 +91,7 @@ export class DepositFactory {
     this.config = config
 
     this.State = DepositStates
+    this.stateById = nameOfState
   }
 
   /**
