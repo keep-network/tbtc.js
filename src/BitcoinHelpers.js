@@ -1,4 +1,4 @@
-/** @typedef { import("web3-eth-contract").Contract } EthereumContract */
+/** @typedef { import("./EthereumHelpers.js").Contract } EthereumContract */
 
 import secp256k1 from "bcrypto/lib/secp256k1-browser.js"
 import KeyRing from "bcoin/lib/primitives/keyring.js"

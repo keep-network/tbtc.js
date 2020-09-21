@@ -86,7 +86,7 @@ function readEventFromTransaction(
  *
  * @param {Contract} sourceContract The web3 Contract that emits the event.
  * @param {string} eventName The name of the event to wait on.
- * @param {object} [filter] An additional filter to apply to the event being
+ * @param {any} [filter] An additional filter to apply to the event being
  *        searched for.
  *
  * @return {Promise<any>} A promise that will be fulfilled by the event
@@ -128,7 +128,7 @@ function getEvent(sourceContract, eventName, filter) {
  *
  * @param {Contract} sourceContract The web3 Contract that emits the event.
  * @param {string} eventName The name of the event to wait on.
- * @param {object} [filter] An additional filter to apply to the event being
+ * @param {any} [filter] An additional filter to apply to the event being
  *        searched for.
  *
  * @return {Promise<any>} A promise that will be fulfilled by the event object
