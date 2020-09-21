@@ -1,0 +1,26 @@
+{
+    "1": {
+      "bitcoinNetwork": "main",
+        "electrum": {
+          "server": "electrumx-server.tbtc.network",
+          "port": 8443,
+          "protocol": "wss"
+        }
+    },
+    "3": {
+      "bitcoinNetwork": "testnet",
+      "electrum": {
+          "server": "electrumx-server.test.tbtc.network",
+          "port": 8443,
+          "protocol": "wss"
+      }
+    },
+    "1101": {
+      "bitcoinNetwork": "regtest",
+      "electrum": {
+          "server": "127.0.0.1",
+          "port": 50003,
+          "protocol": "ws"
+      }
+    }
+  }
