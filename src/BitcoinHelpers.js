@@ -474,11 +474,13 @@ const BitcoinHelpers = {
      *          contract and returns its reported minimum fee, rather than
      *          calling electrumClient.blockchainEstimateFee.
      *
-     * @return {Promise<number>} The estimated fee to execute the provided
+     * @return {Promise<BN>} The estimated fee to execute the provided
      *         transaction.
      */
     estimateFee: async function(tbtcConstantsContract) {
-      return tbtcConstantsContract.methods.getMinimumRedemptionFee().call()
+      return new BN(
+        tbtcConstantsContract.methods.getMinimumRedemptionFee().call()
+      ).muln(2)
     },
     /**
      * For the given `transactionID`, constructs an SPV proof that proves it
