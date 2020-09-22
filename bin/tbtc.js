@@ -100,6 +100,21 @@ switch (commandArgs[0]) {
       }
     }
     break
+  case "balance":
+    if (commandArgs.length == 1) {
+      action = async tbtc => {
+        return await tbtc.Deposit.token()
+          .methods.balanceOf(tbtc.config.web3.eth.defaultAccount)
+          .call()
+      }
+    } else if (commandArgs.length == 2) {
+      action = async tbtc => {
+        return await tbtc.Deposit.token()
+          .methods.balanceOf(commandArgs[1])
+          .call()
+      }
+    }
+    break
 }
 
 if (action === null) {
@@ -146,6 +161,10 @@ ${depositCommandHelp
 
     supply-cap
         Returns the current supply cap as a decimal amount in TBTC.
+
+    balance [<address>]
+        Returns the balance of the current account in TBTC or, if the address is
+        specified, of the specified address.
     `)
 
   process.exit(1)

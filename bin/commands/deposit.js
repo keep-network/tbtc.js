@@ -63,6 +63,11 @@ export const depositCommandHelp = [
             the final deposit state; if the deposit is not mid-redemption,
             does not resume and outputs an error.
 
+    increase-redemption-fee
+        Increases the fee by the predetermined fee increment on the given
+        deposit. The deposit must already be in redemption, and must have
+        remained without a fee bump for 4 hours.
+
     redeem <bitcoin-address>
         Initiates a deposit redemption flow that will redeem the deposit's
         BTC to the specified Bitcoin address. When the flow completes,
@@ -238,6 +243,46 @@ const commandParsers = {
       return async tbtc => {
         const deposit = await tbtc.Deposit.withAddress(depositAddress)
         return redeemDeposit(tbtc, deposit, "")
+      }
+    }
+  },
+  "increase-redemption-fee": (depositAddress, args) => {
+    if (args.length > 0) {
+      return null
+    } else {
+      return async tbtc => {
+        const toBN = tbtc.config.web3.utils.toBN
+        const deposit = await tbtc.Deposit.withAddress(depositAddress)
+        const allFees = (
+          await EthereumHelpers.getExistingEvents(
+            tbtc.Deposit.system(),
+            "RedemptionRequested",
+            { _depositContractAddress: depositAddress }
+          )
+        ).map(_ => _.returnValues._requestedFee)
+
+        const initialFee = allFees.slice(-1)[0]
+        const latestFee = allFees.slice(0)[0]
+
+        const utxoValue = await deposit.contract.methods.utxoValue().call()
+        const previousOutputValue = toBN(utxoValue).sub(toBN(latestFee))
+        const newOutputValue = previousOutputValue.sub(toBN(initialFee))
+
+        const prevOutputValueBytes = previousOutputValue.toArrayLike(
+          Buffer,
+          "le",
+          8
+        )
+        const newOutputValueBytes = newOutputValue.toArrayLike(Buffer, "le", 8)
+
+        await EthereumHelpers.sendSafely(
+          deposit.contract.methods.increaseRedemptionFee(
+            prevOutputValueBytes,
+            newOutputValueBytes
+          )
+        )
+
+        return standardDepositOutput(tbtc, deposit)
       }
     }
   },
