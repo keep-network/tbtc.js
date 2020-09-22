@@ -15,6 +15,7 @@ import ElectrumClient from "./lib/ElectrumClient.js"
 /** @typedef { import("./lib/ElectrumClient.js").Config } ElectrumConfig */
 
 import BN from "bn.js"
+import { backoffRetrier } from "./lib/backoff.js"
 
 const { Script } = BcoinScript
 
@@ -498,10 +499,9 @@ const BitcoinHelpers = {
     getSPVProof: async function(transactionID, confirmations) {
       return await BitcoinHelpers.withElectrumClient(async electrumClient => {
         const spv = new BitcoinSPV(electrumClient)
-        const proof = await spv.getTransactionProof(
-          transactionID,
-          confirmations
-        )
+        const proof = await backoffRetrier(3, err =>
+          String(err).includes("not in block at height")
+        )(async () => spv.getTransactionProof(transactionID, confirmations))
 
         return {
           ...proof,
