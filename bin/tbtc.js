@@ -104,7 +104,7 @@ switch (commandArgs[0]) {
 
 if (action === null) {
   console.log(`
-Unknown command ${args[0]} or bad parameters.
+Unknown command ${commandArgs[0]} or bad parameters.
 
 Supported flags:
     --debug
