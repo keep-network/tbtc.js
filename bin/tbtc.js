@@ -72,7 +72,7 @@ switch (commandArgs[0]) {
     action = parseDepositCommand(web3, commandArgs.slice(1))
     break
   case "lot-sizes":
-    if (args.length == 1) {
+    if (commandArgs.length == 1) {
       action = async tbtc => {
         return (await tbtc.Deposit.availableSatoshiLotSizes())
           .map(_ => _.toString())
@@ -81,7 +81,7 @@ switch (commandArgs[0]) {
     }
     break
   case "supply":
-    if (args.length == 1) {
+    if (commandArgs.length == 1) {
       action = async tbtc => {
         return await tbtc.depositFactory
           .vendingMachine()
@@ -91,7 +91,7 @@ switch (commandArgs[0]) {
     }
     break
   case "supply-cap":
-    if (args.length == 1) {
+    if (commandArgs.length == 1) {
       action = async tbtc => {
         return await tbtc.depositFactory
           .vendingMachine()
