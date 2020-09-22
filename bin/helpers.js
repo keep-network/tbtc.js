@@ -120,7 +120,7 @@ export function findAndConsumeArgValue(args, argName) {
   } else {
     return {
       value: value,
-      remaining: remaining.slice(0, index).concat(args.slice(index + 1))
+      remaining: remaining.slice(0, index).concat(args.slice(index + 2))
     }
   }
 }
