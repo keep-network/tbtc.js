@@ -166,14 +166,14 @@ function bytesToRaw(bytesString) {
  *        with `estimateGas`, `send`, and `call` variants available.
  * @param {Partial<SendOptions>} [sendParams] The parameters to pass to
  *        `estimateGas` and `send` for transaction processing.
- * @param {boolean} [forceSend=false] Force the transaction send through even
+ * @param {boolean} [forceSend] Force the transaction send through even
  *        if gas estimation fails.
  *
  * @return {Promise<any>} A promise to the result of sending the bound contract
  *         method. Fails the promise if gas estimation fails, extracting an
  *         on-chain error if possible.
  */
-async function sendSafely(boundContractMethod, sendParams, forceSend) {
+async function sendSafely(boundContractMethod, sendParams, forceSend = false) {
   try {
     // Clone `sendParams` so we aren't exposed to providers that modify `sendParams`.
     const gasEstimate = await boundContractMethod.estimateGas({ ...sendParams })
@@ -218,12 +218,12 @@ async function sendSafely(boundContractMethod, sendParams, forceSend) {
  *
  * @param {ContractSendMethod} boundContractMethod A bound web3 contract method
  *        with `estimateGas`, `send`, and `call` variants available.
- * @param {Partial<SendOptions>} sendParams The parameters to pass to
+ * @param {Partial<SendOptions>} [sendParams] The parameters to pass to
  *        `estimateGas` and `send` for transaction processing.
- * @param {boolean} forceSend Force the transaction send through even if gas
- *        estimation fails.
- * @param {number} totalAttempts Total attempts number which should be performed
- *        in case of an error before rethrowing it to the caller.
+ * @param {boolean} [forceSend] Force the transaction send through even
+ *        if gas estimation fails.
+ * @param {number} [totalAttempts] Total attempts number which should be
+ *        performed in case of an error before rethrowing it to the caller.
  *
  * @return {Promise<any>} A promise to the result of sending the bound contract
  *         method. Fails the promise if gas estimation fails, extracting an
@@ -232,8 +232,8 @@ async function sendSafely(boundContractMethod, sendParams, forceSend) {
 async function sendSafelyRetryable(
   boundContractMethod,
   sendParams,
-  forceSend,
-  totalAttempts
+  forceSend = false,
+  totalAttempts = 3
 ) {
   return backoffRetrier(totalAttempts)(async () => {
     return await sendSafely(boundContractMethod, sendParams, forceSend)

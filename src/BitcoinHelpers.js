@@ -15,6 +15,7 @@ import ElectrumClient from "./lib/ElectrumClient.js"
 /** @typedef { import("./lib/ElectrumClient.js").Config } ElectrumConfig */
 
 import BN from "bn.js"
+import { backoffRetrier } from "./lib/backoff.js"
 
 const { Script } = BcoinScript
 
@@ -474,11 +475,13 @@ const BitcoinHelpers = {
      *          contract and returns its reported minimum fee, rather than
      *          calling electrumClient.blockchainEstimateFee.
      *
-     * @return {Promise<number>} The estimated fee to execute the provided
+     * @return {Promise<BN>} The estimated fee to execute the provided
      *         transaction.
      */
     estimateFee: async function(tbtcConstantsContract) {
-      return tbtcConstantsContract.methods.getMinimumRedemptionFee().call()
+      return new BN(
+        tbtcConstantsContract.methods.getMinimumRedemptionFee().call()
+      ).muln(4)
     },
     /**
      * For the given `transactionID`, constructs an SPV proof that proves it
@@ -496,10 +499,9 @@ const BitcoinHelpers = {
     getSPVProof: async function(transactionID, confirmations) {
       return await BitcoinHelpers.withElectrumClient(async electrumClient => {
         const spv = new BitcoinSPV(electrumClient)
-        const proof = await spv.getTransactionProof(
-          transactionID,
-          confirmations
-        )
+        const proof = await backoffRetrier(3, err =>
+          String(err).includes("not in block at height")
+        )(async () => spv.getTransactionProof(transactionID, confirmations))
 
         return {
           ...proof,
