@@ -1,6 +1,6 @@
 {
   "name": "@keep-network/tbtc.js",
-  "version": "0.18.0",
+  "version": "0.18.1",
   "type": "module",
   "description": "tbtc.js provides JS bindings to the tBTC system that establishes a TBTC ERC20 token supply-pegged to BTC.",
   "repository": {
