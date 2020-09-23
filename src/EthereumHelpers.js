@@ -159,7 +159,9 @@ async function getExistingEvents(sourceContract, eventName, filter) {
  *         once it is found.
  */
 async function getExistingEvent(sourceContract, eventName, filter) {
-  return (await getExistingEvents(sourceContract, eventName, filter))[0]
+  return (await getExistingEvents(sourceContract, eventName, filter)).slice(
+    -1
+  )[0]
 }
 
 /**
