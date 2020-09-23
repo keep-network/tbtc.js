@@ -1341,8 +1341,6 @@ export default class Deposit {
     await EthereumHelpers.sendSafely(
       this.contract.methods.purchaseSignerBondsAtAuction()
     )
-
-    await EthereumHelpers.sendSafely(this.contract.methods.withdrawFunds())
   }
 
   /**
