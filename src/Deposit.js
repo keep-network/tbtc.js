@@ -1310,6 +1310,16 @@ export default class Deposit {
   }
 
   /**
+   * Pays off the deposit balance and closes the liquidation auction
+   * via `Deposit.purchaseSignerBondsAtAuction`, then withdraws the purchased
+   * ETH by calling `DepositUtils.withdrawFunds`.
+   */
+  async takeAuction() {
+    await this.purchaseSignerBondsAtAuction()
+    await this.withdrawFunds()
+  }
+
+  /**
    * Purchases the signer bonds and closes the liquidation auction.
    */
   async purchaseSignerBondsAtAuction() {
