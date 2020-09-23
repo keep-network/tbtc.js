@@ -160,7 +160,7 @@ export function parseDepositCommand(web3, args) {
               ? tbtc.depositFactory.vendingMachine().options.address
               : explicitAddress !== null
               ? explicitAddress
-              : web3.defaultAccount
+              : web3.eth.defaultAccount
 
             return listDeposits(tbtc, address)
           }
