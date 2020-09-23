@@ -480,7 +480,7 @@ const BitcoinHelpers = {
      */
     estimateFee: async function(tbtcConstantsContract) {
       return new BN(
-        tbtcConstantsContract.methods.getMinimumRedemptionFee().call()
+        await tbtcConstantsContract.methods.getMinimumRedemptionFee().call()
       ).muln(4)
     },
     /**
