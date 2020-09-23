@@ -1336,6 +1336,15 @@ export default class Deposit {
   }
 
   /**
+   * Withdraw caller's allowance.
+   * Withdrawals can only happen when a contract is in an end-state.
+   */
+  async withdrawFunds() {
+    // FIXME Need systemic handling of default from address.
+    await EthereumHelpers.sendSafely(this.contract.methods.withdrawFunds())
+  }
+
+  /**
    * Gets the current value of signer bonds at auction.
    * Only callable if the deposit is in the liqudation state.
    * @return {Promise<BN>} auction value in wei.
