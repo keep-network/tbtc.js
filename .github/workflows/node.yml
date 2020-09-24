@@ -25,6 +25,11 @@ jobs:
       uses: actions/setup-node@v1
       with:
         node-version: ${{ matrix.node-version }}
+    - name: Upgrade jq
+      run: |
+        wget https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64
+        chmod +x jq-linux64
+        sudo mv jq-linux64 /usr/bin/jq
     - run: npm ci
     - run: npm run lint
     - run: npm run build --if-present
