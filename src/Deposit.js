@@ -282,7 +282,7 @@ export class DepositFactory {
 
     const result = await EthereumHelpers.sendSafely(
       this.depositFactory().methods.createDeposit(lotSize.toString()),
-      { value: creationCost }
+      { value: creationCost, gas: 1600000 }
     )
 
     const createdEvent = EthereumHelpers.readEventFromTransaction(
@@ -858,7 +858,7 @@ export default class Deposit {
       this.factory.constants()
     )
     const utxoValue = await this.contract.methods.utxoValue().call()
-    const outputValue = toBN(utxoValue).sub(toBN(transactionFee))
+    const outputValue = toBN(utxoValue).sub(transactionFee)
     const outputValueBytes = outputValue.toArrayLike(Buffer, "le", 8)
 
     let transaction
