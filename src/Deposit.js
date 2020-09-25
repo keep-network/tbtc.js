@@ -55,6 +55,17 @@ export const DepositStates = {
   LIQUIDATION_IN_PROGRESS: 10,
   LIQUIDATED: 11
 }
+/**
+ * Returns the state name of the given numeric state id.
+ * @param {number} stateId The numeric state id, as defined on chain by the
+ *        deposit `DepositStates` library enum.
+ * @return {string | null} The state name, as defined by the tbtc.js
+ *         `DepositStates` enum.
+ */
+function nameOfState(stateId) {
+  // Find the right id, then take that entry's name.
+  return Object.entries(DepositStates).filter(([_, id]) => id == stateId)[0][0]
+}
 
 export class DepositFactory {
   /**
@@ -80,6 +91,7 @@ export class DepositFactory {
     this.config = config
 
     this.State = DepositStates
+    this.stateById = nameOfState
   }
 
   /**
@@ -134,6 +146,18 @@ export class DepositFactory {
    */
   async withAddress(depositAddress) {
     return await Deposit.forAddress(this, depositAddress)
+  }
+
+  /**
+   * Looks up an existing deposit corresponding to the given TDT id, and
+   * returns a tbtc.js Deposit wrapper for it.
+   *
+   * @param {string} tdtId The TDT id of the deposit's tBTC Deposit Token.
+   *
+   * @return {Promise<Deposit>} The deposit at the given address.
+   */
+  async withTdtId(tdtId) {
+    return await Deposit.forTDT(this, tdtId)
   }
 
   /**
@@ -369,7 +393,10 @@ export default class Deposit {
    * @param {string} tdtId
    */
   static async forTDT(factory, tdtId) {
-    return this.forAddress(factory, "0x" + toBN(tdtId).toString("hex"))
+    return this.forAddress(
+      factory,
+      factory.config.web3.utils.padLeft("0x" + toBN(tdtId).toString("hex"), 40)
+    )
   }
 
   /**
@@ -1296,7 +1323,7 @@ export default class Deposit {
   }
 
   /**
-   * Notify the contract that the deposit is severely undercollateralised,
+   * Notify the contract that the deposit is severely undercollateralized,
    * and begin liquidation of the signer bonds.
    *
    * The bonds are auctioned in a falling-price auction. The value of
@@ -1365,15 +1392,6 @@ export default class Deposit {
   }
 
   /**
-   * Notifies the contract that the courtesy period has elapsed.
-   */
-  async notifyCourtesyTimedOut() {
-    await EthereumHelpers.sendSafely(
-      this.contract.methods.notifyCourtesyTimedOut()
-    )
-  }
-
-  /**
    * Notify the contract that the signers have failed to produce a signature
    * for a redemption transaction. This is considered fraud, and moves the
    * deposit into liquidation.
@@ -1388,9 +1406,9 @@ export default class Deposit {
   /**
    * Notify the contract that the signers have failed to produce a redemption proof.
    */
-  async notifyRedemptionProofTimeout() {
+  async notifyRedemptionProofTimedOut() {
     await EthereumHelpers.sendSafely(
-      this.contract.methods.notifyRedemptionProofTimdOout()
+      this.contract.methods.notifyRedemptionProofTimedOut()
     )
   }
 

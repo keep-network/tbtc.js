@@ -86,7 +86,7 @@ function readEventFromTransaction(
  *
  * @param {Contract} sourceContract The web3 Contract that emits the event.
  * @param {string} eventName The name of the event to wait on.
- * @param {object} [filter] An additional filter to apply to the event being
+ * @param {any} [filter] An additional filter to apply to the event being
  *        searched for.
  *
  * @return {Promise<any>} A promise that will be fulfilled by the event
@@ -121,6 +121,30 @@ function getEvent(sourceContract, eventName, filter) {
 }
 
 /**
+ * Looks up all existing events named `eventName` on `sourceContract`, searching
+ * past blocks and then returning them. Respects additional filtering rules set
+ * in the passed `filter` object, if available. Does not wait for any new
+ * events.
+ *
+ * @param {Contract} sourceContract The web3 Contract that emits the event.
+ * @param {string} eventName The name of the event to wait on.
+ * @param {any} [filter] An additional filter to apply to the event being
+ *        searched for.
+ *
+ * @return {Promise<any[]>} A promise that will be fulfilled by the list of
+ *         event objects once they are found.
+ */
+async function getExistingEvents(sourceContract, eventName, filter) {
+  const events = await sourceContract.getPastEvents(eventName, {
+    fromBlock: 0,
+    toBlock: "latest",
+    filter
+  })
+
+  return events
+}
+
+/**
  * Looks up an existing event named `eventName` on `sourceContract`, searching
  * past blocks for it and then returning it. Respects additional filtering rules
  * set in the passed `filter` object, if available. Does not wait for any new
@@ -128,20 +152,16 @@ function getEvent(sourceContract, eventName, filter) {
  *
  * @param {Contract} sourceContract The web3 Contract that emits the event.
  * @param {string} eventName The name of the event to wait on.
- * @param {object} [filter] An additional filter to apply to the event being
+ * @param {any} [filter] An additional filter to apply to the event being
  *        searched for.
  *
  * @return {Promise<any>} A promise that will be fulfilled by the event object
  *         once it is found.
  */
 async function getExistingEvent(sourceContract, eventName, filter) {
-  const events = await sourceContract.getPastEvents(eventName, {
-    fromBlock: 0,
-    toBlock: "latest",
-    filter
-  })
-
-  return events[0]
+  return (await getExistingEvents(sourceContract, eventName, filter)).slice(
+    -1
+  )[0]
 }
 
 /**
@@ -281,7 +301,8 @@ async function callWithRetry(
  *         with default `from` and revert handling set.
  */
 function buildContract(web3, contractABI, address) {
-  const contract = new web3.eth.Contract(contractABI)
+  /** @type {Contract} */
+  const contract = /** @type {any} */ (new web3.eth.Contract(contractABI))
   if (address) {
     contract.options.address = address
   }
@@ -320,6 +341,7 @@ function getDeployedContract(artifact, web3, networkId) {
 export default {
   isMainnet,
   getEvent,
+  getExistingEvents,
   getExistingEvent,
   readEventFromTransaction,
   bytesToRaw,
