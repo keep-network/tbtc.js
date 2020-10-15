@@ -155,10 +155,11 @@ ${depositCommandHelp
         .join("\n")
   )
   .join("\n\n")}
+
 ${bitcoinCommandHelp
   .map(
     _ =>
-      "    deposit " +
+      "    bitcoin " +
       _.split("\n")[0] +
       "\n" +
       _.split("\n")
