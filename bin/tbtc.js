@@ -5,6 +5,7 @@ import ProviderEngine from "web3-provider-engine"
 import WebsocketSubprovider from "web3-provider-engine/subproviders/websocket.js"
 import TBTC from "../index.js"
 import { depositCommandHelp, parseDepositCommand } from "./commands/deposit.js"
+import { bitcoinCommandHelp, parseBitcoinCommand } from "./commands/bitcoin.js"
 import {
   findAndConsumeArgsExistence,
   findAndConsumeArgsValues
@@ -70,6 +71,9 @@ let action = null
 switch (commandArgs[0]) {
   case "deposit":
     action = parseDepositCommand(web3, commandArgs.slice(1))
+    break
+  case "bitcoin":
+    action = parseBitcoinCommand(web3, commandArgs.slice(1))
     break
   case "lot-sizes":
     if (commandArgs.length == 1) {
@@ -140,6 +144,18 @@ Supported flags:
 
 Supported commands:
 ${depositCommandHelp
+  .map(
+    _ =>
+      "    deposit " +
+      _.split("\n")[0] +
+      "\n" +
+      _.split("\n")
+        .slice(1)
+        .map(_ => "    " + _)
+        .join("\n")
+  )
+  .join("\n\n")}
+${bitcoinCommandHelp
   .map(
     _ =>
       "    deposit " +
