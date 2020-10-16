@@ -11,6 +11,8 @@ import { backoffRetrier } from "./lib/backoff.js"
  * @typedef {object} DeploymentInfo
  * @property {string} address The address a contract is deployed at on a given
  *           network.
+ * @property {string} transactionHash The hash of a transaction in which contract
+ *           was deployed on a given network.
  */
 
 /**
@@ -141,7 +143,8 @@ function getEvent(sourceContract, eventName, filter) {
  */
 async function getExistingEvents(sourceContract, eventName, filter) {
   const events = await sourceContract.getPastEvents(eventName, {
-    fromBlock: 0,
+    // @ts-ignore TODO: add to spec
+    fromBlock: sourceContract.deployedAtBlock || 0,
     toBlock: "latest",
     filter
   })

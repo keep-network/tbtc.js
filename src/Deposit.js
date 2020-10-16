@@ -203,48 +203,61 @@ export class DepositFactory {
     // Get the net_version
     const networkId = await this.config.web3.eth.net.getId()
 
-    const resolveContract = (/** @type {TruffleArtifact} */ artifact) => {
-      return EthereumHelpers.getDeployedContract(
+    const resolveContract = async (/** @type {TruffleArtifact} */ artifact) => {
+      const contract = EthereumHelpers.getDeployedContract(
         artifact,
         this.config.web3,
         networkId.toString()
       )
+
+      // Resolve contract deployment block
+      if (artifact.networks[networkId]) {
+        const transactionHash = artifact.networks[networkId].transactionHash
+        const transaction = await this.config.web3.eth.getTransaction(
+          transactionHash
+        )
+
+        // @ts-ignore Internal field.
+        contract.deployedAtBlock = transaction.blockNumber
+      }
+
+      return contract
     }
 
     /** @package */
-    this.constantsContract = resolveContract(
+    this.constantsContract = await resolveContract(
       /** @type {TruffleArtifact} */ (TBTCConstantsJSON)
     )
     /** @package */
-    this.systemContract = resolveContract(
+    this.systemContract = await resolveContract(
       /** @type {TruffleArtifact} */ (TBTCSystemJSON)
     )
     /** @package */
-    this.tokenContract = resolveContract(
+    this.tokenContract = await resolveContract(
       /** @type {TruffleArtifact} */ (TBTCTokenJSON)
     )
     /** @package */
-    this.depositTokenContract = resolveContract(
+    this.depositTokenContract = await resolveContract(
       /** @type {TruffleArtifact} */ (TBTCDepositTokenJSON)
     )
     /** @package */
-    this.feeRebateTokenContract = resolveContract(
+    this.feeRebateTokenContract = await resolveContract(
       /** @type {TruffleArtifact} */ (FeeRebateTokenJSON)
     )
     /** @package */
-    this.depositContract = resolveContract(
+    this.depositContract = await resolveContract(
       /** @type {TruffleArtifact} */ (DepositJSON)
     )
     /** @package */
-    this.depositFactoryContract = resolveContract(
+    this.depositFactoryContract = await resolveContract(
       /** @type {TruffleArtifact} */ (DepositFactoryJSON)
     )
     /** @package */
-    this.vendingMachineContract = resolveContract(
+    this.vendingMachineContract = await resolveContract(
       /** @type {TruffleArtifact} */ (VendingMachineJSON)
     )
     /** @package */
-    this.fundingScriptContract = resolveContract(
+    this.fundingScriptContract = await resolveContract(
       /** @type {TruffleArtifact} */ (FundingScriptJSON)
     )
   }
