@@ -6,6 +6,7 @@
 /** @typedef { import("web3-core").TransactionReceipt } TransactionReceipt */
 
 import { backoffRetrier } from "./lib/backoff.js"
+import pWaitFor from "p-wait-for"
 
 // TODO: Workaround for events pooling, with deployment block of the system on mainnet.
 // Fetch the value from contract artifact (e.g. TBTCSystem).
@@ -99,23 +100,29 @@ function readEventFromTransaction(
  *         object once it is received.
  */
 function getEvent(sourceContract, eventName, filter) {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     // As a workaround for a problem with MetaMask version 7.1.1 where subscription
     // for events doesn't work correctly we pull past events in a loop until
     // we find our event. This is a temporary solution which should be removed
     // after problem with MetaMask is solved.
     // See: https://github.com/MetaMask/metamask-extension/issues/7270
-    const handle = setInterval(
-      async function() {
+    await pWaitFor(
+      async () => {
         // Query if an event was already emitted after we start watching
-        const event = await getExistingEvent(sourceContract, eventName, filter)
+        let event
+        try {
+          event = await getExistingEvent(sourceContract, eventName, filter)
+        } catch (error) {
+          console.warn(`failed to get existing event: ${error.message}`)
+        }
 
         if (event) {
-          clearInterval(handle)
           resolve(event)
+          return true
         }
+        return false
       },
-      3000 // every 3 seconds
+      { interval: 3000 } // every 3 seconds
     )
 
     sourceContract.once(eventName, { filter }, (error, event) => {
@@ -125,7 +132,7 @@ function getEvent(sourceContract, eventName, filter) {
         console.warn(`failed to register for ${eventName}:`, error.message)
       } else {
         resolve(event)
-        clearInterval(handle)
+        // TODO: We should abort pWaitFor
       }
     })
   })
