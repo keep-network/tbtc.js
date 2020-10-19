@@ -7,6 +7,10 @@
 
 import { backoffRetrier } from "./lib/backoff.js"
 
+// TODO: Workaround for events pooling, with deployment block of the system on mainnet.
+// Fetch the value from contract artifact (e.g. TBTCSystem).
+const DEFAULT_FROM_BLOCK_MAINNET = 10867766
+
 /**
  * @typedef {object} DeploymentInfo
  * @property {string} address The address a contract is deployed at on a given
@@ -144,7 +148,7 @@ function getEvent(sourceContract, eventName, filter) {
 async function getExistingEvents(sourceContract, eventName, filter) {
   const events = await sourceContract.getPastEvents(eventName, {
     // @ts-ignore TODO: add to spec
-    fromBlock: sourceContract.deployedAtBlock || 0,
+    fromBlock: sourceContract.deployedAtBlock || DEFAULT_FROM_BLOCK_MAINNET,
     toBlock: "latest",
     filter
   })
