@@ -97,6 +97,11 @@ export default class Redemption {
           "SignatureSubmitted",
           { digest: redemptionDigest }
         )
+
+        console.debug(
+          `Found submitted signature for deposit ${this.deposit.address}`
+        )
+
         const { r, s, recoveryID } = signatureEvent.returnValues
         const publicKeyPoint = await this.deposit.publicKeyPoint
 
@@ -118,6 +123,10 @@ export default class Redemption {
               r.toString(),
               s.toString()
             )
+          )
+
+          console.debug(
+            `Submitted redemption signature for deposit ${this.deposit.address}`
           )
         }
 
