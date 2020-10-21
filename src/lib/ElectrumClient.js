@@ -114,7 +114,7 @@ export default class Client {
     const tx = await this.electrumClient
       .blockchain_transaction_get(txHash, true)
       .catch(err => {
-        throw new Error(`failed to get transaction: [${err}]`)
+        throw new Error(`failed to get transaction ${txHash}: [${err}]`)
       })
 
     return tx
