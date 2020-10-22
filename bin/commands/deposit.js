@@ -261,8 +261,8 @@ const commandParsers = {
           )
         ).map(_ => _.returnValues._requestedFee)
 
-        const initialFee = allFees.slice(-1)[0]
-        const latestFee = allFees.slice(0)[0]
+        const initialFee = allFees.slice(0)[0]
+        const latestFee = allFees.slice(-1)[0]
 
         const utxoValue = await deposit.contract.methods.utxoValue().call()
         const previousOutputValue = toBN(utxoValue).sub(toBN(latestFee))
