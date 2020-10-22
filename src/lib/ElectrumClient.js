@@ -452,7 +452,8 @@ export default class Client {
     const transactions = await Promise.all(
       history
         .map(confirmedTx => confirmedTx.tx_hash)
-        .map(txHash => this.getTransaction(txHash))
+        // Catch error so it can proceed to other transactions from the list.
+        .map(txHash => this.getTransaction(txHash).catch(console.error))
     )
 
     return transactions
