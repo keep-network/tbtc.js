@@ -45,7 +45,7 @@ export const BitcoinNetwork = {
  * @property {string} transactionID Transaction ID.
  * @property {number} outputPosition Position of output in the transaction.
  * @property {number} value Value of the output (satoshis).
- * @property {number} confirmations Number of chain confirmations.
+ * @property {number} [confirmations] Number of chain confirmations (optional).
  */
 
 /**
@@ -756,11 +756,14 @@ const BitcoinHelpers = {
       })
 
       transactions.sort((a, b) => {
-        if (a.confirmations > b.confirmations) {
+        const confirmationsA = a.confirmations || 0
+        const confirmationsB = b.confirmations || 0
+
+        if (confirmationsA > confirmationsB) {
           return 1
         }
 
-        if (a.confirmations < b.confirmations) {
+        if (confirmationsA < confirmationsB) {
           return -1
         }
 
