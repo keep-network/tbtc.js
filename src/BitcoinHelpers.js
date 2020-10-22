@@ -711,8 +711,19 @@ const BitcoinHelpers = {
           const outpointMatches = (
             await electrumClient.getTransaction(tx.tx_hash)
           ).vin.some(({ txid, vout }) => {
-            const inputOutpoint = txid + vout
-            return inputOutpoint == outpoint
+            const voutBuffer = Buffer.alloc(4)
+            voutBuffer.writeUIntBE(vout, 0, 4)
+
+            const actualOutpoint = Buffer.concat([
+              voutBuffer,
+              Buffer.from(txid, "hex")
+            ]).reverse()
+
+            return (
+              actualOutpoint.compare(
+                Buffer.from(outpoint.replace("0x", ""), "hex")
+              ) === 0
+            )
           })
 
           if (!outpointMatches) {
