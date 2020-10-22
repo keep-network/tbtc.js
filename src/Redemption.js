@@ -262,8 +262,8 @@ export default class Redemption {
       )
     ).map(_ => _.returnValues._requestedFee)
 
-    const initialFee = allFees.slice(-1)[0]
-    const latestFee = allFees.slice(0)[0]
+    const initialFee = allFees.slice(0)[0]
+    const latestFee = allFees.slice(-1)[0]
 
     const utxoValue = await this.deposit.contract.methods.utxoValue().call()
     const previousOutputValue = toBN(utxoValue).sub(toBN(latestFee))
