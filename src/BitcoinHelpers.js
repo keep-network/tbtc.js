@@ -45,6 +45,7 @@ export const BitcoinNetwork = {
  * @property {string} transactionID Transaction ID.
  * @property {number} outputPosition Position of output in the transaction.
  * @property {number} value Value of the output (satoshis).
+ * @property {number} confirmations Number of chain confirmations.
  */
 
 /**
@@ -676,9 +677,10 @@ const BitcoinHelpers = {
 
     // Raw helpers.
     /**
-     * Finds a transaction to the given `receiverScript` of the given
+     * Finds a transaction to the given `receiverScript` of at least the given
      * `expectedValue` using the given `electrumClient`. If there is more
-     * than one such transaction, returns the most recent one.
+     * than one such transaction, returns the one with the most confirmations or
+     * the highest value. It includes also transactions from mempool.
      *
      * @param {ElectrumClient} electrumClient An already-initialized Electrum client.
      * @param {string} receiverScript A receiver script.
@@ -698,39 +700,82 @@ const BitcoinHelpers = {
       expectedValue,
       outpoint
     ) {
-      const unspentTransactions = await electrumClient.getUnspentToScript(
+      const transactionsWithScript = await electrumClient.getTransactionsForScript(
         receiverScript
       )
 
-      for (const tx of unspentTransactions.reverse()) {
-        if (tx.value !== expectedValue) {
-          // Skip if the value doesn't match.
-          continue
-        }
-        if (typeof outpoint !== "undefined") {
-          const outpointMatches = (
-            await electrumClient.getTransaction(tx.tx_hash)
-          ).vin.some(({ txid, vout }) => {
-            const inputOutpoint = txid + vout
-            return inputOutpoint == outpoint
-          })
+      /** @type TransactionInBlock[] */
+      let transactions = []
 
-          if (!outpointMatches) {
-            // If an outpoint filter is passed, skip if the outpoint isn't spent
-            // by the transaction.
-            continue
+      transactionsWithScript.forEach(tx => {
+        if (!tx) {
+          // TODO: Workaround for a case where ElectrumClient.getTransactionsForScript
+          // fails to get transaction details; solve it properly in ElectrumClient.
+          return
+        }
+
+        tx.vout.forEach(_ => {
+          _.value = _.value * BitcoinHelpers.satoshisPerBtc.toNumber()
+        })
+
+        const matchingOutput = tx.vout.find(({ scriptPubKey, value }) => {
+          return scriptPubKey.hex === receiverScript && value > expectedValue
+        })
+
+        if (!matchingOutput) {
+          return
+        }
+
+        tx.vin.forEach(({ txid, vout }) => {
+          let outpointMatches = true
+
+          if (typeof outpoint !== "undefined") {
+            const voutBuffer = Buffer.alloc(4)
+            voutBuffer.writeUIntBE(vout, 0, 4)
+
+            const actualOutpoint = Buffer.concat([
+              voutBuffer,
+              Buffer.from(txid, "hex")
+            ]).reverse()
+
+            outpointMatches =
+              actualOutpoint.compare(
+                Buffer.from(outpoint.replace("0x", ""), "hex")
+              ) === 0
           }
+
+          if (outpointMatches) {
+            transactions.push({
+              transactionID: tx.txid,
+              confirmations: tx.confirmations || 0,
+              outputPosition: matchingOutput.n,
+              value: matchingOutput.value
+            })
+          }
+        })
+      })
+
+      transactions.sort((a, b) => {
+        if (a.confirmations > b.confirmations) {
+          return 1
         }
 
-        // If neither of the above `continue`d, this is a match; return it.
-        return {
-          transactionID: tx.tx_hash,
-          outputPosition: tx.tx_pos,
-          value: tx.value
+        if (a.confirmations < b.confirmations) {
+          return -1
         }
-      }
 
-      return null
+        if (a.value > b.value) {
+          return 1
+        }
+
+        if (a.value < b.value) {
+          return -1
+        }
+
+        return 0
+      })
+
+      return transactions.length > 0 ? transactions[0] : null
     },
     /**
      * Finds all transactions to the given `receiverScript` using the

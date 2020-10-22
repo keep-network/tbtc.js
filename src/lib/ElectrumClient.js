@@ -7,6 +7,7 @@ const { digest } = sha256
  * @property {string[]} addresses The addresses associated with this
  *           ScriptPubKey; one for regular ScriptPubkeys, more for multisigs.
  * @property {"pubkeyhash" | string} type The type of ScriptPubKey.
+ * @property {string} hex ScriptPubKey in hexadecimal format.
  */
 
 /**
