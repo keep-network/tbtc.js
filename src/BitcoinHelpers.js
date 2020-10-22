@@ -705,7 +705,7 @@ const BitcoinHelpers = {
       )
 
       /** @type TransactionInBlock[] */
-      let transactions = []
+      const transactions = []
 
       transactionsWithScript.forEach(tx => {
         if (!tx) {
