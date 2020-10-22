@@ -189,7 +189,12 @@ export default class Redemption {
           fundingOutpoint
         )
 
-        if (!transaction) {
+        if (transaction) {
+          console.debug(
+            `Found existing redemption transaction on Bitcoin chain ` +
+              `for deposit ${this.deposit.address}`
+          )
+        } else {
           console.debug(
             `Broadcasting signed redemption transaction to Bitcoin chain ` +
               `for deposit ${this.deposit.address}...`
