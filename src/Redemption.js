@@ -262,6 +262,10 @@ export default class Redemption {
       )
     ).map(_ => _.returnValues._requestedFee)
 
+    if (allFees.length == 0) {
+      throw new Error("past redemption fees list is empty")
+    }
+
     const initialFee = allFees.slice(0)[0]
     const latestFee = allFees.slice(-1)[0]
 
