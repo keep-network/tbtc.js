@@ -62,7 +62,7 @@ export const DepositStates = {
  * @return {string | null} The state name, as defined by the tbtc.js
  *         `DepositStates` enum.
  */
-function nameOfState(stateId) {
+export const nameOfState = stateId => {
   // Find the right id, then take that entry's name.
   return Object.entries(DepositStates).filter(([_, id]) => id == stateId)[0][0]
 }
