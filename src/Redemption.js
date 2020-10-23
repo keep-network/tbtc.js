@@ -190,6 +190,9 @@ export default class Redemption {
           fundingOutpoint
         )
 
+        // TODO: Check if found transaction is exactly the signedTransaction,
+        // we may need to fee bump a transaction
+
         if (transaction) {
           console.debug(
             `Found existing redemption transaction on Bitcoin chain ` +
