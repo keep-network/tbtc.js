@@ -313,7 +313,8 @@ export class DepositFactory {
 
     return {
       depositAddress: createdEvent._depositContractAddress,
-      keepAddress: createdEvent._keepAddress
+      keepAddress: createdEvent._keepAddress,
+      createdAtBlock: createdEvent.blockNumber
     }
   }
 }
@@ -328,6 +329,7 @@ export default class Deposit {
   // address/*: string*/;
   // keepContract/*: string*/;
   // contract/*: any*/;
+  // createdAtBlock/*: number/;
 
   // bitcoinAddress/*: Promise<string>*/;
   // activeStatePromise/*: Promise<[]>*/; // fulfilled when deposit goes active
@@ -344,7 +346,8 @@ export default class Deposit {
     )
     const {
       depositAddress,
-      keepAddress
+      keepAddress,
+      createdAtBlock
     } = await factory.createNewDepositContract(satoshiLotSize)
     console.debug(
       `Looking up new deposit with address ${depositAddress} backed by ` +
@@ -362,7 +365,7 @@ export default class Deposit {
       keepAddress
     )
 
-    return new Deposit(factory, contract, keepContract)
+    return new Deposit(factory, contract, keepContract, createdAtBlock)
   }
 
   /**
@@ -398,7 +401,9 @@ export default class Deposit {
       keepAddress
     )
 
-    return new Deposit(factory, contract, keepContract)
+    const createdAtBlock = createdEvent.blockNumber
+
+    return new Deposit(factory, contract, keepContract, createdAtBlock)
   }
 
   /**
@@ -416,8 +421,9 @@ export default class Deposit {
    * @param {DepositFactory} factory
    * @param {Contract} depositContract
    * @param {Contract} keepContract
+   * @param {number} createdAtBlock
    */
-  constructor(factory, depositContract, keepContract) {
+  constructor(factory, depositContract, keepContract, createdAtBlock) {
     if (!keepContract) {
       throw new Error("Keep contract required for Deposit instantiation.")
     }
@@ -427,6 +433,7 @@ export default class Deposit {
     this.address = depositContract.options.address
     this.keepContract = keepContract
     this.contract = depositContract
+    this.createdAtBlock = createdAtBlock
 
     // Set up state transition promises.
     this.activeStatePromise = this.waitForActiveState()

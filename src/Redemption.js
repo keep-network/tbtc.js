@@ -95,7 +95,8 @@ export default class Redemption {
         const signatureEvent = await EthereumHelpers.getEvent(
           this.deposit.keepContract,
           "SignatureSubmitted",
-          { digest: redemptionDigest }
+          { digest: redemptionDigest },
+          this.deposit.createdAtBlock
         )
 
         console.debug(
@@ -258,7 +259,8 @@ export default class Redemption {
       await EthereumHelpers.getExistingEvents(
         this.deposit.factory.system(),
         "RedemptionRequested",
-        { _depositContractAddress: this.deposit.address }
+        { _depositContractAddress: this.deposit.address },
+        this.deposit.createdAtBlock
       )
     ).map(_ => _.returnValues._requestedFee)
 

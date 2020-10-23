@@ -257,7 +257,8 @@ const commandParsers = {
           await EthereumHelpers.getExistingEvents(
             tbtc.Deposit.system(),
             "RedemptionRequested",
-            { _depositContractAddress: depositAddress }
+            { _depositContractAddress: depositAddress },
+            deposit.createdAtBlock
           )
         ).map(_ => _.returnValues._requestedFee)
 
