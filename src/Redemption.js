@@ -159,12 +159,18 @@ export default class Redemption {
    * Calling this function more than once will return the existing state of
    * the first auto submission process, rather than restarting the process.
    *
+   * @param {boolean} shouldWaitForConfirmations Determines whether execution
+   *        should block until the redemption transaction is sufficiently confirmed
+   *        on Bitcoin blockchain. If set to false the function will throw an
+   *        error if the transaction does not have enough confirmations to submit
+   *        a proof.
+   *
    * @return {AutoSubmitState} An object with promises to various stages of
    *         the auto-submit lifetime. Each promise can be fulfilled or
    *         rejected, and they are in a sequence where later promises will be
    *         rejected by earlier ones.
    */
-  autoSubmit() {
+  autoSubmit(shouldWaitForConfirmations = true) {
     if (this.autoSubmittingState) {
       return this.autoSubmittingState
     }
@@ -214,6 +220,7 @@ export default class Redemption {
     const confirmations = broadcastTransactionID.then(async transactionID => {
       const requiredConfirmations = await this.deposit.requiredConfirmations
 
+      if (shouldWaitForConfirmations) {
       console.debug(
         `Waiting for ${requiredConfirmations} confirmations for ` +
           `Bitcoin transaction ${transactionID}...`
@@ -229,6 +236,22 @@ export default class Redemption {
           })
         }
       )
+      } else {
+        console.debug(
+          `Checking ${requiredConfirmations} confirmations for ` +
+            `Bitcoin transaction ${transactionID}...`
+        )
+        const confirmations = await BitcoinHelpers.Transaction.checkConfirmations(
+          transactionID,
+          requiredConfirmations
+        )
+
+        if (!confirmations) {
+          throw new Error(
+            `Transaction ${transactionID} is not yet sufficiently confirmed`
+          )
+        }
+      }
 
       return { transactionID, requiredConfirmations }
     })
