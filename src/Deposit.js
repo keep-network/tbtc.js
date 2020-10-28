@@ -943,7 +943,8 @@ export default class Deposit {
     const redemptionRequest = await EthereumHelpers.getExistingEvent(
       this.factory.system(),
       "RedemptionRequested",
-      { _depositContractAddress: this.address }
+      { _depositContractAddress: this.address },
+      this.contract.deployedAtBlock
     )
 
     if (!redemptionRequest) {
@@ -1142,9 +1143,14 @@ export default class Deposit {
     // If we weren't active, wait for Funded, then mark as active.
     // FIXME/NOTE: We could be inactive due to being outside of the funding
     // FIXME/NOTE: path, e.g. in liquidation or courtesy call.
-    await EthereumHelpers.getEvent(this.factory.system(), "Funded", {
-      _depositContractAddress: this.address
-    })
+    await EthereumHelpers.getEvent(
+      this.factory.system(),
+      "Funded",
+      {
+        _depositContractAddress: this.address
+      },
+      this.contract.deployedAtBlock
+    )
     console.debug(`Deposit ${this.address} transitioned to ACTIVE.`)
 
     return true
@@ -1154,7 +1160,8 @@ export default class Deposit {
     return EthereumHelpers.getExistingEvent(
       this.factory.system(),
       "RegisteredPubkey",
-      { _depositContractAddress: this.address }
+      { _depositContractAddress: this.address },
+      this.contract.deployedAtBlock
     )
   }
 

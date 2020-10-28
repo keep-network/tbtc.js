@@ -90,12 +90,13 @@ function readEventFromTransaction(
  * @param {string} eventName The name of the event to wait on.
  * @param {any} [filter] An additional filter to apply to the event being
  *        searched for.
+ * @param {number} [fromBlock] Starting block for events search.
  *
  * @return {Promise<any>} A promise that will be fulfilled by the event
  *         object once it is received.
  */
-function getEvent(sourceContract, eventName, filter) {
-  return new Promise((resolve, reject) => {
+function getEvent(sourceContract, eventName, filter, fromBlock) {
+  return new Promise(async (resolve, reject) => {
     // As a workaround for a problem with MetaMask version 7.1.1 where subscription
     // for events doesn't work correctly we pull past events in a loop until
     // we find our event. This is a temporary solution which should be removed
@@ -104,7 +105,12 @@ function getEvent(sourceContract, eventName, filter) {
     const handle = setInterval(
       async function() {
         // Query if an event was already emitted after we start watching
-        const event = await getExistingEvent(sourceContract, eventName, filter)
+        const event = await getExistingEvent(
+          sourceContract,
+          eventName,
+          filter,
+          fromBlock
+        )
 
         if (event) {
           clearInterval(handle)
@@ -126,19 +132,22 @@ function getEvent(sourceContract, eventName, filter) {
  * Looks up all existing events named `eventName` on `sourceContract`, searching
  * past blocks and then returning them. Respects additional filtering rules set
  * in the passed `filter` object, if available. Does not wait for any new
- * events.
+ * events. It starts searching from provided block number. If the `fromBlock`
+ * is missing it looks for a contract's defined property `deployedAtBlock`. If the
+ * property is missing starts searching from block `0`.
  *
  * @param {Contract} sourceContract The web3 Contract that emits the event.
  * @param {string} eventName The name of the event to wait on.
  * @param {any} [filter] An additional filter to apply to the event being
  *        searched for.
+ * @param {number} [fromBlock] Starting block for events search.
  *
  * @return {Promise<any[]>} A promise that will be fulfilled by the list of
  *         event objects once they are found.
  */
-async function getExistingEvents(sourceContract, eventName, filter) {
+async function getExistingEvents(sourceContract, eventName, filter, fromBlock) {
   const events = await sourceContract.getPastEvents(eventName, {
-    fromBlock: 0,
+    fromBlock: fromBlock || sourceContract.deployedAtBlock || 0,
     toBlock: "latest",
     filter
   })
@@ -156,14 +165,15 @@ async function getExistingEvents(sourceContract, eventName, filter) {
  * @param {string} eventName The name of the event to wait on.
  * @param {any} [filter] An additional filter to apply to the event being
  *        searched for.
+ * @param {number} [fromBlock] Starting block for events search.
  *
  * @return {Promise<any>} A promise that will be fulfilled by the event object
  *         once it is found.
  */
-async function getExistingEvent(sourceContract, eventName, filter) {
-  return (await getExistingEvents(sourceContract, eventName, filter)).slice(
-    -1
-  )[0]
+async function getExistingEvent(sourceContract, eventName, filter, fromBlock) {
+  return (
+    await getExistingEvents(sourceContract, eventName, filter, fromBlock)
+  ).slice(-1)[0]
 }
 
 /**
