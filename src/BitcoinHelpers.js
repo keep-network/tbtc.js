@@ -708,12 +708,6 @@ const BitcoinHelpers = {
       const transactions = []
 
       transactionsWithScript.forEach(tx => {
-        if (!tx) {
-          // TODO: Workaround for a case where ElectrumClient.getTransactionsForScript
-          // fails to get transaction details; solve it properly in ElectrumClient.
-          return
-        }
-
         tx.vout.forEach(_ => {
           _.value = _.value * BitcoinHelpers.satoshisPerBtc.toNumber()
         })

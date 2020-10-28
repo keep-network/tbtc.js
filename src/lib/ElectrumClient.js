@@ -453,10 +453,17 @@ export default class Client {
       history
         .map(confirmedTx => confirmedTx.tx_hash)
         // Catch error so it can proceed to other transactions from the list.
+        // This will produce a `undefined` entry in the list that we need to filter
+        // out.
         .map(txHash => this.getTransaction(txHash).catch(console.error))
     )
 
-    return transactions
+    // Filter out entries for which `getTransaction` failed in the previous step.
+    /** @type {TransactionData[]} */
+    // @ts-ignore We filtered out void entries.
+    const filteredTransactions = transactions.filter(tx => tx)
+
+    return filteredTransactions
   }
 }
 
