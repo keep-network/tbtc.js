@@ -1,5 +1,5 @@
 /** @typedef { import("web3").default } Web3 */
-/** @typedef { import("web3-eth-contract").Contract } Contract */
+/** @typedef { import("web3-eth-contract").Contract } Web3Contract */
 /** @typedef { import("web3-eth-contract").ContractSendMethod } ContractSendMethod */
 /** @typedef { import("web3-eth-contract").SendOptions } SendOptions */
 /** @typedef { import("web3-utils").AbiItem } AbiItem */
@@ -11,6 +11,8 @@ import { backoffRetrier } from "./lib/backoff.js"
  * @typedef {object} DeploymentInfo
  * @property {string} address The address a contract is deployed at on a given
  *           network.
+ * @property {string} transactionHash The hash of a transaction in which contract
+ *           was deployed on a given network.
  */
 
 /**
@@ -48,7 +50,7 @@ async function isMainnet(web3) {
  *
  * @param {Web3} web3 A web3 instance for operating.
  * @param {TransactionReceipt} transaction A web3 transaction result.
- * @param {Contract} sourceContract A web3 Contract instance whose
+ * @param {Web3Contract} sourceContract A web3 Contract instance whose
  *        event is being read.
  * @param {string} eventName The name of the event to be read.
  *
@@ -289,6 +291,15 @@ async function callWithRetry(
 }
 
 /**
+ * @typedef {Object} DeployedContract
+ * @property {number|undefined} deployedAtBlock Number of block when contract was
+ * deployed.
+ *
+ * @typedef {Web3Contract & DeployedContract} Contract web3.eth.Contract enhanced
+ * with property containing block number when contract was deployed.
+ */
+
+/**
  * Builds a web3.eth.Contract instance with the given ABI, pointed to the given
  * address, with a default `from` and revert handling set.
  *
@@ -296,19 +307,25 @@ async function callWithRetry(
  * @param {AbiItem[]} contractABI The ABI of the contract to instantiate.
  * @param {string} [address] The address of the deployed contract; if left
  *        unspecified, the contract won't be pointed to any address.
+ * @param {number} [deployedAtBlock]
  *
  * @return {Contract} A contract for the specified ABI at the specified address,
  *         with default `from` and revert handling set.
  */
-function buildContract(web3, contractABI, address) {
-  /** @type {Contract} */
-  const contract = /** @type {any} */ (new web3.eth.Contract(contractABI))
+function buildContract(web3, contractABI, address, deployedAtBlock) {
+  /** @type {Web3Contract} */
+  const web3Contract = /** @type {any} */ (new web3.eth.Contract(contractABI))
   if (address) {
-    contract.options.address = address
+    web3Contract.options.address = address
   }
-  contract.options.from = web3.eth.defaultAccount || undefined
+  web3Contract.options.from = web3.eth.defaultAccount || undefined
   // @ts-ignore A newer version of Web3 is needed to include handleRevert.
-  contract.options.handleRevert = true
+  web3Contract.options.handleRevert = true
+
+  /** @type {Contract} */
+  const contract = (web3Contract)
+
+  contract.deployedAtBlock = deployedAtBlock || undefined
 
   return contract
 }
@@ -324,10 +341,10 @@ function buildContract(web3, contractABI, address) {
  * @param {string} networkId The network ID of the network the contract is
  *        deployed at.
  *
- * @return {Contract} A web3.eth.Contract ready for usage for the given network
- *         and artifact.
+ * @return {Promise<Contract>} A contract ready for usage with web3 for the
+ *        given network and artifact.
  */
-function getDeployedContract(artifact, web3, networkId) {
+async function getDeployedContract(artifact, web3, networkId) {
   const deploymentInfo = artifact.networks[networkId]
   if (!deploymentInfo) {
     throw new Error(
@@ -335,7 +352,16 @@ function getDeployedContract(artifact, web3, networkId) {
     )
   }
 
-  return buildContract(web3, artifact.abi, deploymentInfo.address)
+  const transaction = await web3.eth.getTransaction(
+    artifact.networks[networkId].transactionHash
+  )
+
+  return buildContract(
+    web3,
+    artifact.abi,
+    deploymentInfo.address,
+    transaction.blockNumber || undefined
+  )
 }
 
 export default {
