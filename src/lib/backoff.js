@@ -64,8 +64,6 @@ export function backoffRetrier(retries, errorMatcher = retryAll) {
   return async fn => {
     for (let attempt = 0; attempt < retries; attempt++) {
       try {
-        console.debug(`making attempt number ${attempt}`)
-
         return await fn()
       } catch (error) {
         if (!errorMatcher(error)) {
