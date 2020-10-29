@@ -236,6 +236,49 @@ export default class Redemption {
   }
 
   /**
+   * Increases redemption transaction fee.
+   */
+  async increaseRedemptionFee() {
+    console.log(
+      `Looking for redemption requests for deposit ${this.deposit.address}...`
+    )
+
+    const allFees = (
+      await EthereumHelpers.getExistingEvents(
+        this.deposit.factory.system(),
+        "RedemptionRequested",
+        { _depositContractAddress: this.deposit.address },
+        this.deposit.contract.deployedAtBlock
+      )
+    ).map(_ => _.returnValues._requestedFee)
+
+    const initialFee = allFees.slice(-1)[0]
+    const latestFee = allFees.slice(0)[0]
+
+    const utxoValue = await this.deposit.contract.methods.utxoValue().call()
+    const previousOutputValue = toBN(utxoValue).sub(toBN(latestFee))
+    const newOutputValue = previousOutputValue.sub(toBN(initialFee))
+
+    const prevOutputValueBytes = previousOutputValue.toArrayLike(
+      Buffer,
+      "le",
+      8
+    )
+    const newOutputValueBytes = newOutputValue.toArrayLike(Buffer, "le", 8)
+
+    console.log(
+      `Increasing redemption fee for deposit ${this.deposit.address}...`
+    )
+
+    await EthereumHelpers.sendSafely(
+      this.deposit.contract.methods.increaseRedemptionFee(
+        prevOutputValueBytes,
+        newOutputValueBytes
+      )
+    )
+  }
+
+  /**
    * Proves the withdrawal of the BTC in this deposit via the Bitcoin
    * transaction with id `transactionID`.
    *
