@@ -713,7 +713,7 @@ const BitcoinHelpers = {
         })
 
         const matchingOutput = tx.vout.find(({ scriptPubKey, value }) => {
-          return scriptPubKey.hex === receiverScript && value > expectedValue
+          return scriptPubKey.hex === receiverScript && value >= expectedValue
         })
 
         if (!matchingOutput) {
