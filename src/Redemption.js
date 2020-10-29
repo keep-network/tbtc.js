@@ -180,6 +180,13 @@ export default class Redemption {
           fundingOutpoint
         )
 
+        // TODO: Check if found transaction is exactly the one we expect as
+        // `signedTransaction` before we decide not to broadcast the `signedTransaction`.
+        // After fee increase it may happen that there are multiple transactions
+        // to the same script. We may want to confirm if found transaction matches
+        // the one we expect. In the previous step we're not looking via electrum
+        // for `signedTransaction` but provide parameters of the transaction such
+        // as `redeemerOutputScript`, `expectedValue` and `fundingOutpoint`.
         if (!transaction) {
           console.debug(
             `Broadcasting signed redemption transaction to Bitcoin chain ` +

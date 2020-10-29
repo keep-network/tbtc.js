@@ -713,6 +713,9 @@ const BitcoinHelpers = {
         })
 
         const matchingOutput = tx.vout.find(({ scriptPubKey, value }) => {
+          // NOTE: We're looking for transactions with value greater or equal
+          // the expected value. This is not looking only for transactions that
+          // value is exactly as expected!
           return scriptPubKey.hex === receiverScript && value >= expectedValue
         })
 
