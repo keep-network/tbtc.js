@@ -7,6 +7,7 @@ const { digest } = sha256
  * @property {string[]} addresses The addresses associated with this
  *           ScriptPubKey; one for regular ScriptPubkeys, more for multisigs.
  * @property {"pubkeyhash" | string} type The type of ScriptPubKey.
+ * @property {string} hex ScriptPubKey in hexadecimal format.
  */
 
 /**
@@ -451,10 +452,18 @@ export default class Client {
     const transactions = await Promise.all(
       history
         .map(confirmedTx => confirmedTx.tx_hash)
-        .map(txHash => this.getTransaction(txHash))
+        // Catch error so it can proceed to other transactions from the list.
+        // This will produce a `undefined` entry in the list that we need to filter
+        // out.
+        .map(txHash => this.getTransaction(txHash).catch(console.error))
     )
 
-    return transactions
+    // Filter out entries for which `getTransaction` failed in the previous step.
+    /** @type {TransactionData[]} */
+    // @ts-ignore We filtered out void entries.
+    const filteredTransactions = transactions.filter(tx => tx)
+
+    return filteredTransactions
   }
 }
 
