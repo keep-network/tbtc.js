@@ -282,7 +282,9 @@ export class DepositFactory {
 
     const result = await EthereumHelpers.sendSafely(
       this.depositFactory().methods.createDeposit(lotSize.toString()),
-      { value: creationCost, gas: 1700000 }
+      { value: creationCost },
+      false,
+      1.2
     )
 
     const createdEvent = EthereumHelpers.readEventFromTransaction(
