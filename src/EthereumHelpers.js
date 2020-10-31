@@ -205,18 +205,31 @@ function bytesToRaw(bytesString) {
  * method to get the proper underlying error message. Otherwise, sends the
  * signed transaction normally.
  *
+ * Note that if a gas estimate is calculated but is less than an explicitly
+ * specified `sendParams.gas` value, `sendParams.gas` is preferred, and vice
+ * versa. The higher of the two gas values is then multiplied by
+ * `gasMultiplier`.
+ *
  * @param {ContractSendMethod} boundContractMethod A bound web3 contract method
  *        with `estimateGas`, `send`, and `call` variants available.
  * @param {Partial<SendOptions>} [sendParams] The parameters to pass to
  *        `estimateGas` and `send` for transaction processing.
  * @param {boolean} [forceSend] Force the transaction send through even
  *        if gas estimation fails.
+ * @param {number} [gasMultiplier=1] If specified, applies a multiplier to the
+ *        estimated gas. Defaults to 1, meaning the gas estimate is used as-is
+ *        for the transaction.
  *
  * @return {Promise<any>} A promise to the result of sending the bound contract
  *         method. Fails the promise if gas estimation fails, extracting an
  *         on-chain error if possible.
  */
-async function sendSafely(boundContractMethod, sendParams, forceSend = false) {
+async function sendSafely(
+  boundContractMethod,
+  sendParams,
+  forceSend = false,
+  gasMultiplier = 1
+) {
   try {
     // Clone `sendParams` so we aren't exposed to providers that modify `sendParams`.
     const gasEstimate = await boundContractMethod.estimateGas({ ...sendParams })
@@ -224,7 +237,9 @@ async function sendSafely(boundContractMethod, sendParams, forceSend = false) {
     return boundContractMethod.send({
       from: "", // FIXME Need systemic handling of default from address.
       ...sendParams,
-      gas: Math.max(gasEstimate, (sendParams && sendParams.gas) || 0)
+      gas:
+        Math.max(gasEstimate, (sendParams && sendParams.gas) || 0) *
+        gasMultiplier
     })
   } catch (exception) {
     // For an always failing transaction, if forceSend is set, send it anyway.
