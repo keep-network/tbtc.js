@@ -237,9 +237,10 @@ async function sendSafely(
     return boundContractMethod.send({
       from: "", // FIXME Need systemic handling of default from address.
       ...sendParams,
-      gas:
+      gas: Math.round(
         Math.max(gasEstimate, (sendParams && sendParams.gas) || 0) *
-        gasMultiplier
+          gasMultiplier
+      )
     })
   } catch (exception) {
     // For an always failing transaction, if forceSend is set, send it anyway.
