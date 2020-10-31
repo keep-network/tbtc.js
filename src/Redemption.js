@@ -97,6 +97,11 @@ export default class Redemption {
           "SignatureSubmitted",
           { digest: redemptionDigest }
         )
+
+        console.debug(
+          `Found submitted signature for deposit ${this.deposit.address}`
+        )
+
         const { r, s, recoveryID } = signatureEvent.returnValues
         const publicKeyPoint = await this.deposit.publicKeyPoint
 
@@ -118,6 +123,10 @@ export default class Redemption {
               r.toString(),
               s.toString()
             )
+          )
+
+          console.debug(
+            `Submitted redemption signature for deposit ${this.deposit.address}`
           )
         }
 
@@ -180,14 +189,19 @@ export default class Redemption {
           fundingOutpoint
         )
 
-        // TODO: Check if found transaction is exactly the one we expect as
-        // `signedTransaction` before we decide not to broadcast the `signedTransaction`.
-        // After fee increase it may happen that there are multiple transactions
-        // to the same script. We may want to confirm if found transaction matches
-        // the one we expect. In the previous step we're not looking via electrum
-        // for `signedTransaction` but provide parameters of the transaction such
-        // as `redeemerOutputScript`, `expectedValue` and `fundingOutpoint`.
-        if (!transaction) {
+        if (transaction) {
+          // TODO: Check if found transaction is exactly the one we expect as
+          // `signedTransaction` before we decide not to broadcast the `signedTransaction`.
+          // After fee increase it may happen that there are multiple transactions
+          // to the same script. We may want to confirm if found transaction matches
+          // the one we expect. In the previous step we're not looking via electrum
+          // for `signedTransaction` but provide parameters of the transaction such
+          // as `redeemerOutputScript`, `expectedValue` and `fundingOutpoint`.
+          console.debug(
+            `Found existing redemption transaction on Bitcoin chain ` +
+              `for deposit ${this.deposit.address}`
+          )
+        } else {
           console.debug(
             `Broadcasting signed redemption transaction to Bitcoin chain ` +
               `for deposit ${this.deposit.address}...`
