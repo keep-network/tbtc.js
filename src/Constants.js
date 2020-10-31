@@ -41,7 +41,7 @@ class Constants {
   static async withConfig(config) {
     const { web3 } = config
     const networkId = await web3.eth.net.getId()
-    const tbtcConstantsContract = EthereumHelpers.getDeployedContract(
+    const tbtcConstantsContract = await EthereumHelpers.getDeployedContract(
       /** @type {TruffleArtifact} */ (TBTCConstantsJSON),
       web3,
       networkId.toString()
