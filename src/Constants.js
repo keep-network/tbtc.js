@@ -1,8 +1,8 @@
 import web3Utils from "web3-utils"
-/** @typedef { import("web3-eth-contract").Contract } Contract */
 /** @typedef { import("bn.js") } BN */
 
 import EthereumHelpers from "./EthereumHelpers.js"
+/** @typedef { import("./EthereumHelpers.js").Contract } Contract */
 /** @typedef { import("./EthereumHelpers.js").TruffleArtifact } TruffleArtifact */
 /** @typedef { import("./TBTC.js").TBTCConfig } TBTCConfig */
 
@@ -41,7 +41,7 @@ class Constants {
   static async withConfig(config) {
     const { web3 } = config
     const networkId = await web3.eth.net.getId()
-    const tbtcConstantsContract = EthereumHelpers.getDeployedContract(
+    const tbtcConstantsContract = await EthereumHelpers.getDeployedContract(
       /** @type {TruffleArtifact} */ (TBTCConstantsJSON),
       web3,
       networkId.toString()

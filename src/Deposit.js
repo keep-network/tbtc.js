@@ -55,6 +55,17 @@ export const DepositStates = {
   LIQUIDATION_IN_PROGRESS: 10,
   LIQUIDATED: 11
 }
+/**
+ * Returns the state name of the given numeric state id.
+ * @param {number} stateId The numeric state id, as defined on chain by the
+ *        deposit `DepositStates` library enum.
+ * @return {string | null} The state name, as defined by the tbtc.js
+ *         `DepositStates` enum.
+ */
+function nameOfState(stateId) {
+  // Find the right id, then take that entry's name.
+  return Object.entries(DepositStates).filter(([_, id]) => id == stateId)[0][0]
+}
 
 export class DepositFactory {
   /**
@@ -80,6 +91,7 @@ export class DepositFactory {
     this.config = config
 
     this.State = DepositStates
+    this.stateById = nameOfState
   }
 
   /**
@@ -137,6 +149,18 @@ export class DepositFactory {
   }
 
   /**
+   * Looks up an existing deposit corresponding to the given TDT id, and
+   * returns a tbtc.js Deposit wrapper for it.
+   *
+   * @param {string} tdtId The TDT id of the deposit's tBTC Deposit Token.
+   *
+   * @return {Promise<Deposit>} The deposit at the given address.
+   */
+  async withTdtId(tdtId) {
+    return await Deposit.forTDT(this, tdtId)
+  }
+
+  /**
    * @private
    *
    * Helper to ensure that the contract is defined before returning it. Throws
@@ -179,8 +203,8 @@ export class DepositFactory {
     // Get the net_version
     const networkId = await this.config.web3.eth.net.getId()
 
-    const resolveContract = (/** @type {TruffleArtifact} */ artifact) => {
-      return EthereumHelpers.getDeployedContract(
+    const resolveContract = async (/** @type {TruffleArtifact} */ artifact) => {
+      return await EthereumHelpers.getDeployedContract(
         artifact,
         this.config.web3,
         networkId.toString()
@@ -188,39 +212,39 @@ export class DepositFactory {
     }
 
     /** @package */
-    this.constantsContract = resolveContract(
+    this.constantsContract = await resolveContract(
       /** @type {TruffleArtifact} */ (TBTCConstantsJSON)
     )
     /** @package */
-    this.systemContract = resolveContract(
+    this.systemContract = await resolveContract(
       /** @type {TruffleArtifact} */ (TBTCSystemJSON)
     )
     /** @package */
-    this.tokenContract = resolveContract(
+    this.tokenContract = await resolveContract(
       /** @type {TruffleArtifact} */ (TBTCTokenJSON)
     )
     /** @package */
-    this.depositTokenContract = resolveContract(
+    this.depositTokenContract = await resolveContract(
       /** @type {TruffleArtifact} */ (TBTCDepositTokenJSON)
     )
     /** @package */
-    this.feeRebateTokenContract = resolveContract(
+    this.feeRebateTokenContract = await resolveContract(
       /** @type {TruffleArtifact} */ (FeeRebateTokenJSON)
     )
     /** @package */
-    this.depositContract = resolveContract(
+    this.depositContract = await resolveContract(
       /** @type {TruffleArtifact} */ (DepositJSON)
     )
     /** @package */
-    this.depositFactoryContract = resolveContract(
+    this.depositFactoryContract = await resolveContract(
       /** @type {TruffleArtifact} */ (DepositFactoryJSON)
     )
     /** @package */
-    this.vendingMachineContract = resolveContract(
+    this.vendingMachineContract = await resolveContract(
       /** @type {TruffleArtifact} */ (VendingMachineJSON)
     )
     /** @package */
-    this.fundingScriptContract = resolveContract(
+    this.fundingScriptContract = await resolveContract(
       /** @type {TruffleArtifact} */ (FundingScriptJSON)
     )
   }
@@ -276,7 +300,8 @@ export class DepositFactory {
 
     return {
       depositAddress: createdEvent._depositContractAddress,
-      keepAddress: createdEvent._keepAddress
+      keepAddress: createdEvent._keepAddress,
+      createdAtBlock: createdEvent.blockNumber
     }
   }
 }
@@ -307,7 +332,8 @@ export default class Deposit {
     )
     const {
       depositAddress,
-      keepAddress
+      keepAddress,
+      createdAtBlock
     } = await factory.createNewDepositContract(satoshiLotSize)
     console.debug(
       `Looking up new deposit with address ${depositAddress} backed by ` +
@@ -317,12 +343,14 @@ export default class Deposit {
     const contract = EthereumHelpers.buildContract(
       web3,
       /** @type {TruffleArtifact} */ (DepositJSON).abi,
-      depositAddress
+      depositAddress,
+      createdAtBlock
     )
     const keepContract = EthereumHelpers.buildContract(
       web3,
       /** @type {TruffleArtifact} */ (BondedECDSAKeepJSON).abi,
-      keepAddress
+      keepAddress,
+      createdAtBlock
     )
 
     return new Deposit(factory, contract, keepContract)
@@ -335,11 +363,6 @@ export default class Deposit {
   static async forAddress(factory, depositAddress) {
     console.debug(`Looking up Deposit contract at address ${depositAddress}...`)
     const web3 = factory.config.web3
-    const contract = EthereumHelpers.buildContract(
-      web3,
-      /** @type {TruffleArtifact} */ (DepositJSON).abi,
-      depositAddress
-    )
 
     console.debug(`Looking up Created event for deposit ${depositAddress}...`)
     const createdEvent = await EthereumHelpers.getExistingEvent(
@@ -353,12 +376,20 @@ export default class Deposit {
       )
     }
 
+    const contract = EthereumHelpers.buildContract(
+      web3,
+      /** @type {TruffleArtifact} */ (DepositJSON).abi,
+      depositAddress,
+      createdEvent.blockNumber
+    )
+
     const keepAddress = createdEvent.returnValues._keepAddress
     console.debug(`Found keep address ${keepAddress}.`)
     const keepContract = EthereumHelpers.buildContract(
       web3,
       /** @type {TruffleArtifact} */ (BondedECDSAKeepJSON).abi,
-      keepAddress
+      keepAddress,
+      createdEvent.blockNumber
     )
 
     return new Deposit(factory, contract, keepContract)
@@ -369,7 +400,10 @@ export default class Deposit {
    * @param {string} tdtId
    */
   static async forTDT(factory, tdtId) {
-    return this.forAddress(factory, "0x" + toBN(tdtId).toString("hex"))
+    return this.forAddress(
+      factory,
+      factory.config.web3.utils.padLeft("0x" + toBN(tdtId).toString("hex"), 40)
+    )
   }
 
   /**
@@ -909,7 +943,8 @@ export default class Deposit {
     const redemptionRequest = await EthereumHelpers.getExistingEvent(
       this.factory.system(),
       "RedemptionRequested",
-      { _depositContractAddress: this.address }
+      { _depositContractAddress: this.address },
+      this.contract.deployedAtBlock
     )
 
     if (!redemptionRequest) {
@@ -1108,9 +1143,14 @@ export default class Deposit {
     // If we weren't active, wait for Funded, then mark as active.
     // FIXME/NOTE: We could be inactive due to being outside of the funding
     // FIXME/NOTE: path, e.g. in liquidation or courtesy call.
-    await EthereumHelpers.getEvent(this.factory.system(), "Funded", {
-      _depositContractAddress: this.address
-    })
+    await EthereumHelpers.getEvent(
+      this.factory.system(),
+      "Funded",
+      {
+        _depositContractAddress: this.address
+      },
+      this.contract.deployedAtBlock
+    )
     console.debug(`Deposit ${this.address} transitioned to ACTIVE.`)
 
     return true
@@ -1120,7 +1160,8 @@ export default class Deposit {
     return EthereumHelpers.getExistingEvent(
       this.factory.system(),
       "RegisteredPubkey",
-      { _depositContractAddress: this.address }
+      { _depositContractAddress: this.address },
+      this.contract.deployedAtBlock
     )
   }
 
@@ -1296,7 +1337,7 @@ export default class Deposit {
   }
 
   /**
-   * Notify the contract that the deposit is severely undercollateralised,
+   * Notify the contract that the deposit is severely undercollateralized,
    * and begin liquidation of the signer bonds.
    *
    * The bonds are auctioned in a falling-price auction. The value of
@@ -1365,15 +1406,6 @@ export default class Deposit {
   }
 
   /**
-   * Notifies the contract that the courtesy period has elapsed.
-   */
-  async notifyCourtesyTimedOut() {
-    await EthereumHelpers.sendSafely(
-      this.contract.methods.notifyCourtesyTimedOut()
-    )
-  }
-
-  /**
    * Notify the contract that the signers have failed to produce a signature
    * for a redemption transaction. This is considered fraud, and moves the
    * deposit into liquidation.
@@ -1388,9 +1420,9 @@ export default class Deposit {
   /**
    * Notify the contract that the signers have failed to produce a redemption proof.
    */
-  async notifyRedemptionProofTimeout() {
+  async notifyRedemptionProofTimedOut() {
     await EthereumHelpers.sendSafely(
-      this.contract.methods.notifyRedemptionProofTimdOout()
+      this.contract.methods.notifyRedemptionProofTimedOut()
     )
   }
 

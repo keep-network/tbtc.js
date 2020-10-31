@@ -97,6 +97,11 @@ export default class Redemption {
           "SignatureSubmitted",
           { digest: redemptionDigest }
         )
+
+        console.debug(
+          `Found submitted signature for deposit ${this.deposit.address}`
+        )
+
         const { r, s, recoveryID } = signatureEvent.returnValues
         const publicKeyPoint = await this.deposit.publicKeyPoint
 
@@ -118,6 +123,10 @@ export default class Redemption {
               r.toString(),
               s.toString()
             )
+          )
+
+          console.debug(
+            `Submitted redemption signature for deposit ${this.deposit.address}`
           )
         }
 
@@ -180,7 +189,19 @@ export default class Redemption {
           fundingOutpoint
         )
 
-        if (!transaction) {
+        if (transaction) {
+          // TODO: Check if found transaction is exactly the one we expect as
+          // `signedTransaction` before we decide not to broadcast the `signedTransaction`.
+          // After fee increase it may happen that there are multiple transactions
+          // to the same script. We may want to confirm if found transaction matches
+          // the one we expect. In the previous step we're not looking via electrum
+          // for `signedTransaction` but provide parameters of the transaction such
+          // as `redeemerOutputScript`, `expectedValue` and `fundingOutpoint`.
+          console.debug(
+            `Found existing redemption transaction on Bitcoin chain ` +
+              `for deposit ${this.deposit.address}`
+          )
+        } else {
           console.debug(
             `Broadcasting signed redemption transaction to Bitcoin chain ` +
               `for deposit ${this.deposit.address}...`
@@ -233,6 +254,53 @@ export default class Redemption {
 
     // TODO bumpFee if needed
     return this.autoSubmittingState
+  }
+
+  /**
+   * Increases redemption transaction fee.
+   */
+  async increaseRedemptionFee() {
+    console.log(
+      `Looking for redemption requests for deposit ${this.deposit.address}...`
+    )
+
+    const allFees = (
+      await EthereumHelpers.getExistingEvents(
+        this.deposit.factory.system(),
+        "RedemptionRequested",
+        { _depositContractAddress: this.deposit.address },
+        this.deposit.contract.deployedAtBlock
+      )
+    ).map(_ => _.returnValues._requestedFee)
+
+    if (allFees.length == 0) {
+      throw new Error("Past redemption fees list is empty")
+    }
+
+    const initialFee = allFees.slice(-1)[0]
+    const latestFee = allFees.slice(0)[0]
+
+    const utxoValue = await this.deposit.contract.methods.utxoValue().call()
+    const previousOutputValue = toBN(utxoValue).sub(toBN(latestFee))
+    const newOutputValue = previousOutputValue.sub(toBN(initialFee))
+
+    const prevOutputValueBytes = previousOutputValue.toArrayLike(
+      Buffer,
+      "le",
+      8
+    )
+    const newOutputValueBytes = newOutputValue.toArrayLike(Buffer, "le", 8)
+
+    console.log(
+      `Increasing redemption fee for deposit ${this.deposit.address}...`
+    )
+
+    await EthereumHelpers.sendSafely(
+      this.deposit.contract.methods.increaseRedemptionFee(
+        prevOutputValueBytes,
+        newOutputValueBytes
+      )
+    )
   }
 
   /**
