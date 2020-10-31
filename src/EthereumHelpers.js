@@ -113,9 +113,14 @@ function getEvent(sourceContract, eventName, filter) {
     )
 
     sourceContract.once(eventName, { filter }, (error, event) => {
-      clearInterval(handle)
-      if (error) reject(error)
-      else resolve(event)
+      if (error) {
+        // We are not throwing an error as we want to fallback to querying past
+        // events in interval defined above.
+        console.warn(`failed to register for ${eventName}:`, error.message)
+      } else {
+        resolve(event)
+        clearInterval(handle)
+      }
     })
   })
 }
