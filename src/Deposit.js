@@ -203,8 +203,8 @@ export class DepositFactory {
     // Get the net_version
     const networkId = await this.config.web3.eth.net.getId()
 
-    const resolveContract = (/** @type {TruffleArtifact} */ artifact) => {
-      return EthereumHelpers.getDeployedContract(
+    const resolveContract = async (/** @type {TruffleArtifact} */ artifact) => {
+      return await EthereumHelpers.getDeployedContract(
         artifact,
         this.config.web3,
         networkId.toString()
@@ -212,39 +212,39 @@ export class DepositFactory {
     }
 
     /** @package */
-    this.constantsContract = resolveContract(
+    this.constantsContract = await resolveContract(
       /** @type {TruffleArtifact} */ (TBTCConstantsJSON)
     )
     /** @package */
-    this.systemContract = resolveContract(
+    this.systemContract = await resolveContract(
       /** @type {TruffleArtifact} */ (TBTCSystemJSON)
     )
     /** @package */
-    this.tokenContract = resolveContract(
+    this.tokenContract = await resolveContract(
       /** @type {TruffleArtifact} */ (TBTCTokenJSON)
     )
     /** @package */
-    this.depositTokenContract = resolveContract(
+    this.depositTokenContract = await resolveContract(
       /** @type {TruffleArtifact} */ (TBTCDepositTokenJSON)
     )
     /** @package */
-    this.feeRebateTokenContract = resolveContract(
+    this.feeRebateTokenContract = await resolveContract(
       /** @type {TruffleArtifact} */ (FeeRebateTokenJSON)
     )
     /** @package */
-    this.depositContract = resolveContract(
+    this.depositContract = await resolveContract(
       /** @type {TruffleArtifact} */ (DepositJSON)
     )
     /** @package */
-    this.depositFactoryContract = resolveContract(
+    this.depositFactoryContract = await resolveContract(
       /** @type {TruffleArtifact} */ (DepositFactoryJSON)
     )
     /** @package */
-    this.vendingMachineContract = resolveContract(
+    this.vendingMachineContract = await resolveContract(
       /** @type {TruffleArtifact} */ (VendingMachineJSON)
     )
     /** @package */
-    this.fundingScriptContract = resolveContract(
+    this.fundingScriptContract = await resolveContract(
       /** @type {TruffleArtifact} */ (FundingScriptJSON)
     )
   }
@@ -300,7 +300,8 @@ export class DepositFactory {
 
     return {
       depositAddress: createdEvent._depositContractAddress,
-      keepAddress: createdEvent._keepAddress
+      keepAddress: createdEvent._keepAddress,
+      createdAtBlock: createdEvent.blockNumber
     }
   }
 }
@@ -331,7 +332,8 @@ export default class Deposit {
     )
     const {
       depositAddress,
-      keepAddress
+      keepAddress,
+      createdAtBlock
     } = await factory.createNewDepositContract(satoshiLotSize)
     console.debug(
       `Looking up new deposit with address ${depositAddress} backed by ` +
@@ -341,12 +343,14 @@ export default class Deposit {
     const contract = EthereumHelpers.buildContract(
       web3,
       /** @type {TruffleArtifact} */ (DepositJSON).abi,
-      depositAddress
+      depositAddress,
+      createdAtBlock
     )
     const keepContract = EthereumHelpers.buildContract(
       web3,
       /** @type {TruffleArtifact} */ (BondedECDSAKeepJSON).abi,
-      keepAddress
+      keepAddress,
+      createdAtBlock
     )
 
     return new Deposit(factory, contract, keepContract)
@@ -359,11 +363,6 @@ export default class Deposit {
   static async forAddress(factory, depositAddress) {
     console.debug(`Looking up Deposit contract at address ${depositAddress}...`)
     const web3 = factory.config.web3
-    const contract = EthereumHelpers.buildContract(
-      web3,
-      /** @type {TruffleArtifact} */ (DepositJSON).abi,
-      depositAddress
-    )
 
     console.debug(`Looking up Created event for deposit ${depositAddress}...`)
     const createdEvent = await EthereumHelpers.getExistingEvent(
@@ -377,12 +376,20 @@ export default class Deposit {
       )
     }
 
+    const contract = EthereumHelpers.buildContract(
+      web3,
+      /** @type {TruffleArtifact} */ (DepositJSON).abi,
+      depositAddress,
+      createdEvent.blockNumber
+    )
+
     const keepAddress = createdEvent.returnValues._keepAddress
     console.debug(`Found keep address ${keepAddress}.`)
     const keepContract = EthereumHelpers.buildContract(
       web3,
       /** @type {TruffleArtifact} */ (BondedECDSAKeepJSON).abi,
-      keepAddress
+      keepAddress,
+      createdEvent.blockNumber
     )
 
     return new Deposit(factory, contract, keepContract)
@@ -936,7 +943,8 @@ export default class Deposit {
     const redemptionRequest = await EthereumHelpers.getExistingEvent(
       this.factory.system(),
       "RedemptionRequested",
-      { _depositContractAddress: this.address }
+      { _depositContractAddress: this.address },
+      this.contract.deployedAtBlock
     )
 
     if (!redemptionRequest) {
@@ -1135,9 +1143,14 @@ export default class Deposit {
     // If we weren't active, wait for Funded, then mark as active.
     // FIXME/NOTE: We could be inactive due to being outside of the funding
     // FIXME/NOTE: path, e.g. in liquidation or courtesy call.
-    await EthereumHelpers.getEvent(this.factory.system(), "Funded", {
-      _depositContractAddress: this.address
-    })
+    await EthereumHelpers.getEvent(
+      this.factory.system(),
+      "Funded",
+      {
+        _depositContractAddress: this.address
+      },
+      this.contract.deployedAtBlock
+    )
     console.debug(`Deposit ${this.address} transitioned to ACTIVE.`)
 
     return true
@@ -1147,7 +1160,8 @@ export default class Deposit {
     return EthereumHelpers.getExistingEvent(
       this.factory.system(),
       "RegisteredPubkey",
-      { _depositContractAddress: this.address }
+      { _depositContractAddress: this.address },
+      this.contract.deployedAtBlock
     )
   }
 
