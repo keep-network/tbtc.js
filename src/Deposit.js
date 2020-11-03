@@ -1353,6 +1353,16 @@ export default class Deposit {
   }
 
   /**
+   * Pays off the deposit balance and closes the liquidation auction
+   * via `Deposit.purchaseSignerBondsAtAuction`, then withdraws the purchased
+   * ETH by calling `DepositUtils.withdrawFunds`.
+   */
+  async takeAuction() {
+    await this.purchaseSignerBondsAtAuction()
+    await this.withdrawFunds()
+  }
+
+  /**
    * Purchases the signer bonds and closes the liquidation auction.
    */
   async purchaseSignerBondsAtAuction() {
@@ -1374,6 +1384,15 @@ export default class Deposit {
     await EthereumHelpers.sendSafely(
       this.contract.methods.purchaseSignerBondsAtAuction()
     )
+  }
+
+  /**
+   * Withdraw caller's allowance.
+   * Withdrawals can only happen when a contract is in an end-state.
+   */
+  async withdrawFunds() {
+    // FIXME Need systemic handling of default from address.
+    await EthereumHelpers.sendSafely(this.contract.methods.withdrawFunds())
   }
 
   /**
