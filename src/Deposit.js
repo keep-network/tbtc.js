@@ -849,12 +849,15 @@ export default class Deposit {
     const thisAccount = this.factory.config.web3.eth.defaultAccount
     const owner = await this.getOwner()
     const belongsToThisAccount = owner == thisAccount
+    const inCourtesyCall =
+      (await this.getCurrentState()) == DepositStates.COURTESY_CALL
 
-    if (!inVendingMachine && !belongsToThisAccount) {
+    if (!inVendingMachine && !belongsToThisAccount && !inCourtesyCall) {
       throw new Error(
         `Redemption is currently only supported for deposits owned by ` +
           `this account (${thisAccount}) or the tBTC Vending Machine ` +
-          `(${this.factory.vendingMachine().options.address}). This ` +
+          `(${this.factory.vendingMachine().options.address}), or deposits ` +
+          `that are in courtesy call. This ` +
           `deposit is owned by ${owner}.`
       )
     }
