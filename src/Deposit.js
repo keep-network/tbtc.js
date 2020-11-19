@@ -980,8 +980,14 @@ export default class Deposit {
    * a deposit, then transfer the deposit to a service provider who will
    * handle deposit qualification.
    *
+   * A deposit can be automatically pushed all the way through a mint (and with
+   * one fewer transaction) by using the `autoMint` method instead.
+   *
    * Calling this function more than once will return the existing state of
-   * the first auto submission process, rather than restarting the process.
+   * the first auto submission or minting process, rather than restarting the
+   * process. `autoMint` and `autoSubmission` share an auto-submission state,
+   * so a deposit cannot start auto-submitting and then switch to auto-minting
+   * mid-stream---whichever is called first will be the flow that will occur.
    *
    * @return {AutoSubmitState} An object with promises to various stages of
    *         the auto-submit lifetime. Each promise can be fulfilled or
@@ -1020,6 +1026,36 @@ export default class Deposit {
     return this.autoSubmittingState
   }
 
+  /**
+   * This method enables the deposit's auto-minting capabilities. In
+   * auto-mint mode, the deposit will automatically monitor for a new
+   * Bitcoin transaction to the deposit signers' Bitcoin wallet, then watch
+   * that transaction until it has accumulated sufficient work for proof
+   * of funding to be submitted to the deposit, then submit a transaction to
+   * simultaneously qualify it, move it into the ACTIVE state, and finally
+   * turn the deposit over to the vending machine to mint TBTC.
+   *
+   * Without calling this function, the deposit will do none of those things;
+   * instead, the caller will be in charge of managing (or choosing not to)
+   * this process. This can be useful, for example, if a dApp wants to open
+   * a deposit, then transfer the deposit to a service provider who will
+   * handle deposit qualification.
+   *
+   * A deposit can be automatically pushed through the qualification flow
+   * without minting at the end (i.e., preserving the owner's possession of the
+   * deposit) by using the `autoSubmit` method instead.
+   *
+   * Calling this function more than once will return the existing state of
+   * the first auto submission or minting process, rather than restarting the
+   * process. `autoMint` and `autoSubmission` share an auto-submission state,
+   * so a deposit cannot start auto-submitting and then switch to auto-minting
+   * mid-stream---whichever is called first will be the flow that will occur.
+   *
+   * @return {AutoSubmitState} An object with promises to various stages of
+   *         the auto-submit lifetime. Each promise can be fulfilled or
+   *         rejected, and they are in a sequence where later promises will be
+   *         rejected by earlier ones.
+   */
   autoMint() {
     // Only enable auto-submitting once.
     if (this.autoSubmittingState) {

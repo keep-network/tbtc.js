@@ -392,6 +392,28 @@ const BitcoinHelpers = {
       })
     },
     /**
+     * Looks up and returns the value and receiver address of a simple output
+     * in a transaction, given the transaction id and output index. Note that
+     * this assumes the output is to a single address rather than a multisig.
+     *
+     * @param {string} transactionID A hex Bitcoin transaction id hash.
+     * @param {number} outputIndex The index of the output in the referenced
+     *        transaction whose value to fetch.
+     * @return {Promise<{ value: number, address: string }>} The value of the
+     *         output at the given index in the given transaction.
+     */
+    getSimpleOutput: async function(transactionID, outputIndex) {
+      return BitcoinHelpers.withElectrumClient(async electrumClient => {
+        const { vout } = await electrumClient.getTransaction(transactionID)
+        const output = vout[outputIndex]
+
+        return {
+          value: output.value,
+          address: output.scriptPubKey.addresses[0]
+        }
+      })
+    },
+    /**
      * Checks the given Bitcoin `transactionID` to ensure it has at least
      * `requiredConfirmations` on-chain. If it does, resolves the returned
      * promise with the current number of on-chain confirmations. If it does
