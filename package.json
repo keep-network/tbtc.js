@@ -51,6 +51,7 @@
     "eslint-config-keep": "git+https://github.com/keep-network/eslint-config-keep.git#0.3.0",
     "fs": "0.0.1-security",
     "mocha": "^6.2.0",
+    "moment": "2.29.1",
     "prettier": "^1.19.1",
     "typescript": "3.4.3",
     "web3": "^1.2.11",
