@@ -8,6 +8,9 @@
     "esModuleInterop": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
-    "checkJs": true
+    "checkJs": true,
+    "lib": [
+      "es2019"
+    ]
   }
 }
