@@ -308,8 +308,6 @@ async function sendSafelyRetryable(
  * @param {Partial<SendOptions>} [sendParams] The parameters to pass to `call`.
  * @param {number} [totalAttempts=3] Total attempts which should be performed in
  *        case of an error before rethrowing it to the caller.
- * @param {number|string} [block="latest"] Determines the block for which the
- *        call should be performed.
  *
  * @return {Promise<any>} A promise to the result of sending the bound contract
  *         method. Fails the promise if gas estimation fails, extracting an
@@ -318,18 +316,14 @@ async function sendSafelyRetryable(
 async function callWithRetry(
   boundContractMethod,
   sendParams,
-  totalAttempts = 3,
-  block = "latest"
+  totalAttempts = 3
 ) {
   return backoffRetrier(totalAttempts)(async () => {
     // @ts-ignore A newer version of Web3 is needed to include call in TS.
-    return await boundContractMethod.call(
-      {
-        from: "", // FIXME Need systemic handling of default from address.
-        ...sendParams
-      },
-      block
-    )
+    return await boundContractMethod.call({
+      from: "", // FIXME Need systemic handling of default from address.
+      ...sendParams
+    })
   })
 }
 
