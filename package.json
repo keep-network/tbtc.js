@@ -55,6 +55,8 @@
     "prettier": "^1.19.1",
     "typescript": "3.4.3",
     "web3": "^1.2.11",
-    "web3-provider-engine": "^15.0.7"
+    "web3-provider-engine": "^15.0.7",
+    "papaparse": "5.2.0",
+    "@swan-bitcoin/xpub-lib": "0.1.0"
   }
 }
