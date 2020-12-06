@@ -27,7 +27,7 @@
 //      The JSON files should be in the common Ethereum signature format, and
 //      should present a Bitcoin xpub, ypub, zpub, or address, signed by the
 //      operator, staker, or beneficiary addresses for that operator's
-//      delegation.
+//      delegation. Defaults to `./beneficiaries`.
 //
 //   -r <refund-btc-address-directory>
 //      The directory that contains Bitcoin refund addresses for misfunds. These
@@ -36,7 +36,7 @@
 //      named `deposit-<address>.json`, where `<address>` is the tBTC deposit
 //      address. The JSON files should be in the common Ethereum signature
 //      format, and should present a Bitcoin address, signed by the owner of the
-//      specified deposit.
+//      specified deposit. Defaults to `./refunds`.
 //
 //   Iterates through the specified keep ids, looks up their public keys in
 //   order to compute their Bitcoin addresses, and verifies that they are still
@@ -58,17 +58,29 @@
 //    All on-chain state checks on Ethereum require at least 100 confirmations;
 //    all on-chain state checks on Bitcoin require at least 6 confirmations.
 // ////
+import PapaParse from "papaparse"
+import { promises /* createReadStream, existsSync, writeFileSync }*/ } from "fs"
+const { readdir, stat, readFile } = promises
+
 import Subproviders from "@0x/subproviders"
-// import Web3 from "web3"
+import Web3 from "web3"
 import ProviderEngine from "web3-provider-engine"
 import WebsocketSubprovider from "web3-provider-engine/subproviders/websocket.js"
 // import EthereumHelpers from "../src/EthereumHelpers.js"
 /** @typedef { import('../src/EthereumHelpers.js').TruffleArtifact } TruffleArtifact */
 
+import BondedECDSAKeepJSON from "@keep-network/keep-ecdsa/artifacts/BondedECDSAKeep.json"
+import TokenStakingJSON from "@keep-network/keep-core/artifacts/TokenStaking.json"
+
 import {
   findAndConsumeArgsExistence,
   findAndConsumeArgsValues
 } from "./helpers.js"
+import { spawn } from "child_process"
+import { EthereumHelpers } from "../index.js"
+import BitcoinHelpers from "../src/BitcoinHelpers.js"
+import AvailableBitcoinConfigs from "./config.json"
+import { contractsFromWeb3, lookupOwner } from "./owner-lookup.js"
 
 let args = process.argv.slice(2)
 if (process.argv[0].includes("refunds.js")) {
@@ -84,9 +96,25 @@ if (!debug) {
   console.debug = () => {}
 }
 const {
-  found: { mnemonic, /* account,*/ rpc }
-  /* remaining: commandArgs*/
-} = findAndConsumeArgsValues(flagArgs, "--mnemonic", "--account", "--rpc")
+  found: {
+    mnemonic,
+    /* account,*/ rpc,
+    c: keepEcdsaClientPath,
+    s: keyShareDirectory,
+    o: beneficiaryDirectory
+    // r: refundDirectory
+  },
+  remaining: commandArgs
+} = findAndConsumeArgsValues(
+  flagArgs,
+  "--mnemonic",
+  "--account",
+  "--rpc",
+  "-c",
+  "-s",
+  "-o",
+  "-r"
+)
 const engine = new ProviderEngine({ pollingInterval: 1000 })
 
 engine.addProvider(
@@ -105,39 +133,459 @@ engine.addProvider(
   })
 )
 
-// const web3 = new Web3(engine)
+if (commandArgs.length !== 1) {
+  console.error(`Only one CSV file is supported, got '${commandArgs}'.`)
+  process.exit(1)
+}
+
+const [infoCsv] = commandArgs
+
+const web3 = new Web3(engine)
 engine.start()
 
-run(async () => {
-  // TODO
-  // - Read CSV.
-  // - Check keeps for keyshare availability (= directory exists + has 3 files),
-  //   filter accordingly.
-  // - Check keep for terminated vs closed; make sure state has been settled for
-  //   past 100 blocks.
-  // - Check keep to see if it still holds BTC; if it does, make sure it has for
-  //   past 6 blocks.
-  // - If terminated, assume liquidation.
-  // - If closed, assume misfund.
-  //
-  // TODO liquidation
-  // - Check for BTC beneficiary availability for each operator in the keep
-  //   (= file exists + is JSON).
-  // - If available, verify that each beneficiary address is correctly signed by
-  //   the operator, staker, or beneficiary address of its delegation.
-  //   (= await web3.eth.personal.ecRecover(address.msg, address.sig) == address.account &&
-  //      [operator, staker, beneficiary].includes(message.account))
-  // - If yes, build, sign, and broadcast splitter transaction.
-  //
-  // TODO misfund
-  // - Check for BTC refund address availability for the keep's deposit.
-  // - If available, verify that the BTC refund address is correctly signed by
-  //   the owner of the keep's deposit.
-  //   (= await web3.eth.personal.ecRecover(address.msg, address.sig) == address.account &&
-  //      deposit.includes(message.account))
-  // - If yes, build, sign, and broadcast refund transaction.
+/**
+ * @param {string} keyShareDirectory
+ * @param {string} digest
+ * @return {Promise<string>}
+ */
+function signDigest(keyShareDirectory, digest) {
+  return new Promise((resolve, reject) => {
+    let output = ""
+    let errorOutput = ""
+    const process = spawn(keepEcdsaClientPath || "keep-ecdsa", [
+      "signing",
+      "sign-digest",
+      digest,
+      keyShareDirectory
+    ])
+    process.stdout.setEncoding("utf8")
+    process.stdout.on("data", chunk => (output += chunk))
+    process.stderr.on("data", chunk => (errorOutput += chunk))
 
-  return "boop"
+    process
+      .on("exit", (code, signal) => {
+        if (code === 0) {
+          resolve(output)
+        } else {
+          reject(
+            new Error(
+              `Process exited abnormally with signal ${signal} and code ${code}` +
+                errorOutput
+            )
+          )
+        }
+      })
+      .on("error", error => {
+        reject(errorOutput || error)
+      })
+  })
+}
+
+/**
+ * @param {string} keepAddress
+ */
+async function keySharesReady(keepAddress) {
+  const keepDirectory = (keyShareDirectory || "key-shares") + "/" + keepAddress
+  try {
+    return (
+      (await stat(keepDirectory)).isDirectory() &&
+      (await readdir(keepDirectory)).length == 3 &&
+      (await signDigest(keepDirectory, "deadbeef")) !== null
+    )
+  } catch (_) {
+    return false
+  }
+}
+
+/** @type {import("../src/EthereumHelpers.js").Contract} */
+let baseKeepContract
+/** @type {import("../src/EthereumHelpers.js").Contract} */
+let tokenStakingContract
+/** @type {number} */
+let startingBlock
+
+function keepAt(/** @type {string} */ keepAddress) {
+  baseKeepContract =
+    baseKeepContract ||
+    EthereumHelpers.buildContract(
+      web3,
+      /** @type {TruffleArtifact} */ (BondedECDSAKeepJSON).abi
+    )
+
+  const requestedKeep = baseKeepContract.clone()
+  requestedKeep.options.address = keepAddress
+  return requestedKeep
+}
+
+function tokenStaking() {
+  tokenStakingContract =
+    tokenStakingContract ||
+    EthereumHelpers.buildContract(
+      web3,
+      /** @type {TruffleArtifact} */ (TokenStakingJSON).abi
+    )
+
+  return tokenStakingContract
+}
+
+async function referenceBlock() {
+  startingBlock = startingBlock || (await web3.eth.getBlockNumber())
+  return startingBlock
+}
+
+/**
+ * @type {{ [operatorAddress: string]: { beneficiary?: string?, owner?: string? }}}
+ */
+const delegationInfoCache = {}
+
+function beneficiaryOf(/** @type {string} */ operatorAddress) {
+  if (
+    delegationInfoCache[operatorAddress] &&
+    delegationInfoCache[operatorAddress].beneficiary
+  ) {
+    return delegationInfoCache[operatorAddress].beneficiary
+  }
+
+  const beneficiary = tokenStaking()
+    .methods.beneficiaryOf(operatorAddress)
+    .call()
+  delegationInfoCache[operatorAddress] =
+    delegationInfoCache[operatorAddress] || {}
+  delegationInfoCache[operatorAddress].beneficiary = beneficiary
+
+  return beneficiary
+}
+
+async function deepOwnerOf(/** @type {string} */ operatorAddress) {
+  if (
+    delegationInfoCache[operatorAddress] &&
+    delegationInfoCache[operatorAddress].owner
+  ) {
+    return delegationInfoCache[operatorAddress].owner
+  }
+
+  const owner = lookupOwner(
+    web3,
+    await contractsFromWeb3(web3),
+    operatorAddress
+  )
+  delegationInfoCache[operatorAddress] =
+    delegationInfoCache[operatorAddress] || {}
+  delegationInfoCache[operatorAddress].owner = owner
+
+  return owner
+}
+
+/**
+ * @param {string} keepAddress
+ */
+async function keepStatusCompleted(keepAddress) {
+  const block = await referenceBlock()
+  const keepContract = keepAt(keepAddress)
+
+  if (await keepContract.methods.isClosed().call({}, block)) {
+    return "closed"
+  } else if (await keepContract.methods.isTerminated().call({}, block)) {
+    return "terminated"
+  } else {
+    return null
+  }
+}
+
+/**
+ * @param {string} keepAddress
+ */
+async function keepHoldsBtc(keepAddress) {
+  const keepContract = keepAt(keepAddress)
+  const pubkey = await keepContract.methods.getPublicKey().call()
+
+  const bitcoinAddress = BitcoinHelpers.Address.publicKeyToP2WPKHAddress(
+    pubkey.replace(/0x/, ""),
+    BitcoinHelpers.Network.MAINNET
+  )
+
+  const btcBalance = await BitcoinHelpers.Transaction.getBalance(bitcoinAddress)
+  console.log(bitcoinAddress, btcBalance)
+
+  return { bitcoinAddress, btcBalance }
+}
+
+/** @type {{[operatorAddress: string]: string}} */
+const operatorBeneficiaries = {}
+
+/**
+ * @param {string} operatorAddress
+ */
+async function readBeneficiary(operatorAddress) {
+  if (operatorBeneficiaries[operatorAddress]) {
+    return operatorBeneficiaries[operatorAddress]
+  }
+
+  const beneficiaryFile =
+    (beneficiaryDirectory || "beneficiaries") +
+    "/" +
+    operatorAddress.toLowerCase() +
+    ".json"
+
+  // If it doesn't exist, return empty.
+  try {
+    if (!(await stat(beneficiaryFile)).isFile()) {
+      return null
+    }
+  } catch (e) {
+    return null
+  }
+
+  /** @type {{message: string, signature: string, address: string}} */
+  const jsonContents = JSON.parse(
+    await readFile(beneficiaryFile, { encoding: "utf-8" })
+  )
+
+  if (
+    !jsonContents.message ||
+    !jsonContents.signature ||
+    !jsonContents.address
+  ) {
+    throw new Error(
+      `Invalid format for ${operatorAddress}: message, signature, or signing address missing.`
+    )
+  }
+
+  const recoveredAddress = await web3.eth.personal.ecRecover(
+    jsonContents.message,
+    jsonContents.signature
+  )
+  if (recoveredAddress !== jsonContents.address) {
+    throw new Error(
+      `Recovered address does not match signing address for ${operatorAddress}.`
+    )
+  }
+
+  if (
+    recoveredAddress.toLowerCase() !==
+      (await beneficiaryOf(operatorAddress)).toLowerCase() &&
+    recoveredAddress.toLowerCase() ===
+      (await deepOwnerOf(operatorAddress)).toLowerCase()
+  ) {
+    throw new Error(
+      `Beneficiary address for ${operatorAddress} was not signed by operator owner or beneficiary.`
+    )
+  }
+
+  const addresses = [
+    ...jsonContents.message.matchAll(/((?:1|3|bc1)[A-Za-z0-9]{26,33})/)
+  ].map(_ => _[1])
+  if (addresses.length > 1) {
+    throw new Error(
+      `Beneficiary message for ${operatorAddress} includes too many addresses: ${addresses}`
+    )
+  } else if (addresses.length === 1) {
+    operatorBeneficiaries[operatorAddress] = addresses[0]
+    return addresses[0]
+  }
+
+  const pubs = [...jsonContents.message.matchAll(/([xyz]pub[a-zA-Z0-9]*)/)].map(
+    _ => _[1]
+  )
+  if (pubs.length > 1) {
+    throw new Error(
+      `Beneficiary message for ${operatorAddress} includes too many addresses: ${addresses}`
+    )
+  } else if (pubs.length === 1) {
+    operatorBeneficiaries[operatorAddress] = pubs[0]
+    return pubs[0]
+  }
+
+  throw new Error(
+    `Could not find a valid BTC address or *pub in signed message for ${operatorAddress}: ` +
+      `${jsonContents.message}`
+  )
+}
+
+async function beneficiariesAvailableAndSigned(
+  /** @type {string} */ keepAddress
+) {
+  const keepContract = keepAt(keepAddress)
+
+  /** @type {[string,string,string]} */
+  const operators = await keepContract.methods.getMembers().call()
+  try {
+    const beneficiaries = await Promise.all(operators.map(readBeneficiary))
+    const unavailableBeneficiaries = beneficiaries
+      .map((beneficiary, i) => {
+        if (beneficiary === null) {
+          return operators[i]
+        } else {
+          return null
+        }
+      })
+      .filter(_ => _ !== null)
+
+    if (unavailableBeneficiaries.length > 0) {
+      return {
+        error: `not all beneficiaries are available (missing ${unavailableBeneficiaries})`
+      }
+    }
+
+    return {
+      beneficiary1: beneficiaries[0],
+      beneficiary2: beneficiaries[1],
+      beneficiary3: beneficiaries[2]
+    }
+  } catch (e) {
+    return { error: `beneficiary lookup failed: ${e}` }
+  }
+}
+
+async function buildAndBroadcastLiquidationSplit(/** @type {any} */ keepData) {
+  return {}
+}
+
+async function processKeeps(/** @type {{[any: string]: string}[]} */ keepRows) {
+  const keeps = keepRows
+    .filter(_ => _.keep) // strip any weird undefined lines
+    .reduce((keepSet, { keep }) => keepSet.add(keep), new Set())
+  const results = Array.from(keeps).map(async keep => {
+    // Contract for processors is they take the row data and return updated row
+    // data; if the updated row data includes an `error` key, subsequent
+    // processors don't run.
+    const genericStatusProcessors = [
+      async (/** @type {any} */ row) =>
+        ((await keySharesReady(row.keep)) && row) || {
+          ...row,
+          error: "missing key shares"
+        },
+      async (/** @type {any} */ row) => {
+        const status = await keepStatusCompleted(row.keep)
+
+        if (status) {
+          return { ...row, status }
+        } else {
+          return { ...row, error: "no status" }
+        }
+      },
+      async (/** @type {any} */ row) => {
+        const balanceData = await keepHoldsBtc(row.keep)
+
+        if (balanceData && balanceData.btcBalance > 0) {
+          return { ...row, ...balanceData }
+        } else {
+          return { ...row, error: "no BTC" }
+        }
+      }
+    ]
+    const liquidationProcessors = [
+      async (/** @type {any} */ row) => {
+        const beneficiaries = await beneficiariesAvailableAndSigned(row.keep)
+
+        if (beneficiaries) {
+          return { ...row, ...beneficiaries }
+        } else {
+          return {
+            ...row,
+            error: "no beneficiary"
+          }
+        }
+      },
+      async (/** @type {any} */ row) => {
+        const transactionData = await buildAndBroadcastLiquidationSplit(row)
+
+        if (transactionData) {
+          return { ...row, ...transactionData }
+        } else {
+          return {
+            ...row,
+            error:
+              "failed to build and broadcast liquidation split BTC transaction"
+          }
+        }
+      }
+    ]
+    const misfundProcessors = [async (/** @type {any} */ row) => row]
+    //   refundAddressAvailable,
+    //   refundAddressSigned
+    // ]
+    const processThrough = async (
+      /** @type {any} */ inputData,
+      /** @type {(function(any):Promise<any>)[]} */ processors
+    ) => {
+      return await processors.reduce(async (rowPromise, process) => {
+        const row = await rowPromise
+        if (!row.error) {
+          return await process(row)
+        } else {
+          return row
+        }
+      }, inputData)
+    }
+
+    // @ts-ignore No really, this is a valid config.
+    BitcoinHelpers.electrumConfig = AvailableBitcoinConfigs["1"].electrum
+    const basicInfo = await processThrough({ keep }, genericStatusProcessors)
+
+    if (basicInfo.status == "terminated") {
+      return processThrough(basicInfo, liquidationProcessors)
+    } else if (basicInfo.status == "closed") {
+      return processThrough(basicInfo, misfundProcessors)
+    } else {
+      return basicInfo
+    }
+  })
+
+  return Promise.all(results)
+}
+
+run(() => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      PapaParse.parse(await readFile(infoCsv, "utf8"), {
+        header: true,
+        transformHeader: header => {
+          const unspaced = header.trim().replace(/ /g, "")
+          return unspaced[0].toLowerCase() + unspaced.slice(1)
+        },
+        complete: ({ data }) => {
+          processKeeps(data).then(keepRows => {
+            const allKeys = Array.from(new Set(keepRows.flatMap(Object.keys)))
+
+            const arrayRows = keepRows.map(row => allKeys.map(key => row[key]))
+            resolve(
+              [allKeys]
+                .concat(arrayRows)
+                .map(_ => _.join(","))
+                .join("\n")
+            )
+          })
+        }
+      })
+    } catch (err) {
+      reject(err)
+    }
+    // TODO
+    // - Check keep for terminated vs closed; make sure state has been settled for
+    //   past 100 blocks.
+    // - Check keep to see if it still holds BTC; if it does, make sure it has for
+    //   past 6 blocks.
+    // - If terminated, assume liquidation.
+    // - If closed, assume misfund.
+    //
+    // TODO liquidation
+    // - Check for BTC beneficiary availability for each operator in the keep
+    //   (= file exists + is JSON).
+    // - If available, verify that each beneficiary address is correctly signed by
+    //   the operator, staker, or beneficiary address of its delegation.
+    //   (= await web3.eth.personal.ecRecover(address.msg, address.sig) == address.account &&
+    //      [operator, staker, beneficiary].includes(message.account))
+    // - If yes, build, sign, and broadcast splitter transaction.
+    //
+    // TODO misfund
+    // - Check for BTC refund address availability for the keep's deposit.
+    // - If available, verify that the BTC refund address is correctly signed by
+    //   the owner of the keep's deposit.
+    //   (= await web3.eth.personal.ecRecover(address.msg, address.sig) == address.account &&
+    //      deposit.includes(message.account))
+    // - If yes, build, sign, and broadcast refund transaction.
+  })
 })
 
 /**

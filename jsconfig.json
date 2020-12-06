@@ -10,7 +10,8 @@
     "strictNullChecks": true,
     "checkJs": true,
     "lib": [
-      "es2019"
+      "es2019",
+      "es2020.string"
     ]
   }
 }
