@@ -339,24 +339,20 @@ async function readBeneficiary(operatorAddress) {
     return null
   }
 
-  /** @type {{message: string, signature: string, address: string}} */
+  /** @type {{msg: string, sig: string, address: string}} */
   const jsonContents = JSON.parse(
     await readFile(beneficiaryFile, { encoding: "utf-8" })
   )
 
-  if (
-    !jsonContents.message ||
-    !jsonContents.signature ||
-    !jsonContents.address
-  ) {
+  if (!jsonContents.msg || !jsonContents.sig || !jsonContents.address) {
     throw new Error(
       `Invalid format for ${operatorAddress}: message, signature, or signing address missing.`
     )
   }
 
-  const recoveredAddress = await web3.eth.personal.ecRecover(
-    jsonContents.message,
-    jsonContents.signature
+  const recoveredAddress = web3.eth.accounts.recover(
+    jsonContents.msg,
+    jsonContents.sig
   )
   if (recoveredAddress !== jsonContents.address) {
     throw new Error(
@@ -376,8 +372,8 @@ async function readBeneficiary(operatorAddress) {
   }
 
   const addresses = [
-    ...jsonContents.message.matchAll(/((?:1|3|bc1)[A-Za-z0-9]{26,33})/)
-  ].map(_ => _[1])
+    ...jsonContents.msg.matchAll(/(?:1|3|bc1)[A-Za-z0-9]{26,33}/g)
+  ].map(_ => _[0])
   if (addresses.length > 1) {
     throw new Error(
       `Beneficiary message for ${operatorAddress} includes too many addresses: ${addresses}`
@@ -387,8 +383,8 @@ async function readBeneficiary(operatorAddress) {
     return addresses[0]
   }
 
-  const pubs = [...jsonContents.message.matchAll(/([xyz]pub[a-zA-Z0-9]*)/)].map(
-    _ => _[1]
+  const pubs = [...jsonContents.msg.matchAll(/[xyz]pub[a-zA-Z0-9]*/g)].map(
+    _ => _[0]
   )
   if (pubs.length > 1) {
     throw new Error(
@@ -401,7 +397,7 @@ async function readBeneficiary(operatorAddress) {
 
   throw new Error(
     `Could not find a valid BTC address or *pub in signed message for ${operatorAddress}: ` +
-      `${jsonContents.message}`
+      `${jsonContents.msg}`
   )
 }
 
