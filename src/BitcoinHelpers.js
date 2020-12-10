@@ -662,6 +662,56 @@ const BitcoinHelpers = {
       return transaction.toRaw().toString("hex")
     },
     /**
+     * Constructs a Bitcoin SegWit transaction with one input and many outputs.
+     * Difference between all outputs values summed and previous output value
+     * will be taken as a transaction fee.
+     *
+     * @param {string} previousOutpoint Previous transaction's output to be
+     *        used as an input. Provided in hexadecimal format, consists of
+     *        32-byte transaction ID and 4-byte output index number.
+     * @param {number} inputSequence Input's sequence number. As per
+     *        BIP-125 the value is used to indicate that transaction should
+     *        be able to be replaced in the future. If input sequence is set
+     *        to `0xffffffff` the transaction won't be replaceable.
+     * @param {number} outputValue Value for the output.
+     * @param {{value: number, script: string}[]} outputDetails Outputs for the
+     *        transaction as a combination of values and output scripts as unprefixed
+     *        hexadecimal strings.
+     *
+     * @return {string} Raw bitcoin transaction in hexadecimal format.
+     */
+    constructOneInputWitnessTransaction(
+      previousOutpoint,
+      inputSequence,
+      ...outputDetails
+    ) {
+      // Input
+      const prevOutpoint = Outpoint.fromRaw(
+        Buffer.from(previousOutpoint, "hex")
+      )
+
+      const input = Input.fromOptions({
+        prevout: prevOutpoint,
+        sequence: inputSequence
+      })
+
+      // Outputs
+      const outputs = outputDetails.map(({ value, script }) =>
+        Output.fromOptions({
+          value: value,
+          script: Buffer.from(script, "hex")
+        })
+      )
+
+      // Transaction
+      const transaction = TX.fromOptions({
+        inputs: [input],
+        outputs: outputs
+      })
+
+      return transaction.toRaw().toString("hex")
+    },
+    /**
      * Finds all transactions containing unspent outputs received
      * by the `bitcoinAddress`.
      *
