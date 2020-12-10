@@ -511,10 +511,14 @@ async function processKeeps(/** @type {{[any: string]: string}[]} */ keepRows) {
     ) => {
       return await processors.reduce(async (rowPromise, process) => {
         const row = await rowPromise
-        if (!row.error) {
-          return await process(row)
-        } else {
-          return row
+        try {
+          if (!row.error) {
+            return await process(row)
+          } else {
+            return row
+          }
+        } catch (e) {
+          return { ...row, error: `Error processing transaction: ${e}` }
         }
       }, inputData)
     }
