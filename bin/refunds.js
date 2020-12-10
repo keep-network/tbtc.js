@@ -8,6 +8,11 @@
 //     A CSV file that should have a column whose title is `keep`. It may have
 //     other columns, which will be ignored.
 //
+//   -f <bitcoin-transaction-fee>
+//     The bitcoin transaction fee to use, in satoshis, as a constant. By
+//     default, uses a multiplier on the minimum redemption fee allowed by the
+//     tBTC system.
+//
 //   -c <keep-ecdsa-client-path>
 //     The path to the keep-ecdsa client executable. If omitted, `keep-ecdsa` is
 //     assumed (and must be on the PATH).
@@ -69,8 +74,11 @@ import WebsocketSubprovider from "web3-provider-engine/subproviders/websocket.js
 // import EthereumHelpers from "../src/EthereumHelpers.js"
 /** @typedef { import('../src/EthereumHelpers.js').TruffleArtifact } TruffleArtifact */
 
-import BondedECDSAKeepJSON from "@keep-network/keep-ecdsa/artifacts/BondedECDSAKeep.json"
 import TokenStakingJSON from "@keep-network/keep-core/artifacts/TokenStaking.json"
+import BondedECDSAKeepJSON from "@keep-network/keep-ecdsa/artifacts/BondedECDSAKeep.json"
+import TBTCSystemJSON from "@keep-network/tbtc/artifacts/TBTCSystem.json"
+import TBTCConstantsJSON from "@keep-network/tbtc/artifacts/TBTCConstants.json"
+import TBTCDepositTokenJSON from "@keep-network/tbtc/artifacts/TBTCDepositToken.json"
 
 import {
   findAndConsumeArgsExistence,
@@ -81,6 +89,12 @@ import { EthereumHelpers } from "../index.js"
 import BitcoinHelpers from "../src/BitcoinHelpers.js"
 import AvailableBitcoinConfigs from "./config.json"
 import { contractsFromWeb3, lookupOwner } from "./owner-lookup.js"
+import {
+  computeSighash,
+  constructSignedTransaction
+} from "./commands/bitcoin.js"
+import web3Utils from "web3-utils"
+const { toBN } = web3Utils
 
 let args = process.argv.slice(2)
 if (process.argv[0].includes("refunds.js")) {
@@ -99,6 +113,7 @@ const {
   found: {
     mnemonic,
     /* account,*/ rpc,
+    f: transactionFee,
     c: keepEcdsaClientPath,
     s: keyShareDirectory,
     o: beneficiaryDirectory,
@@ -110,6 +125,7 @@ const {
   "--mnemonic",
   "--account",
   "--rpc",
+  "-f",
   "-c",
   "-s",
   "-o",
@@ -204,6 +220,12 @@ async function keySharesReady(keepAddress) {
 let baseKeepContract
 /** @type {import("../src/EthereumHelpers.js").Contract} */
 let tokenStakingContract
+/** @type {Promise<import("../src/EthereumHelpers.js").Contract>} */
+let tbtcSystemContract
+/** @type {Promise<import("../src/EthereumHelpers.js").Contract>} */
+let tbtcConstantsContract
+/** @type {Promise<import("../src/EthereumHelpers.js").Contract>} */
+let tbtcDepositTokenContract
 /** @type {number} */
 let startingBlock
 
@@ -215,7 +237,7 @@ function keepAt(/** @type {string} */ keepAddress) {
       /** @type {TruffleArtifact} */ (BondedECDSAKeepJSON).abi
     )
 
-  const requestedKeep = baseKeepContract.clone()
+  const requestedKeep = /** @type {typeof baseKeepContract} */ (baseKeepContract.clone())
   requestedKeep.options.address = keepAddress
   return requestedKeep
 }
@@ -229,6 +251,42 @@ function tokenStaking() {
     )
 
   return tokenStakingContract
+}
+
+function tbtcSystem() {
+  tbtcSystemContract =
+    tbtcSystemContract ||
+    EthereumHelpers.getDeployedContract(
+      /** @type {TruffleArtifact} */ (TBTCSystemJSON),
+      web3,
+      "1"
+    )
+
+  return tbtcSystemContract
+}
+
+function tbtcConstants() {
+  tbtcConstantsContract =
+    tbtcConstantsContract ||
+    EthereumHelpers.getDeployedContract(
+      /** @type {TruffleArtifact} */ (TBTCConstantsJSON),
+      web3,
+      "1"
+    )
+
+  return tbtcConstantsContract
+}
+
+function tbtcDepositToken() {
+  tbtcDepositTokenContract =
+    tbtcDepositTokenContract ||
+    EthereumHelpers.getDeployedContract(
+      /** @type {TruffleArtifact} */ (TBTCDepositTokenJSON),
+      web3,
+      "1"
+    )
+
+  return tbtcDepositTokenContract
 }
 
 async function referenceBlock() {
@@ -308,7 +366,6 @@ async function keepHoldsBtc(keepAddress) {
   )
 
   const btcBalance = await BitcoinHelpers.Transaction.getBalance(bitcoinAddress)
-  console.log(bitcoinAddress, btcBalance)
 
   return { bitcoinAddress, btcBalance }
 }
@@ -401,6 +458,64 @@ async function readBeneficiary(operatorAddress) {
   )
 }
 
+async function readRefundAddress(/** @type {string} */ depositAddress) {
+  const addressFile =
+    (misfundDirectory || "misfunds") +
+    "/misfund-" +
+    depositAddress.toLowerCase() +
+    ".json"
+
+  // If it doesn't exist, return empty.
+  try {
+    if (!(await stat(addressFile)).isFile()) {
+      return null
+    }
+  } catch (e) {
+    return null
+  }
+
+  /** @type {{msg: string, sig: string, address: string}} */
+  const jsonContents = JSON.parse(
+    await readFile(addressFile, { encoding: "utf-8" })
+  )
+
+  if (!jsonContents.msg || !jsonContents.sig || !jsonContents.address) {
+    throw new Error(
+      `Invalid format for signed address: message, signature, or signing address missing.`
+    )
+  }
+
+  const recoveredAddress = web3.eth.accounts.recover(
+    jsonContents.msg,
+    jsonContents.sig
+  )
+  if (recoveredAddress.toLowerCase() !== jsonContents.address.toLowerCase()) {
+    throw new Error(`Recovered address does not match signing address.`)
+  }
+
+  const depositOwner = await (await tbtcDepositToken()).methods
+    .ownerOf(depositAddress)
+    .call()
+
+  if (recoveredAddress.toLowerCase() !== depositOwner.toLowerCase()) {
+    throw new Error(`Refund address was not signed by deposit owner.`)
+  }
+
+  const addresses = [
+    ...jsonContents.msg.matchAll(/(?:1|3|bc1)[A-Za-z0-9]{26,33}/g)
+  ].map(_ => _[0])
+  if (addresses.length > 1) {
+    throw new Error(`Refund message includes too many addresses: ${addresses}`)
+  } else if (addresses.length === 1) {
+    return addresses[0]
+  }
+
+  throw new Error(
+    `Could not find a valid BTC address in signed message: ` +
+      `${jsonContents.msg}`
+  )
+}
+
 async function beneficiariesAvailableAndSigned(
   /** @type {string} */ keepAddress
 ) {
@@ -436,8 +551,121 @@ async function beneficiariesAvailableAndSigned(
   }
 }
 
+async function misfundRecipientAvailableAndSigned(
+  /** @type {string} */ keepAddress
+) {
+  // Find associated deposit.
+  const {
+    returnValues: { _depositContractAddress: depositAddress }
+  } = await EthereumHelpers.getExistingEvent(await tbtcSystem(), "Created", {
+    _keepAddress: keepAddress
+  })
+
+  // find owner
+  // check for beneficiary info
+  /** @type {[string,string,string]} */
+  try {
+    const refundAddress = await readRefundAddress(depositAddress)
+
+    if (!refundAddress) {
+      return {
+        error: `refund address missing`
+      }
+    }
+
+    return {
+      recipientAddress: refundAddress
+    }
+  } catch (e) {
+    return { error: `refund address lookup failed: ${e}` }
+  }
+}
+
 async function buildAndBroadcastLiquidationSplit(/** @type {any} */ keepData) {
   return {}
+}
+
+async function findFundingInfo(/** @type {string} */ bitcoinAddress) {
+  const unspent = await BitcoinHelpers.Transaction.findAllUnspent(
+    bitcoinAddress
+  )
+
+  if (unspent.length > 1) {
+    return { error: "Multiple unspent outputs, manual intervention required." }
+  } else if (unspent.length == 0) {
+    return { error: "No unspent outputs." }
+  }
+
+  const { transactionID, outputPosition } = unspent[0]
+
+  return {
+    fundingTransactionID: transactionID,
+    fundingTransactionPosition: outputPosition
+  }
+}
+
+async function buildAndBroadcastRefund(/** @type {any} */ keepData) {
+  const {
+    /** @type {string} */ keep: keepAddress,
+    /** @type {string} */ bitcoinAddress,
+    /** @type {number} */ btcBalance,
+    /** @type {string} */ recipientAddress,
+    /** @type {string} */ fundingTransactionID,
+    /** @type {number} */ fundingTransactionPosition
+  } = keepData
+
+  const fee =
+    parseInt(transactionFee || "0") ||
+    toBN(await (await tbtcConstants()).methods.getMinimumRedemptionFee().call())
+      .muln(18)
+      .muln(5)
+      .toNumber()
+
+  const refundAmount = btcBalance - fee
+  const sighashToSign = computeSighash(
+    {
+      transactionID: fundingTransactionID,
+      index: fundingTransactionPosition
+    },
+    btcBalance,
+    bitcoinAddress,
+    { value: refundAmount, address: recipientAddress }
+  )
+
+  try {
+    const { signature, publicKey } = await signDigest(
+      keepAddress,
+      sighashToSign.toString("hex")
+    )
+    const signedTransaction = constructSignedTransaction(
+      {
+        transactionID: fundingTransactionID,
+        index: fundingTransactionPosition
+      },
+      signature,
+      publicKey,
+      {
+        value: refundAmount,
+        address: recipientAddress
+      }
+    )
+
+    // const { transactionID } = await BitcoinHelpers.Transaction.broadcast(
+    //   signedTransaction
+    // )
+    const transactionID = "lolnope"
+
+    return {
+      refundAmount,
+      signature,
+      publicKey,
+      transactionID,
+      signedTransaction
+    }
+  } catch (e) {
+    console.log(e)
+    return { refundAmount, error: `Error signing: ${e}` }
+  }
 }
 
 async function processKeeps(/** @type {{[any: string]: string}[]} */ keepRows) {
@@ -500,10 +728,52 @@ async function processKeeps(/** @type {{[any: string]: string}[]} */ keepRows) {
         }
       }
     ]
-    const misfundProcessors = [async (/** @type {any} */ row) => row]
-    //   refundAddressAvailable,
-    //   refundAddressSigned
-    // ]
+    const misfundProcessors = [
+      // - Check for BTC refund address availability for the keep's deposit.
+      // - If available, verify that the BTC refund address is correctly signed by
+      //   the owner of the keep's deposit.
+      //   (= await web3.eth.personal.ecRecover(address.msg, address.sig) == address.account &&
+      //      deposit.includes(message.account))
+      // - If yes, build, sign, and broadcast refund transaction.
+      async (/** @type {any} */ row) => {
+        const misfunderInfo = await misfundRecipientAvailableAndSigned(row.keep)
+
+        if (misfunderInfo) {
+          return { ...row, ...misfunderInfo }
+        } else {
+          return {
+            ...row,
+            error: "no beneficiary"
+          }
+        }
+      },
+      async (/** @type {any} */ row) => {
+        const fundingInfo = await findFundingInfo(row.bitcoinAddress)
+
+        if (fundingInfo) {
+          return { ...row, ...fundingInfo }
+        } else {
+          return {
+            ...row,
+            error:
+              "failed to build and broadcast liquidation split BTC transaction"
+          }
+        }
+      },
+      async (/** @type {any} */ row) => {
+        const transactionData = await buildAndBroadcastRefund(row)
+
+        if (transactionData) {
+          return { ...row, ...transactionData }
+        } else {
+          return {
+            ...row,
+            error:
+              "failed to build and broadcast liquidation split BTC transaction"
+          }
+        }
+      }
+    ]
     const processThrough = async (
       /** @type {any} */ inputData,
       /** @type {(function(any):Promise<any>)[]} */ processors
