@@ -29,14 +29,14 @@
 //      operator, staker, or beneficiary addresses for that operator's
 //      delegation. Defaults to `./beneficiaries`.
 //
-//   -r <refund-btc-address-directory>
-//      The directory that contains Bitcoin refund addresses for misfunds. These
-//      are the addresses designated by accounts that funded incorrectly to
-//      retrieve their Bitcoin. The directory should contain a set of JSON files
-//      named `deposit-<address>.json`, where `<address>` is the tBTC deposit
-//      address. The JSON files should be in the common Ethereum signature
-//      format, and should present a Bitcoin address, signed by the owner of the
-//      specified deposit. Defaults to `./refunds`.
+//   -m <misfund-btc-address-directory>
+//      The directory that contains Bitcoin receive addresses for misfunds.
+//      These are the addresses designated by accounts that funded incorrectly
+//      to retrieve their Bitcoin. The directory should contain a set of JSON
+//      files named `misfund-<address>.json`, where `<address>` is the tBTC
+//      deposit address. The JSON files should be in the common Ethereum
+//      signature format, and should present a Bitcoin address, signed by the
+//      owner of the specified deposit. Defaults to `./misfunds`.
 //
 //   Iterates through the specified keep ids, looks up their public keys in
 //   order to compute their Bitcoin addresses, and verifies that they are still
@@ -101,8 +101,8 @@ const {
     /* account,*/ rpc,
     c: keepEcdsaClientPath,
     s: keyShareDirectory,
-    o: beneficiaryDirectory
-    // r: refundDirectory
+    o: beneficiaryDirectory,
+    m: misfundDirectory
   },
   remaining: commandArgs
 } = findAndConsumeArgsValues(
@@ -113,6 +113,7 @@ const {
   "-c",
   "-s",
   "-o",
+  "-m",
   "-r"
 )
 const engine = new ProviderEngine({ pollingInterval: 1000 })
