@@ -145,11 +145,12 @@ const web3 = new Web3(engine)
 engine.start()
 
 /**
- * @param {string} keyShareDirectory
+ * @param {string} keepAddress,
  * @param {string} digest
- * @return {Promise<string>}
+ * @return {Promise<{ signature: string, publicKey: string }>}
  */
-function signDigest(keyShareDirectory, digest) {
+function signDigest(keepAddress, digest) {
+  const keepDirectory = (keyShareDirectory || "key-shares") + "/" + keepAddress
   return new Promise((resolve, reject) => {
     let output = ""
     let errorOutput = ""
@@ -157,7 +158,7 @@ function signDigest(keyShareDirectory, digest) {
       "signing",
       "sign-digest",
       digest,
-      keyShareDirectory
+      keepDirectory
     ])
     process.stdout.setEncoding("utf8")
     process.stdout.on("data", chunk => (output += chunk))
@@ -166,7 +167,8 @@ function signDigest(keyShareDirectory, digest) {
     process
       .on("exit", (code, signal) => {
         if (code === 0) {
-          resolve(output)
+          const [publicKey, signature] = output.split("\t")
+          resolve({ signature: signature.trim(), publicKey: publicKey.trim() })
         } else {
           reject(
             new Error(
@@ -191,7 +193,7 @@ async function keySharesReady(keepAddress) {
     return (
       (await stat(keepDirectory)).isDirectory() &&
       (await readdir(keepDirectory)).length == 3 &&
-      (await signDigest(keepDirectory, "deadbeef")) !== null
+      (await signDigest(keepAddress, "deadbeef")) !== null
     )
   } catch (_) {
     return false
