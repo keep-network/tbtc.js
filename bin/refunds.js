@@ -76,7 +76,7 @@ import WebsocketSubprovider from "web3-provider-engine/subproviders/websocket.js
 // @ts-ignore This lib is built all sorts of poorly for imports.
 import xpubLib from "@swan-bitcoin/xpub-lib"
 // @ts-ignore This lib is built all sorts of poorly for typing.
-const { getExtPubKeyMetadata, addressFromExtPubKey, Purpose } = xpubLib
+const { getExtPubKeyMetadata, addressFromExtPubKey } = xpubLib
 
 import TokenStakingJSON from "@keep-network/keep-core/artifacts/TokenStaking.json"
 import BondedECDSAKeepJSON from "@keep-network/keep-ecdsa/artifacts/BondedECDSAKeep.json"
@@ -391,7 +391,7 @@ async function generateAddress(/** @type {string} */ beneficiary) {
     const derivedAddressInfo = addressFromExtPubKey({
       extPubKey: beneficiary,
       keyIndex: addressIndex,
-      purpose: Purpose.P2PKH,
+      purpose: metadata.type,
       network: metadata.network
     })
     latestAddress = derivedAddressInfo.address
