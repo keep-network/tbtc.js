@@ -868,6 +868,7 @@ async function processKeeps(/** @type {{[any: string]: string}[]} */ keepRows) {
         }
       }
     ]
+
     const processThrough = async (
       /** @type {any} */ inputData,
       /** @type {(function(any):Promise<any>)[]} */ processors
@@ -886,8 +887,6 @@ async function processKeeps(/** @type {{[any: string]: string}[]} */ keepRows) {
       }, inputData)
     }
 
-    // @ts-ignore No really, this is a valid config.
-    BitcoinHelpers.electrumConfig = AvailableBitcoinConfigs["1"].electrum
     const basicInfo = await processThrough({ keep }, genericStatusProcessors)
 
     if (basicInfo.status == "terminated") {
@@ -912,17 +911,23 @@ run(() => {
           return unspaced[0].toLowerCase() + unspaced.slice(1)
         },
         complete: ({ data }) => {
-          processKeeps(data).then(keepRows => {
-            const allKeys = Array.from(new Set(keepRows.flatMap(Object.keys)))
+          // @ts-ignore No really, this is a valid config.
+          BitcoinHelpers.electrumConfig = AvailableBitcoinConfigs["1"].electrum
+          BitcoinHelpers.withElectrumClient(() =>
+            processKeeps(data).then(keepRows => {
+              const allKeys = Array.from(new Set(keepRows.flatMap(Object.keys)))
 
-            const arrayRows = keepRows.map(row => allKeys.map(key => row[key]))
-            resolve(
-              [allKeys]
-                .concat(arrayRows)
-                .map(_ => _.join(","))
-                .join("\n")
-            )
-          })
+              const arrayRows = keepRows.map(row =>
+                allKeys.map(key => row[key])
+              )
+              resolve(
+                [allKeys]
+                  .concat(arrayRows)
+                  .map(_ => _.join(","))
+                  .join("\n")
+              )
+            })
+          )
         }
       })
     } catch (err) {
