@@ -74,6 +74,11 @@ import WebsocketSubprovider from "web3-provider-engine/subproviders/websocket.js
 // import EthereumHelpers from "../src/EthereumHelpers.js"
 /** @typedef { import('../src/EthereumHelpers.js').TruffleArtifact } TruffleArtifact */
 
+// @ts-ignore This lib is built all sorts of poorly for imports.
+import xpubLib from "@swan-bitcoin/xpub-lib"
+// @ts-ignore This lib is built all sorts of poorly for typing.
+const { getExtPubKeyMetadata, addressFromExtPubKey, Purpose } = xpubLib
+
 import TokenStakingJSON from "@keep-network/keep-core/artifacts/TokenStaking.json"
 import BondedECDSAKeepJSON from "@keep-network/keep-ecdsa/artifacts/BondedECDSAKeep.json"
 import TBTCSystemJSON from "@keep-network/tbtc/artifacts/TBTCSystem.json"
@@ -375,12 +380,35 @@ async function keepHoldsBtc(keepAddress) {
 /** @type {{[operatorAddress: string]: string}} */
 const operatorBeneficiaries = {}
 
+async function generateAddress(/** @type {string} */ beneficiary) {
+  if (!beneficiary.match(/^.pub/)) {
+    return beneficiary // standard address, always returns itself
+  }
+
+  const metadata = getExtPubKeyMetadata(beneficiary)
+  let latestAddress = ""
+  let addressIndex = 0
+  do {
+    const derivedAddressInfo = addressFromExtPubKey({
+      extPubKey: beneficiary,
+      keyIndex: addressIndex,
+      purpose: Purpose.P2PKH,
+      network: metadata.network
+    })
+    latestAddress = derivedAddressInfo.address
+    // TODO Store address index?
+    addressIndex++
+  } while (await BitcoinHelpers.Transaction.find(latestAddress, 0))
+
+  return latestAddress
+}
+
 /**
  * @param {string} operatorAddress
  */
 async function readBeneficiary(operatorAddress) {
   if (operatorBeneficiaries[operatorAddress]) {
-    return operatorBeneficiaries[operatorAddress]
+    return generateAddress(operatorBeneficiaries[operatorAddress])
   }
 
   const beneficiaryFile =
@@ -439,7 +467,7 @@ async function readBeneficiary(operatorAddress) {
     )
   } else if (pubs.length !== 0) {
     operatorBeneficiaries[operatorAddress] = pubs[0]
-    return pubs[0]
+    return generateAddress(pubs[0])
   }
 
   const addresses = [
@@ -451,7 +479,7 @@ async function readBeneficiary(operatorAddress) {
     )
   } else if (addresses.length !== 0) {
     operatorBeneficiaries[operatorAddress] = addresses[0]
-    return addresses[0]
+    return generateAddress(addresses[0])
   }
 
   throw new Error(
