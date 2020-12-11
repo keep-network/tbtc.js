@@ -92,6 +92,10 @@ const BitcoinHelpers = {
   /** @type {ElectrumConfig?} */
   electrumConfig: null,
 
+  /** @type {Promise<ElectrumClient>?} */
+  electrumClient: null,
+  electrumClientUsages: 0,
+
   /**
    * Updates the config to use for Electrum client connections. Electrum is
    * the core mechanism used to interact with the Bitcoin blockchain.
@@ -290,19 +294,36 @@ const BitcoinHelpers = {
       throw new Error("Electrum client not configured.")
     }
 
-    const electrumClient = new ElectrumClient(BitcoinHelpers.electrumConfig)
+    if (BitcoinHelpers.electrumClient === null) {
+      BitcoinHelpers.electrumClient = new Promise(async (resolve, reject) => {
+        const client = new ElectrumClient(
+          // @ts-ignore Electrum config can't be null due to check at top of
+          //            function.
+          BitcoinHelpers.electrumConfig
+        )
 
-    await electrumClient.connect()
+        try {
+          await backoffRetrier(10)(() => client.connect())
+          resolve(client)
+        } catch (error) {
+          reject(error)
+        }
+      })
+    }
+
+    const electrumClient = await BitcoinHelpers.electrumClient
+    BitcoinHelpers.electrumClientUsages++
+    const cleanup = async () => {
+      BitcoinHelpers.electrumClientUsages--
+      if (BitcoinHelpers.electrumClientUsages == 0) {
+        await electrumClient.close()
+        BitcoinHelpers.electrumClient = null
+      }
+    }
 
     const result = block(electrumClient)
-    result.then(
-      () => {
-        electrumClient.close()
-      },
-      () => {
-        electrumClient.close()
-      }
-    )
+    // Ensure we clean up the connection once all is said and done.
+    result.then(cleanup, cleanup)
 
     return result
   },
