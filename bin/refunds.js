@@ -385,7 +385,7 @@ async function readBeneficiary(operatorAddress) {
 
   const beneficiaryFile =
     (beneficiaryDirectory || "beneficiaries") +
-    "/" +
+    "/beneficiary-" +
     operatorAddress.toLowerCase() +
     ".json"
 
