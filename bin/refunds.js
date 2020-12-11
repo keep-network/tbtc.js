@@ -413,7 +413,7 @@ async function readBeneficiary(operatorAddress) {
     jsonContents.msg,
     jsonContents.sig
   )
-  if (recoveredAddress !== jsonContents.address) {
+  if (recoveredAddress.toLowerCase() !== jsonContents.address.toLowerCase()) {
     throw new Error(
       `Recovered address does not match signing address for ${operatorAddress}.`
     )
