@@ -430,6 +430,18 @@ async function readBeneficiary(operatorAddress) {
     )
   }
 
+  const pubs = [...jsonContents.msg.matchAll(/[xyz]pub[a-zA-Z0-9]+/g)].map(
+    _ => _[0]
+  )
+  if (pubs.length > 1 && pubs.slice(1).some(_ => _ !== pubs[0])) {
+    throw new Error(
+      `Beneficiary message for ${operatorAddress} includes too many *pubs: ${pubs}`
+    )
+  } else if (pubs.length !== 0) {
+    operatorBeneficiaries[operatorAddress] = pubs[0]
+    return pubs[0]
+  }
+
   const addresses = [
     ...jsonContents.msg.matchAll(/(?:1|3|bc1)[A-Za-z0-9]{26,33}/g)
   ].map(_ => _[0])
@@ -437,21 +449,9 @@ async function readBeneficiary(operatorAddress) {
     throw new Error(
       `Beneficiary message for ${operatorAddress} includes too many addresses: ${addresses}`
     )
-  } else if (addresses.length === 1) {
+  } else if (addresses.length !== 0) {
     operatorBeneficiaries[operatorAddress] = addresses[0]
     return addresses[0]
-  }
-
-  const pubs = [...jsonContents.msg.matchAll(/[xyz]pub[a-zA-Z0-9]*/g)].map(
-    _ => _[0]
-  )
-  if (pubs.length > 1) {
-    throw new Error(
-      `Beneficiary message for ${operatorAddress} includes too many addresses: ${addresses}`
-    )
-  } else if (pubs.length === 1) {
-    operatorBeneficiaries[operatorAddress] = pubs[0]
-    return pubs[0]
   }
 
   throw new Error(
