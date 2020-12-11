@@ -849,7 +849,7 @@ async function processKeeps(/** @type {{[any: string]: string}[]} */ keepRows) {
         } else {
           return {
             ...row,
-            error: "no beneficiary"
+            error: "no misfunder"
           }
         }
       },
@@ -861,8 +861,7 @@ async function processKeeps(/** @type {{[any: string]: string}[]} */ keepRows) {
         } else {
           return {
             ...row,
-            error:
-              "failed to build and broadcast liquidation split BTC transaction"
+            error: "failed to find funding info for keep"
           }
         }
       },
@@ -874,8 +873,7 @@ async function processKeeps(/** @type {{[any: string]: string}[]} */ keepRows) {
         } else {
           return {
             ...row,
-            error:
-              "failed to build and broadcast liquidation split BTC transaction"
+            error: "failed to build and broadcast refund BTC transaction"
           }
         }
       }
