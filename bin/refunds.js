@@ -205,15 +205,11 @@ function signDigest(keepAddress, digest) {
  */
 async function keySharesReady(keepAddress) {
   const keepDirectory = (keyShareDirectory || "key-shares") + "/" + keepAddress
-  try {
-    return (
-      (await stat(keepDirectory)).isDirectory() &&
-      (await readdir(keepDirectory)).length == 3 &&
-      (await signDigest(keepAddress, "deadbeef")) !== null
-    )
-  } catch (_) {
-    return false
-  }
+  return (
+    (await stat(keepDirectory)).isDirectory() &&
+    (await readdir(keepDirectory)).length == 3 &&
+    (await signDigest(keepAddress, "deadbeef")) !== null
+  )
 }
 
 /** @type {import("../src/EthereumHelpers.js").Contract} */
