@@ -809,6 +809,18 @@ async function processKeeps(/** @type {{[any: string]: string}[]} */ keepRows) {
         }
       },
       async (/** @type {any} */ row) => {
+        const fundingInfo = await findFundingInfo(row.bitcoinAddress)
+
+        if (fundingInfo) {
+          return { ...row, ...fundingInfo }
+        } else {
+          return {
+            ...row,
+            error: "failed to find funding info for keep"
+          }
+        }
+      },
+      async (/** @type {any} */ row) => {
         const transactionData = await buildAndBroadcastLiquidationSplit(row)
 
         if (transactionData) {
