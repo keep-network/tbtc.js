@@ -169,7 +169,7 @@ function signDigest(keepAddress, digest) {
   const keepDirectory = (keyShareDirectory || "key-shares") + "/" + keepAddress
   return new Promise((resolve, reject) => {
     let output = ""
-    let errorOutput = ""
+    let allOutput = ""
     const process = spawn(keepEcdsaClientPath || "keep-ecdsa", [
       "signing",
       "sign-digest",
@@ -177,8 +177,13 @@ function signDigest(keepAddress, digest) {
       keepDirectory
     ])
     process.stdout.setEncoding("utf8")
-    process.stdout.on("data", chunk => (output += chunk))
-    process.stderr.on("data", chunk => (errorOutput += chunk))
+    process.stdout.on("data", chunk => {
+      output += chunk
+      allOutput += chunk
+    })
+    process.stderr.on("data", chunk => {
+      allOutput += chunk
+    })
 
     process
       .on("exit", (code, signal) => {
@@ -188,14 +193,14 @@ function signDigest(keepAddress, digest) {
         } else {
           reject(
             new Error(
-              `Process exited abnormally with signal ${signal} and code ${code}` +
-                errorOutput
+              `Process exited abnormally with signal ${signal} and code ${code}\n` +
+                allOutput
             )
           )
         }
       })
       .on("error", error => {
-        reject(errorOutput || error)
+        reject(allOutput || error)
       })
   })
 }
