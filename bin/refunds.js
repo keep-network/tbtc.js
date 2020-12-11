@@ -581,6 +581,75 @@ async function beneficiariesAvailableAndSigned(
   }
 }
 
+async function buildAndBroadcastLiquidationSplit(/** @type {any} */ keepData) {
+  const {
+    /** @type {string} */ keep: keepAddress,
+    /** @type {string} */ bitcoinAddress,
+    /** @type {number} */ btcBalance,
+    /** @type {string} */ beneficiary1,
+    /** @type {string} */ beneficiary2,
+    /** @type {string} */ beneficiary3,
+    /** @type {string} */ fundingTransactionID,
+    /** @type {number} */ fundingTransactionPosition
+  } = keepData
+
+  const fee =
+    parseInt(transactionFee || "0") ||
+    toBN(await (await tbtcConstants()).methods.getMinimumRedemptionFee().call())
+      .muln(18)
+      .muln(5)
+      .toNumber()
+
+  // Math this out in BN-land to minimize the likelihood of precision issues.
+  const refundAmount = toBN(btcBalance).subn(fee)
+  const perBeneficiaryAmount = refundAmount.divn(3).toNumber()
+  const sighashToSign = computeSighash(
+    {
+      transactionID: fundingTransactionID,
+      index: fundingTransactionPosition
+    },
+    btcBalance,
+    bitcoinAddress,
+    { value: perBeneficiaryAmount, address: beneficiary1 },
+    { value: perBeneficiaryAmount, address: beneficiary2 },
+    { value: perBeneficiaryAmount, address: beneficiary3 }
+  )
+
+  try {
+    const { signature, publicKey } = await signDigest(
+      keepAddress,
+      sighashToSign.toString("hex")
+    )
+    const signedTransaction = constructSignedTransaction(
+      {
+        transactionID: fundingTransactionID,
+        index: fundingTransactionPosition
+      },
+      signature,
+      publicKey,
+      { value: perBeneficiaryAmount, address: beneficiary1 },
+      { value: perBeneficiaryAmount, address: beneficiary2 },
+      { value: perBeneficiaryAmount, address: beneficiary3 }
+    )
+
+    // const { transactionID } = await BitcoinHelpers.Transaction.broadcast(
+    //   signedTransaction
+    // )
+    const transactionID = "lolnope"
+
+    return {
+      perBeneficiaryAmount,
+      signature,
+      publicKey,
+      transactionID,
+      signedTransaction
+    }
+  } catch (e) {
+    console.log(e)
+    return { refundAmount, error: `Error signing: ${e}` }
+  }
+}
+
 async function misfundRecipientAvailableAndSigned(
   /** @type {string} */ keepAddress
 ) {
@@ -609,10 +678,6 @@ async function misfundRecipientAvailableAndSigned(
   } catch (e) {
     return { error: `refund address lookup failed: ${e}` }
   }
-}
-
-async function buildAndBroadcastLiquidationSplit(/** @type {any} */ keepData) {
-  return {}
 }
 
 async function findFundingInfo(/** @type {string} */ bitcoinAddress) {
