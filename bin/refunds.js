@@ -64,14 +64,13 @@
 //    all on-chain state checks on Bitcoin require at least 6 confirmations.
 // ////
 import PapaParse from "papaparse"
-import { promises /* createReadStream, existsSync, writeFileSync }*/ } from "fs"
+import { promises } from "fs"
 const { readdir, stat, readFile } = promises
 
 import Subproviders from "@0x/subproviders"
 import Web3 from "web3"
 import ProviderEngine from "web3-provider-engine"
 import WebsocketSubprovider from "web3-provider-engine/subproviders/websocket.js"
-// import EthereumHelpers from "../src/EthereumHelpers.js"
 /** @typedef { import('../src/EthereumHelpers.js').TruffleArtifact } TruffleArtifact */
 
 // @ts-ignore This lib is built all sorts of poorly for imports.
@@ -929,30 +928,6 @@ run(() => {
     } catch (err) {
       reject(err)
     }
-    // TODO
-    // - Check keep for terminated vs closed; make sure state has been settled for
-    //   past 100 blocks.
-    // - Check keep to see if it still holds BTC; if it does, make sure it has for
-    //   past 6 blocks.
-    // - If terminated, assume liquidation.
-    // - If closed, assume misfund.
-    //
-    // TODO liquidation
-    // - Check for BTC beneficiary availability for each operator in the keep
-    //   (= file exists + is JSON).
-    // - If available, verify that each beneficiary address is correctly signed by
-    //   the operator, staker, or beneficiary address of its delegation.
-    //   (= await web3.eth.personal.ecRecover(address.msg, address.sig) == address.account &&
-    //      [operator, staker, beneficiary].includes(message.account))
-    // - If yes, build, sign, and broadcast splitter transaction.
-    //
-    // TODO misfund
-    // - Check for BTC refund address availability for the keep's deposit.
-    // - If available, verify that the BTC refund address is correctly signed by
-    //   the owner of the keep's deposit.
-    //   (= await web3.eth.personal.ecRecover(address.msg, address.sig) == address.account &&
-    //      deposit.includes(message.account))
-    // - If yes, build, sign, and broadcast refund transaction.
   })
 })
 
