@@ -243,13 +243,14 @@ function keepAt(/** @type {string} */ keepAddress) {
   return requestedKeep
 }
 
-function tokenStaking() {
+async function tokenStaking() {
   tokenStakingContract =
     tokenStakingContract ||
-    EthereumHelpers.buildContract(
+    (await EthereumHelpers.getDeployedContract(
+      /** @type {TruffleArtifact} */ (TokenStakingJSON),
       web3,
-      /** @type {TruffleArtifact} */ (TokenStakingJSON).abi
-    )
+      "1"
+    ))
 
   return tokenStakingContract
 }
@@ -300,7 +301,7 @@ async function referenceBlock() {
  */
 const delegationInfoCache = {}
 
-function beneficiaryOf(/** @type {string} */ operatorAddress) {
+async function beneficiaryOf(/** @type {string} */ operatorAddress) {
   if (
     delegationInfoCache[operatorAddress] &&
     delegationInfoCache[operatorAddress].beneficiary
@@ -308,8 +309,8 @@ function beneficiaryOf(/** @type {string} */ operatorAddress) {
     return delegationInfoCache[operatorAddress].beneficiary
   }
 
-  const beneficiary = tokenStaking()
-    .methods.beneficiaryOf(operatorAddress)
+  const beneficiary = (await tokenStaking()).methods
+    .beneficiaryOf(operatorAddress)
     .call()
   delegationInfoCache[operatorAddress] =
     delegationInfoCache[operatorAddress] || {}
