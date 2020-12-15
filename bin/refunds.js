@@ -212,15 +212,42 @@ function signDigest(keepAddress, digest) {
 /**
  * @param {string} keepAddress
  */
-async function keySharesReady(keepAddress) {
+async function validateKeyShares(keepAddress) {
   const keepDirectory = (keyShareDirectory || "key-shares") + "/" + keepAddress
-  return (
-    (await stat(keepDirectory)).isDirectory() &&
-    (await readdir(keepDirectory)).length == 3 &&
-    (await signDigest(keepAddress, "deadbeef")) !== null
-  )
-}
 
+  if ((await stat(keepDirectory)).isDirectory()) {
+    const directoryContents = await readdir(keepDirectory)
+
+    // Below, use semicolons instead of commas since CSV is our output type.
+    if (directoryContents.length > 3) {
+      return `too many key shares: ${directoryContents.join(";")}.`
+    } else if (directoryContents.length < 3) {
+      const keepContract = keepAt(keepAddress)
+      /** @type {string[]} */
+      const operators = await keepContract.methods.getMembers().call()
+      const directoryOperators = directoryContents
+        .map(_ =>
+          _.replace(/share-/, "")
+            .replace(/.dat$/, "")
+            .toLowerCase()
+        )
+        .sort()
+      const seenOperators = new Set(directoryOperators)
+      const unseenOperators = operators.filter(
+        _ => !seenOperators.has(_.toLowerCase())
+      )
+
+      return `not enough key shares---missing: ${unseenOperators.join("; ")}.`
+    } else if ((await signDigest(keepAddress, "deadbeef")) === null) {
+      return "unknown key share signing error"
+    } else {
+      // All is well!
+      return null
+    }
+  } else {
+    return "no key share directory"
+  }
+}
 /** @type {import("../src/EthereumHelpers.js").Contract} */
 let baseKeepContract
 /** @type {import("../src/EthereumHelpers.js").Contract} */
@@ -771,11 +798,6 @@ async function processKeeps(/** @type {{[any: string]: string}[]} */ keepRows) {
     // data; if the updated row data includes an `error` key, subsequent
     // processors don't run.
     const genericStatusProcessors = [
-      async (/** @type {any} */ row) =>
-        ((await keySharesReady(row.keep)) && row) || {
-          ...row,
-          error: "missing key shares"
-        },
       async (/** @type {any} */ row) => {
         const status = await keepStatusCompleted(row.keep)
 
@@ -792,6 +814,18 @@ async function processKeeps(/** @type {{[any: string]: string}[]} */ keepRows) {
           return { ...row, ...balanceData }
         } else {
           return { ...row, error: "no BTC" }
+        }
+      },
+      async (/** @type {any} */ row) => {
+        const validationError = await validateKeyShares(row.keep)
+
+        if (validationError) {
+          return {
+            ...row,
+            error: validationError
+          }
+        } else {
+          return row
         }
       }
     ]
