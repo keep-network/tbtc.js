@@ -892,9 +892,12 @@ async function processKeeps(/** @type {{[any: string]: string}[]} */ keepRows) {
             return row
           }
         } catch (e) {
-          return { ...row, error: `Error processing transaction: ${e}` }
+          return Promise.resolve({
+            ...row,
+            error: `Error processing transaction: ${e}`
+          })
         }
-      }, inputData)
+      }, Promise.resolve(inputData))
     }
 
     const basicInfo = await processThrough({ keep }, genericStatusProcessors)
