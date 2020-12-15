@@ -587,8 +587,12 @@ async function beneficiariesAvailableAndSigned(
 ) {
   const keepContract = keepAt(keepAddress)
 
-  /** @type {[string,string,string]} */
-  const operators = await keepContract.methods.getMembers().call()
+  const operators = /** @type {[string,string,string]} */ ([
+    ...(await keepContract.methods.getMembers().call())
+  ])
+    .map(_ => _.toLowerCase())
+    // Sort operators so beneficiaries are in a stable order for analysis.
+    .sort()
   try {
     const beneficiaries = await Promise.all(operators.map(readBeneficiary))
     const unavailableBeneficiaries = beneficiaries
