@@ -192,8 +192,18 @@ function signDigest(keepAddress, digest) {
     process
       .on("exit", (code, signal) => {
         if (code === 0) {
-          const [publicKey, signature] = output.split("\t")
-          resolve({ signature: signature.trim(), publicKey: publicKey.trim() })
+          process.stdout.on("close", () => {
+            const [publicKey, signature] = output.split("\t")
+
+            if (publicKey && signature) {
+              resolve({
+                signature: signature.trim(),
+                publicKey: publicKey.trim()
+              })
+            } else {
+              reject(new Error(`Unexpected output:\n${allOutput}`))
+            }
+          })
         } else {
           reject(
             new Error(
