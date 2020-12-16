@@ -26,9 +26,8 @@ const ManagedGrantABI = ManagedGrantJSON.abi
 const utils = Web3.utils
 
 let standalone = false
-let args = process.argv.slice(2)
-if (process.argv[0].includes("owner-lookup.js")) {
-  args = process.argv.slice(1) // invoked directly, no node
+const args = process.argv.slice(2)
+if (process.argv.some(_ => _.includes("owner-lookup.js"))) {
   standalone = true
 }
 
