@@ -177,11 +177,15 @@ async function resolveOwner(web3, contracts, owner, operator) {
       .call()
     return resolveOwner(web3, contracts, owner, operator)
   } else if (owner == TokenStakingEscrow.options.address) {
-    const grantId = await TokenStakingEscrow.methods
-      .depositGrantId(operator)
-      .call()
+    const {
+      returnValues: { grantId }
+    } = await EthereumHelpers.getExistingEvent(
+      TokenStakingEscrow,
+      "DepositRedelegated",
+      { newOperator: operator }
+    )
     const { grantee } = await TokenGrant.methods.getGrant(grantId).call()
-    return resolveGrantee(grantee)
+    return resolveGrantee(web3, grantee)
   } else {
     // If it's not a known singleton contract, try to see if it's a
     // TokenGrantStake; if not, assume it's an owner-controlled contract.
