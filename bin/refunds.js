@@ -420,17 +420,20 @@ async function keepHoldsBtc(keepAddress) {
   return { bitcoinAddress, btcBalance }
 }
 
-/** @type {{[operatorAddress: string]: string}} */
+/** @type {{[operatorAddress: string]: { beneficiary: string, latestIndex: number}} */
 const operatorBeneficiaries = {}
 
-async function generateAddress(/** @type {string} */ beneficiary) {
+async function generateAddress(
+  /** @type {string} */ beneficiary,
+  /** @type {number} */ latestIndex
+) {
   if (!beneficiary.match(/^.pub/)) {
-    return beneficiary // standard address, always returns itself
+    return { latestAddress: beneficiary, latestIndex } // standard address, always returns itself
   }
 
   const metadata = getExtPubKeyMetadata(beneficiary)
   let latestAddress = ""
-  let addressIndex = 0
+  let addressIndex = latestIndex
   do {
     const derivedAddressInfo = addressFromExtPubKey({
       extPubKey: beneficiary,
@@ -443,92 +446,114 @@ async function generateAddress(/** @type {string} */ beneficiary) {
     addressIndex++
   } while (await BitcoinHelpers.Transaction.find(latestAddress, 0))
 
-  return latestAddress
+  return { latestAddress, latestIndex: addressIndex }
 }
 
 /**
  * @param {string} operatorAddress
  */
 async function readBeneficiary(operatorAddress) {
-  if (operatorBeneficiaries[operatorAddress]) {
-    return generateAddress(operatorBeneficiaries[operatorAddress])
-  }
+  let beneficiaryInfo = operatorBeneficiaries[operatorAddress]
+  if (!beneficiaryInfo) {
+    const beneficiaryFile =
+      (beneficiaryDirectory || "beneficiaries") +
+      "/beneficiary-" +
+      operatorAddress.toLowerCase() +
+      ".json"
 
-  const beneficiaryFile =
-    (beneficiaryDirectory || "beneficiaries") +
-    "/beneficiary-" +
-    operatorAddress.toLowerCase() +
-    ".json"
-
-  // If it doesn't exist, return empty.
-  try {
-    if (!(await stat(beneficiaryFile)).isFile()) {
+    // If it doesn't exist, return empty.
+    try {
+      if (!(await stat(beneficiaryFile)).isFile()) {
+        return null
+      }
+    } catch (e) {
       return null
     }
-  } catch (e) {
-    return null
+
+    /** @type {{msg: string, sig: string, address: string}} */
+    const jsonContents = JSON.parse(
+      await readFile(beneficiaryFile, { encoding: "utf-8" })
+    )
+
+    if (!jsonContents.msg || !jsonContents.sig || !jsonContents.address) {
+      throw new Error(
+        `Invalid format for ${operatorAddress}: message, signature, or signing address missing.`
+      )
+    }
+
+    // Force a 0x prefix so `recover` works correctly. Some tools omit it from
+    // the sig field.
+    if (!jsonContents.sig.startsWith("0x")) {
+      jsonContents.sig = "0x" + jsonContents.sig
+    }
+
+    const recoveredAddress = web3.eth.accounts.recover(
+      jsonContents.msg,
+      jsonContents.sig
+    )
+    if (recoveredAddress.toLowerCase() !== jsonContents.address.toLowerCase()) {
+      throw new Error(
+        `Recovered address does not match signing address for ${operatorAddress}.`
+      )
+    }
+
+    if (
+      recoveredAddress.toLowerCase() !==
+        (await beneficiaryOf(operatorAddress)).toLowerCase() &&
+      recoveredAddress.toLowerCase() !==
+        (await deepOwnerOf(operatorAddress)).toLowerCase() &&
+      recoveredAddress.toLowerCase() !== operatorAddress
+    ) {
+      throw new Error(
+        `Beneficiary address for ${operatorAddress} was not signed by operator owner or beneficiary.`
+      )
+    }
+
+    const pubs = [...jsonContents.msg.matchAll(/[xyz]pub[a-zA-Z0-9]+/g)].map(
+      _ => _[0]
+    )
+    if (pubs.length > 1 && pubs.slice(1).some(_ => _ !== pubs[0])) {
+      throw new Error(
+        `Beneficiary message for ${operatorAddress} includes too many *pubs: ${pubs}`
+      )
+    } else if (pubs.length !== 0) {
+      beneficiaryInfo = {
+        beneficiary: pubs[0],
+        latestIndex: 0
+      }
+    } else {
+      const addresses = [
+        ...jsonContents.msg.matchAll(/(?:1|3|bc1)[A-Za-z0-9]{26,33}/g)
+      ].map(_ => _[0])
+      if (addresses.length > 1) {
+        throw new Error(
+          `Beneficiary message for ${operatorAddress} includes too many addresses: ${addresses}`
+        )
+      } else if (addresses.length !== 0) {
+        beneficiaryInfo = {
+          beneficiary: addresses[0],
+          latestIndex: 0
+        }
+      }
+    }
+
+    if (!beneficiaryInfo) {
+      throw new Error(
+        `Could not find a valid BTC address or *pub in signed message for ${operatorAddress}: ` +
+          `${jsonContents.msg}`
+      )
+    }
   }
 
-  /** @type {{msg: string, sig: string, address: string}} */
-  const jsonContents = JSON.parse(
-    await readFile(beneficiaryFile, { encoding: "utf-8" })
+  const { latestAddress, latestIndex } = await generateAddress(
+    beneficiaryInfo.beneficiary,
+    beneficiaryInfo.latestIndex
   )
 
-  if (!jsonContents.msg || !jsonContents.sig || !jsonContents.address) {
-    throw new Error(
-      `Invalid format for ${operatorAddress}: message, signature, or signing address missing.`
-    )
-  }
+  beneficiaryInfo.latestIndex = latestIndex
+  operatorBeneficiaries[operatorAddress] = beneficiaryInfo
 
-  const recoveredAddress = web3.eth.accounts.recover(
-    jsonContents.msg,
-    jsonContents.sig
-  )
-  if (recoveredAddress.toLowerCase() !== jsonContents.address.toLowerCase()) {
-    throw new Error(
-      `Recovered address does not match signing address for ${operatorAddress}.`
-    )
-  }
-
-  if (
-    recoveredAddress.toLowerCase() !==
-      (await beneficiaryOf(operatorAddress)).toLowerCase() &&
-    recoveredAddress.toLowerCase() ===
-      (await deepOwnerOf(operatorAddress)).toLowerCase()
-  ) {
-    throw new Error(
-      `Beneficiary address for ${operatorAddress} was not signed by operator owner or beneficiary.`
-    )
-  }
-
-  const pubs = [...jsonContents.msg.matchAll(/[xyz]pub[a-zA-Z0-9]+/g)].map(
-    _ => _[0]
-  )
-  if (pubs.length > 1 && pubs.slice(1).some(_ => _ !== pubs[0])) {
-    throw new Error(
-      `Beneficiary message for ${operatorAddress} includes too many *pubs: ${pubs}`
-    )
-  } else if (pubs.length !== 0) {
-    operatorBeneficiaries[operatorAddress] = pubs[0]
-    return generateAddress(pubs[0])
-  }
-
-  const addresses = [
-    ...jsonContents.msg.matchAll(/(?:1|3|bc1)[A-Za-z0-9]{26,33}/g)
-  ].map(_ => _[0])
-  if (addresses.length > 1) {
-    throw new Error(
-      `Beneficiary message for ${operatorAddress} includes too many addresses: ${addresses}`
-    )
-  } else if (addresses.length !== 0) {
-    operatorBeneficiaries[operatorAddress] = addresses[0]
-    return generateAddress(addresses[0])
-  }
-
-  throw new Error(
-    `Could not find a valid BTC address or *pub in signed message for ${operatorAddress}: ` +
-      `${jsonContents.msg}`
-  )
+  return latestAddress
 }
 
 async function readRefundAddress(/** @type {string} */ depositAddress) {
@@ -814,7 +839,11 @@ async function processKeeps(/** @type {{[any: string]: string}[]} */ keepRows) {
   const keeps = keepRows
     .filter(_ => _.keep) // strip any weird undefined lines
     .reduce((keepSet, { keep }) => keepSet.add(keep), new Set())
-  const results = Array.from(keeps).map(async keep => {
+  const results = Array.from(keeps).reduce(async (previousRows, keep) => {
+    // We need to wait for previous work to settle so that beneficiary address
+    // generation runs serially rather than in parallel.
+    const rows = await previousRows
+
     // Contract for processors is they take the row data and return updated row
     // data; if the updated row data includes an `error` key, subsequent
     // processors don't run.
@@ -958,15 +987,17 @@ async function processKeeps(/** @type {{[any: string]: string}[]} */ keepRows) {
     const basicInfo = await processThrough({ keep }, genericStatusProcessors)
 
     if (basicInfo.status == "terminated") {
-      return processThrough(basicInfo, liquidationProcessors)
+      return rows.concat([
+        await processThrough(basicInfo, liquidationProcessors)
+      ])
     } else if (basicInfo.status == "closed") {
-      return processThrough(basicInfo, misfundProcessors)
+      return rows.concat([await processThrough(basicInfo, misfundProcessors)])
     } else {
-      return basicInfo
+      return rows.concat([basicInfo])
     }
-  })
+  }, [])
 
-  return Promise.all(results)
+  return results
 }
 
 run(() => {
