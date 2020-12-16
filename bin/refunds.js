@@ -717,7 +717,6 @@ async function buildAndBroadcastLiquidationSplit(/** @type {any} */ keepData) {
       signedTransaction
     }
   } catch (e) {
-    console.log(e)
     return { refundAmount, error: `Error signing: ${e}` }
   }
 }
@@ -830,7 +829,6 @@ async function buildAndBroadcastRefund(/** @type {any} */ keepData) {
       signedTransaction
     }
   } catch (e) {
-    console.log(e)
     return { refundAmount, error: `Error signing: ${e}` }
   }
 }
