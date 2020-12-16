@@ -11,6 +11,8 @@
 // ////
 import https from "https"
 import moment from "moment"
+import BitcoinHelpers, { BitcoinNetwork } from "../src/BitcoinHelpers.js"
+import AvailableBitcoinConfigs from "./config.json"
 
 let args = process.argv.slice(2)
 if (process.argv[0].includes("liquidations.js")) {
@@ -34,7 +36,7 @@ const fields = (args[1] || "operator,owner,beneficiary,keep")
 run(async () => {
   const liquidations = await queryLiquidations(startDate)
 
-  const rows = liquidations.reduce(
+  const liquidationRows = liquidations.reduce(
     (
       rows,
       {
@@ -54,10 +56,50 @@ run(async () => {
       })
       return rows
     },
-    [fields]
+    /** @type {string[][]} */ ([])
   )
 
-  return rows.map(_ => _.join(",")).join("\n")
+  BitcoinHelpers.electrumConfig = AvailableBitcoinConfigs["1"].electrum
+
+  const misfunds = await queryMisfunds(startDate)
+  const misfundRows = await BitcoinHelpers.withElectrumClient(async () =>
+    misfunds.reduce(
+      async (
+        rowsPromise,
+        { bondedECDSAKeep: { keepAddress, publicKey, members } }
+      ) => {
+        const rows = await rowsPromise
+        const keepBtcAddress = BitcoinHelpers.Address.publicKeyToP2WPKHAddress(
+          publicKey.replace(/^0x/, ""),
+          BitcoinNetwork.MAINNET
+        )
+        const balance = await BitcoinHelpers.Transaction.getBalance(
+          keepBtcAddress
+        )
+
+        if (balance > 0) {
+          members.forEach(({ address, owner, beneficiary }) => {
+            const asFields = /** @type {{ [field: string]: string }} */ ({
+              operator: address,
+              owner,
+              beneficiary,
+              keep: keepAddress
+            })
+            rows.push(fields.map(_ => asFields[_]))
+          })
+        }
+
+        return rows
+      },
+      Promise.resolve(/** @type {string[][]} */ ([]))
+    )
+  )
+
+  return [fields]
+    .concat(liquidationRows)
+    .concat(misfundRows)
+    .map(_ => _.join(","))
+    .join("\n")
 })
 
 /**
@@ -125,6 +167,49 @@ async function queryLiquidations(startDate) {
     }
   }`)
   ).data.depositLiquidations
+}
+
+/**
+ * @typedef {{
+ *   id: string,
+ *   owner: string,
+ *   bondedECDSAKeep: {
+ *     keepAddress: string,
+ *     publicKey: string,
+ *     members: [{
+ *       address: string,
+ *       owner: string,
+ *       beneficiary: string
+ *     }]
+ *   }
+ * }} DepositMisfundInfo
+ */
+
+/**
+ * @param {moment.Moment} startDate The start time as a Moment object.
+ * @return {Promise<[DepositMisfundInfo]>} The returned query results.
+ */
+async function queryMisfunds(startDate) {
+  return (
+    await queryGraph(`{
+    deposits(
+      first: 100,
+      where: { failureReason: FUNDING_TIMEOUT, createdAt_gt: ${startDate.unix()} }
+    ) {
+        id
+        owner
+        bondedECDSAKeep {
+          keepAddress
+          publicKey
+          members {
+            address
+            owner
+            beneficiary
+          }
+        }
+    }
+  }`)
+  ).data.deposits
 }
 
 /**
