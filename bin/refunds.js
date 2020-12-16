@@ -174,6 +174,7 @@ function signDigest(keepAddress, digest) {
   return new Promise((resolve, reject) => {
     let output = ""
     let allOutput = ""
+    let outputFinished = false
     const process = spawn(keepEcdsaClientPath || "keep-ecdsa", [
       "signing",
       "sign-digest",
@@ -188,11 +189,12 @@ function signDigest(keepAddress, digest) {
     process.stderr.on("data", chunk => {
       allOutput += chunk
     })
+    process.stdout.on("end", () => (outputFinished = true))
 
     process
       .on("exit", (code, signal) => {
         if (code === 0) {
-          process.stdout.on("close", () => {
+          const processOutput = () => {
             const [publicKey, signature] = output.split("\t")
 
             if (publicKey && signature) {
@@ -203,7 +205,12 @@ function signDigest(keepAddress, digest) {
             } else {
               reject(new Error(`Unexpected output:\n${allOutput}`))
             }
-          })
+          }
+          if (outputFinished) {
+            processOutput()
+          } else {
+            process.stdout.on("close", processOutput)
+          }
         } else {
           reject(
             new Error(
