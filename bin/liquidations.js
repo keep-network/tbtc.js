@@ -13,22 +13,34 @@ import https from "https"
 import moment from "moment"
 import BitcoinHelpers, { BitcoinNetwork } from "../src/BitcoinHelpers.js"
 import AvailableBitcoinConfigs from "./config.json"
+import { findAndConsumeArgsExistence } from "./helpers.js"
 
 let args = process.argv.slice(2)
 if (process.argv[0].includes("liquidations.js")) {
   args = process.argv.slice(1) // invoked directly, no node
 }
 
-const startDate = isNaN(parseInt(args[0]))
-  ? moment(args[0])
-  : moment.unix(parseInt(args[0]))
+// No debugging unless explicitly enabled.
+const {
+  found: { debug },
+  remaining: remainingArgs
+} = findAndConsumeArgsExistence(args, "--debug")
+if (!debug) {
+  console.debug = () => {}
+}
+
+const startDate = remainingArgs[0].match(/^[0-9]+$/)
+  ? moment.unix(parseInt(remainingArgs[0]))
+  : moment(remainingArgs[0])
 if (!startDate.isValid()) {
-  console.error(`Start time ${args[0]} is either invalid or not recent enough.`)
+  console.error(
+    `Start time ${remainingArgs[0]} is either invalid or not recent enough.`
+  )
   process.exit(1)
 }
 
 const validFields = ["operator", "owner", "beneficiary", "keep"]
-const fields = (args[1] || "operator,owner,beneficiary,keep")
+const fields = (remainingArgs[1] || "operator,owner,beneficiary,keep")
   .toLowerCase()
   .split(",")
   .filter(_ => validFields.includes(_))
@@ -109,12 +121,17 @@ run(async () => {
  *        command should exit successfully.
  */
 function run(action) {
+  // Redirect all console logs to debug.
+  const originalConsoleLog = console.log
+  console.log = (...args) => console.debug(...args)
+
   action()
     .catch(error => {
       console.error("Got error", error)
       process.exit(2)
     })
     .then((/** @type {string} */ result) => {
+      console.log = originalConsoleLog
       if (result) {
         console.log(result)
       }
