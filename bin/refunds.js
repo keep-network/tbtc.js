@@ -668,8 +668,7 @@ async function buildAndBroadcastLiquidationSplit(/** @type {any} */ keepData) {
   const fee =
     parseInt(transactionFee || "0") ||
     toBN(await (await tbtcConstants()).methods.getMinimumRedemptionFee().call())
-      .muln(18)
-      .muln(5)
+      .muln(15)
       .toNumber()
 
   // Math this out in BN-land to minimize the likelihood of precision issues.
