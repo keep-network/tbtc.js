@@ -523,7 +523,9 @@ async function readBeneficiary(operatorAddress) {
       }
     } else {
       const addresses = [
-        ...jsonContents.msg.matchAll(/(?:1|3|bc1)[A-Za-z0-9]{26,33}/g)
+        ...jsonContents.msg.matchAll(
+          /(?:1|3)[A-Za-z0-9]{25,34}|bc1[0-9a-z]{11,71}/g
+        )
       ].map(_ => _[0])
       if (addresses.length > 1) {
         throw new Error(
