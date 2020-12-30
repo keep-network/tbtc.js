@@ -251,36 +251,16 @@ const commandParsers = {
       return null
     } else {
       return async tbtc => {
-        const toBN = tbtc.config.web3.utils.toBN
         const deposit = await tbtc.Deposit.withAddress(depositAddress)
-        const allFees = (
-          await EthereumHelpers.getExistingEvents(
-            tbtc.Deposit.system(),
-            "RedemptionRequested",
-            { _depositContractAddress: depositAddress }
+        const redemption = await deposit.getCurrentRedemption()
+
+        if (!redemption) {
+          throw new Error(
+            `failed to find current redemption for deposit ${depositAddress}`
           )
-        ).map(_ => _.returnValues._requestedFee)
+        }
 
-        const initialFee = allFees.slice(0)[0]
-        const latestFee = allFees.slice(-1)[0]
-
-        const utxoValue = await deposit.contract.methods.utxoValue().call()
-        const previousOutputValue = toBN(utxoValue).sub(toBN(latestFee))
-        const newOutputValue = previousOutputValue.sub(toBN(initialFee))
-
-        const prevOutputValueBytes = previousOutputValue.toArrayLike(
-          Buffer,
-          "le",
-          8
-        )
-        const newOutputValueBytes = newOutputValue.toArrayLike(Buffer, "le", 8)
-
-        await EthereumHelpers.sendSafely(
-          deposit.contract.methods.increaseRedemptionFee(
-            prevOutputValueBytes,
-            newOutputValueBytes
-          )
-        )
+        await redemption.increaseRedemptionFee()
 
         return standardDepositOutput(tbtc, deposit)
       }

@@ -1,16 +1,19 @@
 /** @typedef { import("web3").default } Web3 */
-/** @typedef { import("web3-eth-contract").Contract } Contract */
+/** @typedef { import("web3-eth-contract").Contract } Web3Contract */
 /** @typedef { import("web3-eth-contract").ContractSendMethod } ContractSendMethod */
 /** @typedef { import("web3-eth-contract").SendOptions } SendOptions */
 /** @typedef { import("web3-utils").AbiItem } AbiItem */
 /** @typedef { import("web3-core").TransactionReceipt } TransactionReceipt */
 
 import { backoffRetrier } from "./lib/backoff.js"
+import pWaitFor from "p-wait-for"
 
 /**
  * @typedef {object} DeploymentInfo
  * @property {string} address The address a contract is deployed at on a given
  *           network.
+ * @property {string} transactionHash The hash of a transaction in which contract
+ *           was deployed on a given network.
  */
 
 /**
@@ -48,7 +51,7 @@ async function isMainnet(web3) {
  *
  * @param {Web3} web3 A web3 instance for operating.
  * @param {TransactionReceipt} transaction A web3 transaction result.
- * @param {Contract} sourceContract A web3 Contract instance whose
+ * @param {Web3Contract} sourceContract A web3 Contract instance whose
  *        event is being read.
  * @param {string} eventName The name of the event to be read.
  *
@@ -88,34 +91,50 @@ function readEventFromTransaction(
  * @param {string} eventName The name of the event to wait on.
  * @param {any} [filter] An additional filter to apply to the event being
  *        searched for.
+ * @param {number} [fromBlock] Starting block for events search.
  *
  * @return {Promise<any>} A promise that will be fulfilled by the event
  *         object once it is received.
  */
-function getEvent(sourceContract, eventName, filter) {
-  return new Promise((resolve, reject) => {
+function getEvent(sourceContract, eventName, filter, fromBlock) {
+  return new Promise(async (resolve, reject) => {
     // As a workaround for a problem with MetaMask version 7.1.1 where subscription
     // for events doesn't work correctly we pull past events in a loop until
     // we find our event. This is a temporary solution which should be removed
     // after problem with MetaMask is solved.
     // See: https://github.com/MetaMask/metamask-extension/issues/7270
-    const handle = setInterval(
-      async function() {
+    await pWaitFor(
+      async () => {
         // Query if an event was already emitted after we start watching
-        const event = await getExistingEvent(sourceContract, eventName, filter)
+        let event
+        try {
+          event = await getExistingEvent(
+            sourceContract,
+            eventName,
+            filter,
+            fromBlock
+          )
+        } catch (error) {
+          console.warn(`failed to get existing event: ${error.message}`)
+        }
 
         if (event) {
-          clearInterval(handle)
           resolve(event)
+          return true
         }
+        return false
       },
-      3000 // every 3 seconds
+      { interval: 3000 } // every 3 seconds
     )
 
     sourceContract.once(eventName, { filter }, (error, event) => {
-      clearInterval(handle)
-      if (error) reject(error)
-      else resolve(event)
+      if (error) {
+        // We are not throwing an error as we want to fallback to querying past
+        // events in interval defined above.
+        console.warn(`failed to register for ${eventName}:`, error.message)
+      } else {
+        resolve(event)
+      }
     })
   })
 }
@@ -124,19 +143,22 @@ function getEvent(sourceContract, eventName, filter) {
  * Looks up all existing events named `eventName` on `sourceContract`, searching
  * past blocks and then returning them. Respects additional filtering rules set
  * in the passed `filter` object, if available. Does not wait for any new
- * events.
+ * events. It starts searching from provided block number. If the `fromBlock`
+ * is missing it looks for a contract's defined property `deployedAtBlock`. If the
+ * property is missing starts searching from block `0`.
  *
  * @param {Contract} sourceContract The web3 Contract that emits the event.
  * @param {string} eventName The name of the event to wait on.
  * @param {any} [filter] An additional filter to apply to the event being
  *        searched for.
+ * @param {number} [fromBlock] Starting block for events search.
  *
  * @return {Promise<any[]>} A promise that will be fulfilled by the list of
  *         event objects once they are found.
  */
-async function getExistingEvents(sourceContract, eventName, filter) {
+async function getExistingEvents(sourceContract, eventName, filter, fromBlock) {
   const events = await sourceContract.getPastEvents(eventName, {
-    fromBlock: 0,
+    fromBlock: fromBlock || sourceContract.deployedAtBlock || 0,
     toBlock: "latest",
     filter
   })
@@ -154,14 +176,15 @@ async function getExistingEvents(sourceContract, eventName, filter) {
  * @param {string} eventName The name of the event to wait on.
  * @param {any} [filter] An additional filter to apply to the event being
  *        searched for.
+ * @param {number} [fromBlock] Starting block for events search.
  *
  * @return {Promise<any>} A promise that will be fulfilled by the event object
  *         once it is found.
  */
-async function getExistingEvent(sourceContract, eventName, filter) {
-  return (await getExistingEvents(sourceContract, eventName, filter)).slice(
-    -1
-  )[0]
+async function getExistingEvent(sourceContract, eventName, filter, fromBlock) {
+  return (
+    await getExistingEvents(sourceContract, eventName, filter, fromBlock)
+  ).slice(-1)[0]
 }
 
 /**
@@ -182,18 +205,31 @@ function bytesToRaw(bytesString) {
  * method to get the proper underlying error message. Otherwise, sends the
  * signed transaction normally.
  *
+ * Note that if a gas estimate is calculated but is less than an explicitly
+ * specified `sendParams.gas` value, `sendParams.gas` is preferred, and vice
+ * versa. The higher of the two gas values is then multiplied by
+ * `gasMultiplier`.
+ *
  * @param {ContractSendMethod} boundContractMethod A bound web3 contract method
  *        with `estimateGas`, `send`, and `call` variants available.
  * @param {Partial<SendOptions>} [sendParams] The parameters to pass to
  *        `estimateGas` and `send` for transaction processing.
  * @param {boolean} [forceSend] Force the transaction send through even
  *        if gas estimation fails.
+ * @param {number} [gasMultiplier=1] If specified, applies a multiplier to the
+ *        estimated gas. Defaults to 1, meaning the gas estimate is used as-is
+ *        for the transaction.
  *
  * @return {Promise<any>} A promise to the result of sending the bound contract
  *         method. Fails the promise if gas estimation fails, extracting an
  *         on-chain error if possible.
  */
-async function sendSafely(boundContractMethod, sendParams, forceSend = false) {
+async function sendSafely(
+  boundContractMethod,
+  sendParams,
+  forceSend = false,
+  gasMultiplier = 1
+) {
   try {
     // Clone `sendParams` so we aren't exposed to providers that modify `sendParams`.
     const gasEstimate = await boundContractMethod.estimateGas({ ...sendParams })
@@ -201,7 +237,10 @@ async function sendSafely(boundContractMethod, sendParams, forceSend = false) {
     return boundContractMethod.send({
       from: "", // FIXME Need systemic handling of default from address.
       ...sendParams,
-      gas: Math.max(gasEstimate, (sendParams && sendParams.gas) || 0)
+      gas: Math.round(
+        Math.max(gasEstimate, (sendParams && sendParams.gas) || 0) *
+          gasMultiplier
+      )
     })
   } catch (exception) {
     // For an always failing transaction, if forceSend is set, send it anyway.
@@ -269,6 +308,8 @@ async function sendSafelyRetryable(
  * @param {Partial<SendOptions>} [sendParams] The parameters to pass to `call`.
  * @param {number} [totalAttempts=3] Total attempts which should be performed in
  *        case of an error before rethrowing it to the caller.
+ * @param {number|string} [block="latest"] Determines the block for which the
+ *        call should be performed.
  *
  * @return {Promise<any>} A promise to the result of sending the bound contract
  *         method. Fails the promise if gas estimation fails, extracting an
@@ -277,16 +318,29 @@ async function sendSafelyRetryable(
 async function callWithRetry(
   boundContractMethod,
   sendParams,
-  totalAttempts = 3
+  totalAttempts = 3,
+  block = "latest"
 ) {
   return backoffRetrier(totalAttempts)(async () => {
     // @ts-ignore A newer version of Web3 is needed to include call in TS.
-    return await boundContractMethod.call({
-      from: "", // FIXME Need systemic handling of default from address.
-      ...sendParams
-    })
+    return await boundContractMethod.call(
+      {
+        from: "", // FIXME Need systemic handling of default from address.
+        ...sendParams
+      },
+      block
+    )
   })
 }
+
+/**
+ * @typedef {Object} DeployedContract
+ * @property {number|undefined} deployedAtBlock Number of block when contract was
+ * deployed.
+ *
+ * @typedef {Web3Contract & DeployedContract} Contract web3.eth.Contract enhanced
+ * with property containing block number when contract was deployed.
+ */
 
 /**
  * Builds a web3.eth.Contract instance with the given ABI, pointed to the given
@@ -296,19 +350,25 @@ async function callWithRetry(
  * @param {AbiItem[]} contractABI The ABI of the contract to instantiate.
  * @param {string} [address] The address of the deployed contract; if left
  *        unspecified, the contract won't be pointed to any address.
+ * @param {number} [deployedAtBlock]
  *
  * @return {Contract} A contract for the specified ABI at the specified address,
  *         with default `from` and revert handling set.
  */
-function buildContract(web3, contractABI, address) {
-  /** @type {Contract} */
-  const contract = /** @type {any} */ (new web3.eth.Contract(contractABI))
+function buildContract(web3, contractABI, address, deployedAtBlock) {
+  /** @type {Web3Contract} */
+  const web3Contract = /** @type {any} */ (new web3.eth.Contract(contractABI))
   if (address) {
-    contract.options.address = address
+    web3Contract.options.address = address
   }
-  contract.options.from = web3.eth.defaultAccount || undefined
+  web3Contract.options.from = web3.eth.defaultAccount || undefined
   // @ts-ignore A newer version of Web3 is needed to include handleRevert.
-  contract.options.handleRevert = true
+  web3Contract.options.handleRevert = true
+
+  /** @type {Contract} */
+  const contract = (web3Contract)
+
+  contract.deployedAtBlock = deployedAtBlock || undefined
 
   return contract
 }
@@ -324,10 +384,10 @@ function buildContract(web3, contractABI, address) {
  * @param {string} networkId The network ID of the network the contract is
  *        deployed at.
  *
- * @return {Contract} A web3.eth.Contract ready for usage for the given network
- *         and artifact.
+ * @return {Promise<Contract>} A contract ready for usage with web3 for the
+ *        given network and artifact.
  */
-function getDeployedContract(artifact, web3, networkId) {
+async function getDeployedContract(artifact, web3, networkId) {
   const deploymentInfo = artifact.networks[networkId]
   if (!deploymentInfo) {
     throw new Error(
@@ -335,7 +395,16 @@ function getDeployedContract(artifact, web3, networkId) {
     )
   }
 
-  return buildContract(web3, artifact.abi, deploymentInfo.address)
+  const transaction = await web3.eth.getTransaction(
+    artifact.networks[networkId].transactionHash
+  )
+
+  return buildContract(
+    web3,
+    artifact.abi,
+    deploymentInfo.address,
+    transaction.blockNumber || undefined
+  )
 }
 
 export default {

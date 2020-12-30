@@ -203,8 +203,8 @@ export class DepositFactory {
     // Get the net_version
     const networkId = await this.config.web3.eth.net.getId()
 
-    const resolveContract = (/** @type {TruffleArtifact} */ artifact) => {
-      return EthereumHelpers.getDeployedContract(
+    const resolveContract = async (/** @type {TruffleArtifact} */ artifact) => {
+      return await EthereumHelpers.getDeployedContract(
         artifact,
         this.config.web3,
         networkId.toString()
@@ -212,39 +212,39 @@ export class DepositFactory {
     }
 
     /** @package */
-    this.constantsContract = resolveContract(
+    this.constantsContract = await resolveContract(
       /** @type {TruffleArtifact} */ (TBTCConstantsJSON)
     )
     /** @package */
-    this.systemContract = resolveContract(
+    this.systemContract = await resolveContract(
       /** @type {TruffleArtifact} */ (TBTCSystemJSON)
     )
     /** @package */
-    this.tokenContract = resolveContract(
+    this.tokenContract = await resolveContract(
       /** @type {TruffleArtifact} */ (TBTCTokenJSON)
     )
     /** @package */
-    this.depositTokenContract = resolveContract(
+    this.depositTokenContract = await resolveContract(
       /** @type {TruffleArtifact} */ (TBTCDepositTokenJSON)
     )
     /** @package */
-    this.feeRebateTokenContract = resolveContract(
+    this.feeRebateTokenContract = await resolveContract(
       /** @type {TruffleArtifact} */ (FeeRebateTokenJSON)
     )
     /** @package */
-    this.depositContract = resolveContract(
+    this.depositContract = await resolveContract(
       /** @type {TruffleArtifact} */ (DepositJSON)
     )
     /** @package */
-    this.depositFactoryContract = resolveContract(
+    this.depositFactoryContract = await resolveContract(
       /** @type {TruffleArtifact} */ (DepositFactoryJSON)
     )
     /** @package */
-    this.vendingMachineContract = resolveContract(
+    this.vendingMachineContract = await resolveContract(
       /** @type {TruffleArtifact} */ (VendingMachineJSON)
     )
     /** @package */
-    this.fundingScriptContract = resolveContract(
+    this.fundingScriptContract = await resolveContract(
       /** @type {TruffleArtifact} */ (FundingScriptJSON)
     )
   }
@@ -282,7 +282,9 @@ export class DepositFactory {
 
     const result = await EthereumHelpers.sendSafely(
       this.depositFactory().methods.createDeposit(lotSize.toString()),
-      { value: creationCost, gas: 1600000 }
+      { value: creationCost },
+      false,
+      1.2
     )
 
     const createdEvent = EthereumHelpers.readEventFromTransaction(
@@ -300,7 +302,8 @@ export class DepositFactory {
 
     return {
       depositAddress: createdEvent._depositContractAddress,
-      keepAddress: createdEvent._keepAddress
+      keepAddress: createdEvent._keepAddress,
+      createdAtBlock: createdEvent.blockNumber
     }
   }
 }
@@ -331,7 +334,8 @@ export default class Deposit {
     )
     const {
       depositAddress,
-      keepAddress
+      keepAddress,
+      createdAtBlock
     } = await factory.createNewDepositContract(satoshiLotSize)
     console.debug(
       `Looking up new deposit with address ${depositAddress} backed by ` +
@@ -341,12 +345,14 @@ export default class Deposit {
     const contract = EthereumHelpers.buildContract(
       web3,
       /** @type {TruffleArtifact} */ (DepositJSON).abi,
-      depositAddress
+      depositAddress,
+      createdAtBlock
     )
     const keepContract = EthereumHelpers.buildContract(
       web3,
       /** @type {TruffleArtifact} */ (BondedECDSAKeepJSON).abi,
-      keepAddress
+      keepAddress,
+      createdAtBlock
     )
 
     return new Deposit(factory, contract, keepContract)
@@ -359,11 +365,6 @@ export default class Deposit {
   static async forAddress(factory, depositAddress) {
     console.debug(`Looking up Deposit contract at address ${depositAddress}...`)
     const web3 = factory.config.web3
-    const contract = EthereumHelpers.buildContract(
-      web3,
-      /** @type {TruffleArtifact} */ (DepositJSON).abi,
-      depositAddress
-    )
 
     console.debug(`Looking up Created event for deposit ${depositAddress}...`)
     const createdEvent = await EthereumHelpers.getExistingEvent(
@@ -377,12 +378,20 @@ export default class Deposit {
       )
     }
 
+    const contract = EthereumHelpers.buildContract(
+      web3,
+      /** @type {TruffleArtifact} */ (DepositJSON).abi,
+      depositAddress,
+      createdEvent.blockNumber
+    )
+
     const keepAddress = createdEvent.returnValues._keepAddress
     console.debug(`Found keep address ${keepAddress}.`)
     const keepContract = EthereumHelpers.buildContract(
       web3,
       /** @type {TruffleArtifact} */ (BondedECDSAKeepJSON).abi,
-      keepAddress
+      keepAddress,
+      createdEvent.blockNumber
     )
 
     return new Deposit(factory, contract, keepContract)
@@ -936,7 +945,8 @@ export default class Deposit {
     const redemptionRequest = await EthereumHelpers.getExistingEvent(
       this.factory.system(),
       "RedemptionRequested",
-      { _depositContractAddress: this.address }
+      { _depositContractAddress: this.address },
+      this.contract.deployedAtBlock
     )
 
     if (!redemptionRequest) {
@@ -970,8 +980,14 @@ export default class Deposit {
    * a deposit, then transfer the deposit to a service provider who will
    * handle deposit qualification.
    *
+   * A deposit can be automatically pushed all the way through a mint (and with
+   * one fewer transaction) by using the `autoMint` method instead.
+   *
    * Calling this function more than once will return the existing state of
-   * the first auto submission process, rather than restarting the process.
+   * the first auto submission or minting process, rather than restarting the
+   * process. `autoMint` and `autoSubmission` share an auto-submission state,
+   * so a deposit cannot start auto-submitting and then switch to auto-minting
+   * mid-stream---whichever is called first will be the flow that will occur.
    *
    * @return {AutoSubmitState} An object with promises to various stages of
    *         the auto-submit lifetime. Each promise can be fulfilled or
@@ -1010,6 +1026,36 @@ export default class Deposit {
     return this.autoSubmittingState
   }
 
+  /**
+   * This method enables the deposit's auto-minting capabilities. In
+   * auto-mint mode, the deposit will automatically monitor for a new
+   * Bitcoin transaction to the deposit signers' Bitcoin wallet, then watch
+   * that transaction until it has accumulated sufficient work for proof
+   * of funding to be submitted to the deposit, then submit a transaction to
+   * simultaneously qualify it, move it into the ACTIVE state, and finally
+   * turn the deposit over to the vending machine to mint TBTC.
+   *
+   * Without calling this function, the deposit will do none of those things;
+   * instead, the caller will be in charge of managing (or choosing not to)
+   * this process. This can be useful, for example, if a dApp wants to open
+   * a deposit, then transfer the deposit to a service provider who will
+   * handle deposit qualification.
+   *
+   * A deposit can be automatically pushed through the qualification flow
+   * without minting at the end (i.e., preserving the owner's possession of the
+   * deposit) by using the `autoSubmit` method instead.
+   *
+   * Calling this function more than once will return the existing state of
+   * the first auto submission or minting process, rather than restarting the
+   * process. `autoMint` and `autoSubmission` share an auto-submission state,
+   * so a deposit cannot start auto-submitting and then switch to auto-minting
+   * mid-stream---whichever is called first will be the flow that will occur.
+   *
+   * @return {AutoSubmitState} An object with promises to various stages of
+   *         the auto-submit lifetime. Each promise can be fulfilled or
+   *         rejected, and they are in a sequence where later promises will be
+   *         rejected by earlier ones.
+   */
   autoMint() {
     // Only enable auto-submitting once.
     if (this.autoSubmittingState) {
@@ -1135,9 +1181,14 @@ export default class Deposit {
     // If we weren't active, wait for Funded, then mark as active.
     // FIXME/NOTE: We could be inactive due to being outside of the funding
     // FIXME/NOTE: path, e.g. in liquidation or courtesy call.
-    await EthereumHelpers.getEvent(this.factory.system(), "Funded", {
-      _depositContractAddress: this.address
-    })
+    await EthereumHelpers.getEvent(
+      this.factory.system(),
+      "Funded",
+      {
+        _depositContractAddress: this.address
+      },
+      this.contract.deployedAtBlock
+    )
     console.debug(`Deposit ${this.address} transitioned to ACTIVE.`)
 
     return true
@@ -1147,7 +1198,8 @@ export default class Deposit {
     return EthereumHelpers.getExistingEvent(
       this.factory.system(),
       "RegisteredPubkey",
-      { _depositContractAddress: this.address }
+      { _depositContractAddress: this.address },
+      this.contract.deployedAtBlock
     )
   }
 
@@ -1337,6 +1389,16 @@ export default class Deposit {
   }
 
   /**
+   * Pays off the deposit balance and closes the liquidation auction
+   * via `Deposit.purchaseSignerBondsAtAuction`, then withdraws the purchased
+   * ETH by calling `DepositUtils.withdrawFunds`.
+   */
+  async takeAuction() {
+    await this.purchaseSignerBondsAtAuction()
+    await this.withdrawFunds()
+  }
+
+  /**
    * Purchases the signer bonds and closes the liquidation auction.
    */
   async purchaseSignerBondsAtAuction() {
@@ -1358,6 +1420,15 @@ export default class Deposit {
     await EthereumHelpers.sendSafely(
       this.contract.methods.purchaseSignerBondsAtAuction()
     )
+  }
+
+  /**
+   * Withdraw caller's allowance.
+   * Withdrawals can only happen when a contract is in an end-state.
+   */
+  async withdrawFunds() {
+    // FIXME Need systemic handling of default from address.
+    await EthereumHelpers.sendSafely(this.contract.methods.withdrawFunds())
   }
 
   /**
