@@ -238,7 +238,7 @@ function queryGraph(graphql) {
   return new Promise((resolve, reject) => {
     let responseContent = ""
     const request = https.request(
-      "https://api.thegraph.com/subgraphs/name/miracle2k/keep-network",
+      "https://api.thegraph.com/subgraphs/name/miracle2k/all-the-keeps",
       { method: "POST" },
       response => {
         response.setEncoding("utf8")
