@@ -643,7 +643,9 @@ async function beneficiariesAvailableAndSigned(
 
     if (unavailableBeneficiaries.length > 0) {
       return {
-        error: `not all beneficiaries are available (missing ${unavailableBeneficiaries})`
+        error: `not all beneficiaries are available (missing ${unavailableBeneficiaries.join(
+          "; "
+        )})`
       }
     }
 
