@@ -203,8 +203,8 @@ export class DepositFactory {
     // Get the net_version
     const networkId = await this.config.web3.eth.net.getId()
 
-    const resolveContract = async (/** @type {TruffleArtifact} */ artifact) => {
-      return await EthereumHelpers.getDeployedContract(
+    const resolveContract = (/** @type {TruffleArtifact} */ artifact) => {
+      return EthereumHelpers.getDeployedContract(
         artifact,
         this.config.web3,
         networkId.toString()
