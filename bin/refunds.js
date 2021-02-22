@@ -3,6 +3,7 @@
 // bin/refunds.js <keep-info.csv> [-c <keep-ecdsa-client-path>] [-s <key-share-directory>]
 //                [-o <operator-btc-receive-address-directory>]
 //                [-r <refund-btc-address-directory>]
+//                [--dry-run|-y]
 //
 //   <keep-info.csv>
 //     A CSV file that should have a column whose title is `keep`. It may have
@@ -43,6 +44,10 @@
 //      signature format, and should present a Bitcoin address, signed by the
 //      owner of the specified deposit. Defaults to `./misfunds`.
 //
+//   --dry-run|-y
+//      When passed, runs the script in dry-run mode, where Bitcoin transactions
+//      are not broadcast to the chain.
+//
 //   Iterates through the specified keep ids, looks up their public keys in
 //   order to compute their Bitcoin addresses, and verifies that they are still
 //   holding Bitcoin. If they are, creates a temp directory and starts checking
@@ -53,15 +58,13 @@
 //   transaction splitting the BTC held by the keep into thirds, each third
 //   going to its respective operator's designated BTC receive address. For BTC
 //   non-liquidations, checks for BTC refund address availability. If a refund
-//   address is available, creates, signs, and broadcasts a Bitcoin transaction
-//   sending the BTC held by the keep to the refund address.
+//   address is available, creates, signs, and broadcasts (unless in dry-run
+//   mode) a Bitcoin transaction sending the BTC held by the keep to the refund
+//   address.
 //
 //   Operator BTC receive addresses must be in JSON format signed by the
 //   operator, staker, or beneficiary. BTC refund addresses must be signed by
 //   the
-//
-//    All on-chain state checks on Ethereum require at least 100 confirmations;
-//    all on-chain state checks on Bitcoin require at least 6 confirmations.
 // ////
 import PapaParse from "papaparse"
 import { promises } from "fs"
@@ -123,7 +126,7 @@ const {
     o: beneficiaryDirectory,
     m: misfundDirectory
   },
-  remaining: commandArgs
+  remaining: booleanArgs
 } = findAndConsumeArgsValues(
   flagArgs,
   "--mnemonic",
@@ -133,9 +136,16 @@ const {
   "-c",
   "-s",
   "-o",
-  "-m",
-  "-r"
+  "-m"
 )
+
+const {
+  found: { y: dryRunShort, dryRun: dryRunLong },
+  remaining: commandArgs
+} = findAndConsumeArgsExistence(booleanArgs, "-y", "--dry-run")
+
+const dryRun = dryRunLong || dryRunShort
+
 const engine = new ProviderEngine({ pollingInterval: 1000 })
 
 engine.addProvider(
@@ -709,10 +719,9 @@ async function buildAndBroadcastLiquidationSplit(/** @type {any} */ keepData) {
       { value: perBeneficiaryAmount, address: beneficiary3 }
     )
 
-    // const { transactionID } = await BitcoinHelpers.Transaction.broadcast(
-    //   signedTransaction
-    // )
-    const transactionID = "lolnope"
+    const { transactionID } = dryRun
+      ? { transactionID: "dry run: transaction not broadcast" }
+      : await BitcoinHelpers.Transaction.broadcast(signedTransaction)
 
     return {
       perBeneficiaryAmount,
@@ -821,10 +830,9 @@ async function buildAndBroadcastRefund(/** @type {any} */ keepData) {
       }
     )
 
-    // const { transactionID } = await BitcoinHelpers.Transaction.broadcast(
-    //   signedTransaction
-    // )
-    const transactionID = "lolnope"
+    const { transactionID } = dryRun
+      ? { transactionID: "dry run: transaction not broadcast" }
+      : await BitcoinHelpers.Transaction.broadcast(signedTransaction)
 
     return {
       refundAmount,
