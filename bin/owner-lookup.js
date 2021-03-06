@@ -14,13 +14,13 @@ import {
   findAndConsumeArgsValues
 } from "./helpers.js"
 
+import KeepTokenJSON from "@keep-network/keep-core/artifacts/KeepToken.json"
 import TokenGrantJSON from "@keep-network/keep-core/artifacts/TokenGrant.json"
 import TokenStakingJSON from "@keep-network/keep-core/artifacts/TokenStaking.json"
 import ManagedGrantJSON from "@keep-network/keep-core/artifacts/ManagedGrant.json"
 import StakingPortBackerJSON from "@keep-network/keep-core/artifacts/StakingPortBacker.json"
 import TokenStakingEscrowJSON from "@keep-network/keep-core/artifacts/TokenStakingEscrow.json"
 
-const TokenGrantABI = TokenGrantJSON.abi
 const ManagedGrantABI = ManagedGrantJSON.abi
 
 const utils = Web3.utils
@@ -112,6 +112,11 @@ export async function contractsFromWeb3(/** @type {Web3} */ web3) {
   const chainId = String(await web3.eth.getChainId())
 
   return {
+    KeepToken: await EthereumHelpers.getDeployedContract(
+      /** @type {TruffleArtifact} */ (KeepTokenJSON),
+      web3,
+      chainId
+    ),
     TokenGrant: await EthereumHelpers.getDeployedContract(
       /** @type {TruffleArtifact} */ (TokenGrantJSON),
       web3,
@@ -153,6 +158,24 @@ export function lookupOwner(
     })
 }
 
+export function lookupOwnerAndGrantType(
+  /** @type {Web3} */ web3,
+  /** @type {{ [contractName: string]: Contract}} */ contracts,
+  /** @type {string} */ operator
+) {
+  const { TokenStaking } = contracts
+  return TokenStaking.methods
+    .ownerOf(operator)
+    .call()
+    .then((/** @type {string} */ owner) => {
+      try {
+        return resolveOwnerAndGrantType(web3, contracts, owner, operator)
+      } catch (e) {
+        return `Unknown (${e})`
+      }
+    })
+}
+
 /**
  * @param {Web3} web3
  * @param {Contracts} contracts
@@ -161,20 +184,44 @@ export function lookupOwner(
  * @return {Promise<string>}
  */
 async function resolveOwner(web3, contracts, owner, operator) {
+  return (await resolveOwnerAndGrantType(web3, contracts, owner, operator))
+    .owner
+}
+
+/**
+ * @enum {string}
+ */
+export const GrantType = {
+  None: "no grant",
+  SimpleGrant: "direct grant",
+  ManagedGrant: "managed grant"
+}
+
+/**
+ * @param {Web3} web3
+ * @param {Contracts} contracts
+ * @param {string} owner
+ * @param {string} operator
+ * @return {Promise<{owner: string, grantType: GrantType}>}
+ */
+async function resolveOwnerAndGrantType(web3, contracts, owner, operator) {
   const {
+    KeepToken,
     StakingPortBacker,
     TokenStaking,
     TokenStakingEscrow,
     TokenGrant
   } = contracts
 
-  if ((await web3.eth.getStorageAt(owner, 0)) === "0x") {
-    return owner // owner is already a user-owned account
+  const firstStorageSlot = await web3.eth.getStorageAt(owner, 0)
+
+  if (firstStorageSlot === "0x") {
+    return { owner, grantType: GrantType.None } // owner is already a user-owned account
   } else if (owner == StakingPortBacker.options.address) {
     const { owner } = await StakingPortBacker.methods
       .copiedStakes(operator)
       .call()
-    return resolveOwner(web3, contracts, owner, operator)
+    return resolveOwnerAndGrantType(web3, contracts, owner, operator)
   } else if (owner == TokenStakingEscrow.options.address) {
     const {
       returnValues: { grantId }
@@ -184,54 +231,61 @@ async function resolveOwner(web3, contracts, owner, operator) {
       { newOperator: operator }
     )
     const { grantee } = await TokenGrant.methods.getGrant(grantId).call()
-    return resolveGrantee(web3, grantee)
+    const {
+      grantee: finalGrantee,
+      grantType
+    } = await resolveGranteeAndGrantType(web3, grantee)
+
+    return { owner: finalGrantee, grantType }
   } else {
     // If it's not a known singleton contract, try to see if it's a
     // TokenGrantStake; if not, assume it's an owner-controlled contract.
     try {
-      const {
-        transactionHash
-      } = await EthereumHelpers.getExistingEvent(
-        TokenStaking,
-        "StakeDelegated",
-        { operator }
-      )
-      const { logs } = await web3.eth.getTransactionReceipt(transactionHash)
-      const TokenGrantStakedABI = TokenGrantABI.filter(
-        _ => _.type == "event" && _.name == "TokenGrantStaked"
-      )[0]
       let grantId = null
-      // eslint-disable-next-line guard-for-in
-      for (const i in logs) {
-        const { data, topics } = logs[i]
-        // @ts-ignore Oh but there is a signature property on events foo'.
-        if (topics[0] == TokenGrantStakedABI.signature) {
-          const decoded = web3.eth.abi.decodeLog(
-            TokenGrantStakedABI.inputs,
-            data,
-            topics.slice(1)
-          )
-          grantId = decoded.grantId
-          break
-        }
+
+      // TokenGrantStakes have the token address and token staking address as
+      // their first two storage slots. They should be the only owner with this
+      // characteristic. In this case, the grant id is in the 4th slot.
+      //
+      // This is unfortunately the only clear strategy for identifying
+      // TokenGrantStakes on both the v1.0.1 TokenStaking contract and
+      // the v1.3.0 upgraded one. The old contract did not have any
+      // events that indexed the operator contract, making it impossible
+      // to efficiently check if a token grant stake was at play without
+      // already knowing the owner.
+      if (
+        firstStorageSlot ==
+          web3.utils.padLeft(KeepToken.options.address, 64).toLowerCase() &&
+        (await web3.eth.getStorageAt(owner, 1)) ==
+          web3.utils.padLeft(TokenStaking.options.address, 64).toLowerCase()
+      ) {
+        const fourthStorageSlot = await web3.eth.getStorageAt(owner, 3)
+        // We're making the assumption the grant id doesn't need a BN,
+        // which should be a safe assumption for the foreseeable future.
+        grantId = web3.utils.hexToNumber(fourthStorageSlot)
       }
 
       const { grantee } = await TokenGrant.methods.getGrant(grantId).call()
-      return resolveGrantee(web3, grantee)
+      const {
+        grantee: finalGrantee,
+        grantType
+      } = await resolveGranteeAndGrantType(web3, grantee)
+
+      return { owner: finalGrantee, grantType }
     } catch (_) {
       // If we threw, assume this isn't a TokenGrantStake and the
       // owner is just an unknown contract---e.g. Gnosis Safe.
-      return owner
+      return { owner, grantType: GrantType.None }
     }
   }
 }
 
-async function resolveGrantee(
+async function resolveGranteeAndGrantType(
   /** @type {Web3} */ web3,
   /** @type {string} */ grantee
 ) {
   if ((await web3.eth.getStorageAt(grantee, 0)) === "0x") {
-    return grantee // grantee is already a user-owned account
+    return { grantee, grantType: GrantType.SimpleGrant } // grantee is already a user-owned account
   } else {
     try {
       const grant = EthereumHelpers.buildContract(
@@ -241,11 +295,14 @@ async function resolveGrantee(
         grantee
       )
 
-      return await grant.methods.grantee().call()
+      return {
+        grantee: await grant.methods.grantee().call(),
+        grantType: GrantType.ManagedGrant
+      }
     } catch (_) {
       // If we threw, assume this isn't a ManagedGrant and the
       // grantee is just an unknown contract---e.g. Gnosis Safe.
-      return grantee
+      return { grantee, grantType: GrantType.SimpleGrant }
     }
   }
 }
