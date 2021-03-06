@@ -32,6 +32,7 @@ import {
   findAndConsumeArgsValues
 } from "./helpers.js"
 import { EthereumHelpers } from "../index.js"
+import { contractsFromWeb3, lookupOwnerAndGrantType } from "./owner-lookup.js"
 
 let args = process.argv.slice(2)
 if (process.argv[0].includes("refunds.js")) {
@@ -141,8 +142,12 @@ run(async () => {
     "1"
   )
 
+  const contractsForOwnerLookup = await contractsFromWeb3(web3)
+  // Run owner lookup on the original contract.
+  contractsForOwnerLookup.TokenStaking = otsContract
+
   return (
-    "operator,owner,oldAmount,amountCopied,availableBalance,paidBack,oldUndelegatedAt" +
+    "operator,owner,grantType,oldAmount,amountCopied,availableBalance,copied,paidBack,oldUndelegatedAt" +
     (await allowedCopyOperators.reduce(async (soFar, operatorAddress) => {
       // Don't smash the poor provider with parallel hits for all operators;
       // instead, serialize the process.
@@ -157,18 +162,30 @@ run(async () => {
         .balanceOf(copyInfo.owner)
         .call()
 
+      const copied = copyInfo.timestamp != 0
+
+      const { owner, grantType } = await lookupOwnerAndGrantType(
+        web3,
+        contractsForOwnerLookup,
+        operatorAddress
+      )
+
       return (
         already +
         "\n" +
         operatorAddress +
         "," +
-        copyInfo.owner +
+        owner +
+        "," +
+        grantType +
         "," +
         stakingInfo.amount +
         "," +
         copyInfo.amount +
         "," +
         ownerBalance +
+        "," +
+        copied +
         "," +
         copyInfo.paidBack +
         "," +
