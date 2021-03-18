@@ -432,7 +432,7 @@ export default class Deposit {
       this.publicKeyPointToBitcoinAddress(point)
     )
 
-    this.receivedFundingConfirmationEmitter = new EventEmitter()
+    this.eventEmitter = new EventEmitter()
   }
 
   // /------------------------------- Accessors -------------------------------
@@ -507,14 +507,11 @@ export default class Deposit {
           transaction.transactionID,
           requiredConfirmations,
           ({ transactionID, confirmations, requiredConfirmations }) => {
-            this.receivedFundingConfirmationEmitter.emit(
-              "receivedFundingConfirmation",
-              {
-                transactionID,
-                confirmations,
-                requiredConfirmations
-              }
-            )
+            this.eventEmitter.emit("receivedFundingConfirmation", {
+              transactionID,
+              confirmations,
+              requiredConfirmations
+            })
           }
         )
 
@@ -586,6 +583,34 @@ export default class Deposit {
     )
   }
 
+  // /---------------------------- Error Handler -----------------------------
+
+  /**
+   * Emits an event with an error.
+   *
+   * @param {Error} err Error to emit.
+   */
+  notifyError(err) {
+    this.eventEmitter.emit("error", err)
+  }
+
+  /**
+   * A handler that is notified whenever an error occurs.
+   *
+   * @callback OnErrorHandler
+   * @param {Error} err Error
+   */
+
+  /**
+   * Registers a handler for errors.
+   *
+   * @param {OnErrorHandler} onErrorHandler
+   *        A handler that receives an error.
+   */
+  onError(onErrorHandler) {
+    this.eventEmitter.on("error", onErrorHandler)
+  }
+
   // /---------------------------- Event Handlers -----------------------------
 
   /**
@@ -628,7 +653,7 @@ export default class Deposit {
    *        confirmations, and requiredConfirmations as its parameter.
    */
   onReceivedFundingConfirmation(onReceivedFundingConfirmationHandler) {
-    this.receivedFundingConfirmationEmitter.on(
+    this.eventEmitter.on(
       "receivedFundingConfirmation",
       onReceivedFundingConfirmationHandler
     )
@@ -1003,8 +1028,8 @@ export default class Deposit {
     this.autoSubmittingState = {
       fundingTransaction: this.fundingTransaction,
       fundingConfirmations: this.fundingConfirmations,
-      proofTransaction: this.fundingConfirmations.then(
-        async ({ transaction, requiredConfirmations }) => {
+      proofTransaction: this.fundingConfirmations
+        .then(async ({ transaction, requiredConfirmations }) => {
           console.debug(
             `Submitting funding proof to deposit ${this.address} for ` +
               `Bitcoin transaction ${transaction.transactionID}...`
@@ -1019,8 +1044,8 @@ export default class Deposit {
             {},
             true
           )
-        }
-      )
+        })
+        .catch(this.notifyError)
     }
 
     return this.autoSubmittingState
