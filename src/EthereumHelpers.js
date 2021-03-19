@@ -152,14 +152,21 @@ function getEvent(sourceContract, eventName, filter, fromBlock) {
  * @param {any} [filter] An additional filter to apply to the event being
  *        searched for.
  * @param {number} [fromBlock] Starting block for events search.
+ * @param {number} [toBlock] Ending block for events search.
  *
  * @return {Promise<any[]>} A promise that will be fulfilled by the list of
  *         event objects once they are found.
  */
-async function getExistingEvents(sourceContract, eventName, filter, fromBlock) {
+async function getExistingEvents(
+  sourceContract,
+  eventName,
+  filter,
+  fromBlock,
+  toBlock
+) {
   const events = await sourceContract.getPastEvents(eventName, {
     fromBlock: fromBlock || sourceContract.deployedAtBlock || 0,
-    toBlock: "latest",
+    toBlock: toBlock || "latest",
     filter
   })
 
@@ -177,13 +184,26 @@ async function getExistingEvents(sourceContract, eventName, filter, fromBlock) {
  * @param {any} [filter] An additional filter to apply to the event being
  *        searched for.
  * @param {number} [fromBlock] Starting block for events search.
+ * @param {number} [toBlock] Ending block for events search.
  *
  * @return {Promise<any>} A promise that will be fulfilled by the event object
  *         once it is found.
  */
-async function getExistingEvent(sourceContract, eventName, filter, fromBlock) {
+async function getExistingEvent(
+  sourceContract,
+  eventName,
+  filter,
+  fromBlock,
+  toBlock
+) {
   return (
-    await getExistingEvents(sourceContract, eventName, filter, fromBlock)
+    await getExistingEvents(
+      sourceContract,
+      eventName,
+      filter,
+      fromBlock,
+      toBlock
+    )
   ).slice(-1)[0]
 }
 

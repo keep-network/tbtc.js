@@ -92,6 +92,10 @@ const BitcoinHelpers = {
   /** @type {ElectrumConfig?} */
   electrumConfig: null,
 
+  /** @type {Promise<ElectrumClient>?} */
+  electrumClient: null,
+  electrumClientUsages: 0,
+
   /**
    * Updates the config to use for Electrum client connections. Electrum is
    * the core mechanism used to interact with the Bitcoin blockchain.
@@ -290,19 +294,36 @@ const BitcoinHelpers = {
       throw new Error("Electrum client not configured.")
     }
 
-    const electrumClient = new ElectrumClient(BitcoinHelpers.electrumConfig)
+    if (BitcoinHelpers.electrumClient === null) {
+      BitcoinHelpers.electrumClient = new Promise(async (resolve, reject) => {
+        const client = new ElectrumClient(
+          // @ts-ignore Electrum config can't be null due to check at top of
+          //            function.
+          BitcoinHelpers.electrumConfig
+        )
 
-    await electrumClient.connect()
+        try {
+          await backoffRetrier(10)(() => client.connect())
+          resolve(client)
+        } catch (error) {
+          reject(error)
+        }
+      })
+    }
+
+    const electrumClient = await BitcoinHelpers.electrumClient
+    BitcoinHelpers.electrumClientUsages++
+    const cleanup = async () => {
+      BitcoinHelpers.electrumClientUsages--
+      if (BitcoinHelpers.electrumClientUsages == 0) {
+        await electrumClient.close()
+        BitcoinHelpers.electrumClient = null
+      }
+    }
 
     const result = block(electrumClient)
-    result.then(
-      () => {
-        electrumClient.close()
-      },
-      () => {
-        electrumClient.close()
-      }
-    )
+    // Ensure we clean up the connection once all is said and done.
+    result.then(cleanup, cleanup)
 
     return result
   },
@@ -657,6 +678,56 @@ const BitcoinHelpers = {
       const transaction = TX.fromOptions({
         inputs: [input],
         outputs: [output]
+      })
+
+      return transaction.toRaw().toString("hex")
+    },
+    /**
+     * Constructs a Bitcoin SegWit transaction with one input and many outputs.
+     * Difference between all outputs values summed and previous output value
+     * will be taken as a transaction fee.
+     *
+     * @param {string} previousOutpoint Previous transaction's output to be
+     *        used as an input. Provided in hexadecimal format, consists of
+     *        32-byte transaction ID and 4-byte output index number.
+     * @param {number} inputSequence Input's sequence number. As per
+     *        BIP-125 the value is used to indicate that transaction should
+     *        be able to be replaced in the future. If input sequence is set
+     *        to `0xffffffff` the transaction won't be replaceable.
+     * @param {number} outputValue Value for the output.
+     * @param {{value: number, script: string}[]} outputDetails Outputs for the
+     *        transaction as a combination of values and output scripts as unprefixed
+     *        hexadecimal strings.
+     *
+     * @return {string} Raw bitcoin transaction in hexadecimal format.
+     */
+    constructOneInputWitnessTransaction(
+      previousOutpoint,
+      inputSequence,
+      ...outputDetails
+    ) {
+      // Input
+      const prevOutpoint = Outpoint.fromRaw(
+        Buffer.from(previousOutpoint, "hex")
+      )
+
+      const input = Input.fromOptions({
+        prevout: prevOutpoint,
+        sequence: inputSequence
+      })
+
+      // Outputs
+      const outputs = outputDetails.map(({ value, script }) =>
+        Output.fromOptions({
+          value: value,
+          script: Buffer.from(script, "hex")
+        })
+      )
+
+      // Transaction
+      const transaction = TX.fromOptions({
+        inputs: [input],
+        outputs: outputs
       })
 
       return transaction.toRaw().toString("hex")

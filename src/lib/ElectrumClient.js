@@ -77,7 +77,7 @@ export default class Client {
    * Establish connection with the server.
    */
   async connect() {
-    console.log("Connecting to electrum server...")
+    console.debug("Connecting to electrum server...")
 
     await this.electrumClient.connect("tbtc", "1.4.2").catch(err => {
       throw new Error(`failed to connect: [${err}]`)
@@ -88,7 +88,7 @@ export default class Client {
    * Disconnect from the server.
    */
   async close() {
-    console.log("Closing connection to electrum server...")
+    console.debug("Closing connection to electrum server...")
     this.electrumClient.close()
   }
 
@@ -249,7 +249,7 @@ export default class Client {
           const receivedScriptHash = msg[0]
           const status = msg[1]
 
-          console.log(
+          console.debug(
             `Received notification for script hash: [${receivedScriptHash}] with status: [${status}]`
           )
 
@@ -327,7 +327,7 @@ export default class Client {
           for (const msg of messages) {
             const height = msg.height
 
-            console.log(
+            console.debug(
               `Received notification of a new block at height: [${height}]`
             )
 
@@ -343,7 +343,7 @@ export default class Client {
 
         this.electrumClient.subscribe.on(eventName, listener)
 
-        console.log(`Registered listener for ${eventName} event`)
+        console.debug(`Registered listener for ${eventName} event`)
       } catch (err) {
         throw new Error(`failed listening for notification: ${err}`)
       }

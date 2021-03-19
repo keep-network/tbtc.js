@@ -6,6 +6,8 @@
 import { BitcoinHelpers } from "../../index.js"
 
 import sha256 from "bcrypto/lib/sha256-browser.js"
+import web3Utils from "web3-utils"
+const { toBN } = web3Utils
 const { digest } = sha256
 
 export const bitcoinCommandHelp = [
@@ -50,84 +52,35 @@ export function parseBitcoinCommand(web3, args) {
 
           if (extra.length === 0) {
             return async tbtc => {
-              const toBN = web3.utils.toBN
-              const rawOutputScript = BitcoinHelpers.Address.toRawScript(
-                outputAddress
-              )
-              const rawPreviousOutpoint = Buffer.concat([
-                toBN(previousTransactionID).toArrayLike(Buffer, "le", 32),
-                toBN(previousOutputIndex).toArrayLike(Buffer, "le", 4)
-              ])
-
               const {
                 value: previousOutputValueBtc,
                 address: previousOutputAddress
               } = await BitcoinHelpers.Transaction.getSimpleOutput(
                 previousTransactionID,
-                parseInt(previousOutputIndex, 16)
+                parseInt(previousOutputIndex)
               )
-              const previousOutputValue =
+              const previousOutputValue = Math.round(
                 previousOutputValueBtc *
-                BitcoinHelpers.satoshisPerBtc.toNumber()
-              const rawPreviousOutputScript = BitcoinHelpers.Address.toRawScript(
-                previousOutputAddress
+                  BitcoinHelpers.satoshisPerBtc.toNumber()
               )
-              const transactionFee = await BitcoinHelpers.Transaction.estimateFee(
-                tbtc.depositFactory.constants()
-              )
+              const transactionFee = (
+                await BitcoinHelpers.Transaction.estimateFee(
+                  tbtc.depositFactory.constants()
+                )
+              ).muln(5)
 
-              const outputValue = toBN(previousOutputValue).sub(
-                transactionFee.divn(4)
-              )
-              /** @type {Buffer} */
-              const outputValueBytes = outputValue.toArrayLike(Buffer, "le", 8)
-
-              // Construct per BIP-143; see https://en.bitcoin.it/wiki/BIP_0143
-              // for more.
-              const sighashPreimage = Buffer.concat(
-                [
-                  // version
-                  `01000000`,
-                  // hashPrevouts
-                  digest(digest(rawPreviousOutpoint)),
-                  // hashSequence(00000000)
-                  digest(digest(Buffer.from("00000000", "hex"))),
-                  // outpoint
-                  rawPreviousOutpoint,
-                  // P2wPKH script:
-                  Buffer.concat([
-                    // length, dup, hash160, pkh_length
-                    Buffer.from("1976a914", "hex"),
-                    // pkh, without prefix length info
-                    rawPreviousOutputScript.slice(2),
-                    // equal, checksig
-                    Buffer.from("88ac", "hex")
-                  ]),
-                  // 8-byte little-endian input value (= previous output value)
-                  toBN(previousOutputValue).toArrayLike(Buffer, "le", 8),
-                  // input nSequence
-                  "00000000",
-                  // hash of the single output
-                  digest(
-                    digest(
-                      Buffer.concat([
-                        // value bytes
-                        outputValueBytes,
-                        // length of output script
-                        Buffer.of(rawOutputScript.byteLength),
-                        // output script
-                        rawOutputScript
-                      ])
-                    )
-                  ),
-                  // nLockTime
-                  "00000000",
-                  // SIG_ALL
-                  "01000000"
-                ].map(_ => Buffer.from(_, "hex"))
-              )
-
-              return digest(digest(sighashPreimage)).toString("hex")
+              return computeSighash(
+                {
+                  transactionID: previousTransactionID,
+                  index: previousOutputIndex
+                },
+                previousOutputValue,
+                previousOutputAddress,
+                {
+                  value: previousOutputValue - transactionFee.toNumber(),
+                  address: outputAddress
+                }
+              ).toString("hex")
             }
           }
         }
@@ -144,56 +97,31 @@ export function parseBitcoinCommand(web3, args) {
 
         if (extra.length === 0) {
           return async tbtc => {
-            const toBN = web3.utils.toBN
-            const rawOutputScript = BitcoinHelpers.Address.toRawScript(
-              outputAddress
-            )
-            const rawPreviousOutpoint = Buffer.concat([
-              toBN(previousTransactionID).toArrayLike(Buffer, "le", 32),
-              toBN(previousOutputIndex).toArrayLike(Buffer, "le", 4)
-            ])
-
             const {
               value: previousOutputValueBtc
             } = await BitcoinHelpers.Transaction.getSimpleOutput(
               previousTransactionID,
-              parseInt(previousOutputIndex, 16)
+              parseInt(previousOutputIndex)
             )
-            const previousOutputValue =
+            const previousOutputValue = Math.round(
               previousOutputValueBtc * BitcoinHelpers.satoshisPerBtc.toNumber()
-            const transactionFee = await BitcoinHelpers.Transaction.estimateFee(
-              tbtc.depositFactory.constants()
             )
-
-            const outputValue = toBN(previousOutputValue).sub(
-              transactionFee.divn(4)
-            )
-
-            const rawTransaction = BitcoinHelpers.Transaction.constructOneInputOneOutputWitnessTransaction(
-              rawPreviousOutpoint.toString("hex"),
-              // We set sequence to `0` to be able to replace by fee. It reflects
-              // bitcoin-spv:
-              // https://github.com/summa-tx/bitcoin-spv/blob/2a9d594d9b14080bdbff2a899c16ffbf40d62eef/solidity/contracts/CheckBitcoinSigs.sol#L154
-              0,
-              outputValue.toNumber(),
-              rawOutputScript.toString("hex")
-            )
-
-            const signatureR = digestSignature.slice(0, 64)
-            const signatureS = digestSignature.slice(64)
-            const publicKeyPoint = BitcoinHelpers.Address.splitPublicKey(
-              publicKeyString
-            )
-
-            const signedTransaction = BitcoinHelpers.Transaction.addWitnessSignature(
-              rawTransaction,
-              0,
-              signatureR,
-              signatureS,
-              BitcoinHelpers.publicKeyPointToPublicKeyString(
-                publicKeyPoint.x.toString("hex"),
-                publicKeyPoint.y.toString("hex")
+            const transactionFee = (
+              await BitcoinHelpers.Transaction.estimateFee(
+                tbtc.depositFactory.constants()
               )
+            ).muln(5)
+
+            const outputValue = toBN(previousOutputValue).sub(transactionFee)
+
+            const signedTransaction = constructSignedTransaction(
+              {
+                transactionID: previousTransactionID,
+                index: previousOutputIndex
+              },
+              digestSignature,
+              publicKeyString,
+              { value: outputValue.toNumber(), address: outputAddress }
             )
 
             const transaction = await BitcoinHelpers.Transaction.broadcast(
@@ -209,4 +137,111 @@ export function parseBitcoinCommand(web3, args) {
 
   // If we're here, no command matched.
   return null
+}
+
+export function computeSighash(
+  /** @type {{ transactionID: string, index: string }} */ previousOutpoint,
+  /** @type {number} */ previousOutputValue,
+  /** @type {string} */ previousOutputAddress,
+  /** @type {{value: number, address: string}[]} */ ...outputs
+) {
+  const rawPreviousOutpoint = Buffer.concat([
+    toBN(previousOutpoint.transactionID).toArrayLike(Buffer, "le", 32),
+    toBN(previousOutpoint.index).toArrayLike(Buffer, "le", 4)
+  ])
+  const rawPreviousOutputScript = BitcoinHelpers.Address.toRawScript(
+    previousOutputAddress
+  )
+  const outputByteValues = outputs.map(({ value, address }) => ({
+    valueBytes: toBN(value).toArrayLike(Buffer, "le", 8),
+    rawOutputScript: BitcoinHelpers.Address.toRawScript(address)
+  }))
+
+  // Construct per BIP-143; see https://en.bitcoin.it/wiki/BIP_0143
+  // for more.
+  const preimage = Buffer.concat(
+    [
+      // version
+      `01000000`,
+      // hashPrevouts
+      digest(digest(rawPreviousOutpoint)),
+      // hashSequence(00000000)
+      digest(digest(Buffer.from("00000000", "hex"))),
+      // outpoint
+      rawPreviousOutpoint,
+      // P2wPKH script:
+      Buffer.concat([
+        // length, dup, hash160, pkh_length
+        Buffer.from("1976a914", "hex"),
+        // pkh, without prefix length info
+        rawPreviousOutputScript.slice(2),
+        // equal, checksig
+        Buffer.from("88ac", "hex")
+      ]),
+      // 8-byte little-endian input value (= previous output value)
+      toBN(previousOutputValue).toArrayLike(Buffer, "le", 8),
+      // input nSequence
+      "00000000",
+      // hash of the outputs
+      digest(
+        digest(
+          Buffer.concat(
+            outputByteValues.flatMap(({ valueBytes, rawOutputScript }) => [
+              // value bytes
+              valueBytes,
+              // length of output script
+              Buffer.of(rawOutputScript.byteLength),
+              // output script
+              rawOutputScript
+            ])
+          )
+        )
+      ),
+      // nLockTime
+      "00000000",
+      // SIG_ALL
+      "01000000"
+    ].map(_ => Buffer.from(_, "hex"))
+  )
+
+  return /** @type {Buffer} */ (digest(digest(preimage)))
+}
+
+export function constructSignedTransaction(
+  /** @type {{ transactionID: string, index: string }} */ previousOutpoint,
+  /** @type {string} */ sighashSignature,
+  /** @type {string} */ publicKeyString,
+  /** @type {{value: number, address: string}[]} */ ...outputs
+) {
+  const rawPreviousOutpoint = Buffer.concat([
+    toBN(previousOutpoint.transactionID).toArrayLike(Buffer, "le", 32),
+    toBN(previousOutpoint.index).toArrayLike(Buffer, "le", 4)
+  ])
+
+  const rawTransaction = BitcoinHelpers.Transaction.constructOneInputWitnessTransaction(
+    rawPreviousOutpoint.toString("hex"),
+    // We set sequence to `0` to be able to replace by fee. It reflects
+    // bitcoin-spv:
+    // https://github.com/summa-tx/bitcoin-spv/blob/2a9d594d9b14080bdbff2a899c16ffbf40d62eef/solidity/contracts/CheckBitcoinSigs.sol#L154
+    0,
+    ...outputs.map(({ value, address }) => ({
+      value,
+      script: BitcoinHelpers.Address.toScript(address)
+    }))
+  )
+
+  const signatureR = sighashSignature.slice(0, 64)
+  const signatureS = sighashSignature.slice(64)
+  const publicKeyPoint = BitcoinHelpers.Address.splitPublicKey(publicKeyString)
+
+  return BitcoinHelpers.Transaction.addWitnessSignature(
+    rawTransaction,
+    0,
+    signatureR,
+    signatureS,
+    BitcoinHelpers.publicKeyPointToPublicKeyString(
+      publicKeyPoint.x.toString("hex"),
+      publicKeyPoint.y.toString("hex")
+    )
+  )
 }
