@@ -601,16 +601,6 @@ export default class Deposit {
    * @param {Error} err Error
    */
 
-  /**
-   * Registers a handler for errors.
-   *
-   * @param {OnErrorHandler} onErrorHandler
-   *        A handler that receives an error.
-   */
-  onError(onErrorHandler) {
-    this.eventEmitter.on("error", onErrorHandler)
-  }
-
   // /---------------------------- Event Handlers -----------------------------
 
   /**
@@ -1014,16 +1004,23 @@ export default class Deposit {
    * so a deposit cannot start auto-submitting and then switch to auto-minting
    * mid-stream---whichever is called first will be the flow that will occur.
    *
+   * @param {OnErrorHandler} [onError] A handler that receives an error (optional).
+   *
    * @return {AutoSubmitState} An object with promises to various stages of
    *         the auto-submit lifetime. Each promise can be fulfilled or
    *         rejected, and they are in a sequence where later promises will be
    *         rejected by earlier ones.
    */
-  autoSubmit() {
+  autoSubmit(onError) {
     // Only enable auto-submitting once.
     if (this.autoSubmittingState) {
       return this.autoSubmittingState
     }
+
+    if (onError) {
+      this.eventEmitter.on("error", onError)
+    }
+
     /** @type {AutoSubmitState} */
     this.autoSubmittingState = {
       fundingTransaction: this.fundingTransaction,
