@@ -83,17 +83,15 @@ jobs:
         run: npm test
 
       - name: Bump up package version
-        if: | # remove the `rfc-18` condition once workflow is tested
-          (github.ref == 'refs/heads/master'
-            && github.event_name != 'pull_request')
-            || startsWith(github.head_ref, 'rfc-18/')
+        if: |
+          github.ref == 'refs/heads/master'
+            && github.event_name != 'pull_request'
         uses: keep-network/npm-version-bump@v1
 
-      - name: Publish to npm # TODO: remove dry-run
-        if: | # remove the `rfc-18` condition once workflow is tested
-          (github.ref == 'refs/heads/master'
-            && github.event_name != 'pull_request')
-            || startsWith(github.head_ref, 'rfc-18/')
+      - name: Publish to npm
+        if: |
+          github.ref == 'refs/heads/master'
+            && github.event_name != 'pull_request'
         run: |
           echo //registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }} > .npmrc
-          npm publish --access=public --dry-run
+          npm publish --access=public
