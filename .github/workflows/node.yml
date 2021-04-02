@@ -4,12 +4,6 @@
 name: Node.js
 
 on:
-  # push:
-  #   branches: [ 'releases/**' ]
-  # pull_request:
-  #   branches: [ master ]
-  # workflow_dispatch:
-  #   types: redeploy  #what did it do?
   push:
     branches:
       - master
@@ -42,7 +36,7 @@ jobs:
             ${{ runner.os }}-build-
             ${{ runner.os }}-
 
-      - name: Upgrade jq # needed?
+      - name: Upgrade jq
         run: |
           wget https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64
           chmod +x jq-linux64
@@ -54,7 +48,7 @@ jobs:
       - name: Lint
         run: npm run lint
 
-  node-build-and-test:
+  node-build-test-publish:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -79,7 +73,7 @@ jobs:
             ${{ runner.os }}-build-
             ${{ runner.os }}-
 
-      - name: Upgrade jq # needed?
+      - name: Upgrade jq
         run: |
           wget https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64
           chmod +x jq-linux64
@@ -87,69 +81,31 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Build node
-        run: npm run build --if-present
-
-      - name: Run tests
-        # env:
-        #   CI: true # not needed?
-        run: npm test
-
-  node-publish:
-    needs: [node-lint, node-build-and-test]
-    if: | # remove the `rfc-18` condition once workflow is tested
-      (github.ref == 'refs/heads/master'
-        && github.event_name != 'pull_request')
-        || startsWith(github.ref, 'refs/heads/rfc-18/')
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: [12.11.x]
-    steps:
-      - uses: actions/checkout@v2
-  
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v1
-        with:
-          node-version: ${{ matrix.node-version }}
       
-      - name: Cache node modules
-        uses: actions/cache@v2
-        env:
-          cache-name: cache-solidity-node-modules
-        with:
-          path: ~/.npm # npm cache files are stored in `~/.npm` on Linux/macOS
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-            ${{ runner.os }}-build-
-            ${{ runner.os }}-
-
-      - name: Upgrade jq  # needed?
-        run: |
-          wget https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64
-          chmod +x jq-linux64
-          sudo mv jq-linux64 /usr/bin/jq
-
-      - name: Install dependencies
-        run: npm ci
-
       - name: Resolve latest contracts
         run: |
           npm update \
             @keep-network/keep-ecdsa \
             @keep-network/tbtc
 
-      # - name: Copy artifacts # needed?
-      #   run: |
-      #     mkdir -p artifacts
-      #     cp -r build/contracts/* artifacts/
+      - name: Build node
+        run: npm run build --if-present
+
+      - name: Run tests
+        run: npm test
 
       - name: Bump up package version
+        if: | # remove the `rfc-18` condition once workflow is tested
+          (github.ref == 'refs/heads/master'
+            && github.event_name != 'pull_request')
+            || startsWith(github.ref, 'refs/heads/rfc-18/')
         uses: keep-network/npm-version-bump@v1
 
       - name: Publish to npm # TODO: remove dry-run
+        if: | # remove the `rfc-18` condition once workflow is tested
+          (github.ref == 'refs/heads/master'
+            && github.event_name != 'pull_request')
+            || startsWith(github.ref, 'refs/heads/rfc-18/')
         run: |
           echo //registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }} > .npmrc
           npm publish --access=public --dry-run
