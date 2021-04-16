@@ -24,6 +24,7 @@ on:
 
 jobs:
   node-lint:
+    if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     strategy:
       matrix:
