@@ -97,11 +97,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
+      - name: Get upstream packages' versions
+        uses: keep-network/upstream-builds-query
+        id: upstream-builds-query
+        with:
+          upstream-builds: ${{ github.event.inputs.upstream_builds }}
+          query: |
+            keep-ecdsa-solidity-version = github.com/keep-network/keep-ecdsa/solidity#version
+            tbtc-solidity-version = github.com/keep-network/tbtc/solidity#version
+
       - name: Resolve latest contracts
         run: |
-          npm update \
-            @keep-network/keep-ecdsa \
-            @keep-network/tbtc
+            npm install --save-exact \
+              @keep-network/keep-ecdsa@${{ steps.upstream-builds-query.outputs.keep-ecdsa-solidity-version }}
+              @keep-network/tbtc@${{ steps.upstream-builds-query.outputs.tbtc-solidity-version }}
 
       - name: Build node
         run: npm run build --if-present
@@ -114,17 +123,22 @@ jobs:
           (github.ref == 'refs/heads/master'
             && github.event_name == 'push')
             || github.event_name == 'workflow_dispatch'
-        uses: keep-network/npm-version-bump@main
+        id: npm-version-bump
+        uses: keep-network/npm-version-bump@v2
+        with:
+          work-dir: ./solidity
+          environment: ${{ github.event.inputs.environment }}
+          branch: ${{ github.ref }}
+          commit: ${{ github.sha }}
 
       - name: Publish to npm
         if: |
           (github.ref == 'refs/heads/master'
             && github.event_name == 'push')
             || github.event_name == 'workflow_dispatch'
-        # TODO: --dry-run to be removed once testing of workflow is done
         run: |
           echo //registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }} > .npmrc
-          npm publish --access=public --dry-run
+          npm publish --access=public
       
       - name: Notify CI about completion of the workflow
         if: github.event_name == 'workflow_dispatch'
@@ -137,4 +151,4 @@ jobs:
           environment: ${{ github.event.inputs.environment }}
           upstream_builds: ${{ github.event.inputs.upstream_builds }}
           ref: ${{ github.event.inputs.ref }}
-          version: ${{ github.sha }} # TODO: replace with version once versioning ready
+          version: ${{ steps.npm-version-bump.outputs.version }}
