@@ -9,9 +9,22 @@ on:
       - master
   pull_request:
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment for workflow execution'
+        required: false
+        default: 'dev'
+      upstream_builds:
+        description: 'Upstream builds'
+        required: false
+      ref:
+        description: 'Git reference to checkout (e.g. branch name)'
+        required: false
+        default: 'master'
 
 jobs:
   node-lint:
+    if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -48,6 +61,20 @@ jobs:
       matrix:
         node-version: [12.11.x]
     steps:
+      - name: Show workflow metadata
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+            echo "Workflow dispatched on branch: ${{ github.ref }}"
+            echo "environment = ${{ github.event.inputs.environment }}"
+            echo "upstream_builds = ${{ github.event.inputs.upstream_builds }}"
+            echo "ref = ${{ github.event.inputs.ref }}"
+
+      - name: Show workflow metadata
+        if: github.event_name != 'workflow_dispatch'
+        run: |
+            echo "ref = ${{ github.ref }}"
+            echo "sha = ${{ github.sha }}"
+
       - uses: actions/checkout@v2
 
       - name: Use Node.js ${{ matrix.node-version }}
@@ -70,11 +97,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
+      - name: Get upstream packages' versions
+        uses: keep-network/upstream-builds-query@main
+        id: upstream-builds-query
+        with:
+          upstream-builds: ${{ github.event.inputs.upstream_builds }}
+          query: |
+            keep-ecdsa-solidity-version = github.com/keep-network/keep-ecdsa/solidity#version
+            tbtc-solidity-version = github.com/keep-network/tbtc/solidity#version
+
       - name: Resolve latest contracts
         run: |
-          npm update \
-            @keep-network/keep-ecdsa \
-            @keep-network/tbtc
+            npm install --save-exact \
+              @keep-network/keep-ecdsa@${{ steps.upstream-builds-query.outputs.keep-ecdsa-solidity-version }} \
+              @keep-network/tbtc@${{ steps.upstream-builds-query.outputs.tbtc-solidity-version }}
 
       - name: Build node
         run: npm run build --if-present
@@ -83,15 +119,29 @@ jobs:
         run: npm test
 
       - name: Bump up package version
-        if: |
-          github.ref == 'refs/heads/master'
-            && github.event_name != 'pull_request'
-        uses: keep-network/npm-version-bump@v1
+        if: github.event_name == 'workflow_dispatch'
+        id: npm-version-bump
+        uses: keep-network/npm-version-bump@v2
+        with:
+          environment: ${{ github.event.inputs.environment }}
+          branch: ${{ github.ref }}
+          commit: ${{ github.sha }}
 
       - name: Publish to npm
-        if: |
-          github.ref == 'refs/heads/master'
-            && github.event_name != 'pull_request'
+        if: github.event_name == 'workflow_dispatch'
         run: |
           echo //registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }} > .npmrc
           npm publish --access=public
+      
+      - name: Notify CI about completion of the workflow
+        if: github.event_name == 'workflow_dispatch'
+        uses: keep-network/notify-workflow-completed@main
+        env:
+          GITHUB_TOKEN: ${{ secrets.CI_GITHUB_TOKEN }}
+        with:
+          module: "github.com/keep-network/tbtc.js"
+          url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          environment: ${{ github.event.inputs.environment }}
+          upstream_builds: ${{ github.event.inputs.upstream_builds }}
+          ref: ${{ github.event.inputs.ref }}
+          version: ${{ steps.npm-version-bump.outputs.version }}
