@@ -119,10 +119,7 @@ jobs:
         run: npm test
 
       - name: Bump up package version
-        if: |
-          (github.ref == 'refs/heads/master'
-            && github.event_name == 'push')
-            || github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch'
         id: npm-version-bump
         uses: keep-network/npm-version-bump@v2
         with:
@@ -131,10 +128,7 @@ jobs:
           commit: ${{ github.sha }}
 
       - name: Publish to npm
-        if: |
-          (github.ref == 'refs/heads/master'
-            && github.event_name == 'push')
-            || github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch'
         run: |
           echo //registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }} > .npmrc
           npm publish --access=public
