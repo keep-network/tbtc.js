@@ -61,20 +61,6 @@ jobs:
       matrix:
         node-version: [12.11.x]
     steps:
-      - name: Show workflow metadata
-        if: github.event_name == 'workflow_dispatch'
-        run: |
-            echo "Workflow dispatched on branch: ${{ github.ref }}"
-            echo "environment = ${{ github.event.inputs.environment }}"
-            echo "upstream_builds = ${{ github.event.inputs.upstream_builds }}"
-            echo "upstream_ref = ${{ github.event.inputs.upstream_ref }}"
-
-      - name: Show workflow metadata
-        if: github.event_name != 'workflow_dispatch'
-        run: |
-            echo "ref = ${{ github.ref }}"
-            echo "sha = ${{ github.sha }}"
-
       - uses: actions/checkout@v2
 
       - name: Use Node.js ${{ matrix.node-version }}
