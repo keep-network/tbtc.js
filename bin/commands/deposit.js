@@ -502,8 +502,10 @@ async function redeemDeposit(tbtc, deposit, redemptionInfo) {
       }
       redemption.autoSubmit()
 
-      redemption.onWithdrawn(transactionID => {
-        resolve(standardDepositOutput(tbtc, deposit) + "\t" + transactionID)
+      redemption.onWithdrawn(async transactionID => {
+        resolve(
+          (await standardDepositOutput(tbtc, deposit)) + "\t" + transactionID
+        )
       })
     } catch (err) {
       reject(err)
@@ -546,10 +548,12 @@ async function runDeposit(tbtc, deposit, mintOnActive) {
           const mintedTbtc = await deposit.mintTBTC()
 
           resolve(
-            standardDepositOutput(tbtc, deposit) + "\t" + mintedTbtc.toString()
+            (await standardDepositOutput(tbtc, deposit)) +
+              "\t" +
+              mintedTbtc.toString()
           )
         } else {
-          resolve(standardDepositOutput(tbtc, deposit))
+          resolve(await standardDepositOutput(tbtc, deposit))
         }
       } catch (err) {
         reject(err)
