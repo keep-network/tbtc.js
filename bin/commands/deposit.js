@@ -242,7 +242,7 @@ const commandParsers = {
     } else {
       return async tbtc => {
         const deposit = await tbtc.Deposit.withAddress(depositAddress)
-        return redeemDeposit(tbtc, deposit, "")
+        return redeemDeposit(tbtc, deposit, redemptionBitcoinAddress)
       }
     }
   },
