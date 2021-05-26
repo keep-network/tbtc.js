@@ -520,6 +520,8 @@ async function redeemDeposit(tbtc, deposit, redemptionInfo) {
  * @return {Promise<string>}
  */
 async function runDeposit(tbtc, deposit, mintOnActive) {
+  deposit.onError(console.error)
+
   deposit.autoSubmit()
 
   return new Promise(async (resolve, reject) => {
