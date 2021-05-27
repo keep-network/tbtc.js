@@ -242,7 +242,7 @@ const commandParsers = {
     } else {
       return async tbtc => {
         const deposit = await tbtc.Deposit.withAddress(depositAddress)
-        return redeemDeposit(tbtc, deposit, "")
+        return redeemDeposit(tbtc, deposit, redemptionBitcoinAddress)
       }
     }
   },
@@ -502,8 +502,10 @@ async function redeemDeposit(tbtc, deposit, redemptionInfo) {
       }
       redemption.autoSubmit()
 
-      redemption.onWithdrawn(transactionID => {
-        resolve(standardDepositOutput(tbtc, deposit) + "\t" + transactionID)
+      redemption.onWithdrawn(async transactionID => {
+        resolve(
+          (await standardDepositOutput(tbtc, deposit)) + "\t" + transactionID
+        )
       })
     } catch (err) {
       reject(err)
@@ -518,6 +520,8 @@ async function redeemDeposit(tbtc, deposit, redemptionInfo) {
  * @return {Promise<string>}
  */
 async function runDeposit(tbtc, deposit, mintOnActive) {
+  deposit.onError(console.error)
+
   deposit.autoSubmit()
 
   return new Promise(async (resolve, reject) => {
@@ -546,10 +550,12 @@ async function runDeposit(tbtc, deposit, mintOnActive) {
           const mintedTbtc = await deposit.mintTBTC()
 
           resolve(
-            standardDepositOutput(tbtc, deposit) + "\t" + mintedTbtc.toString()
+            (await standardDepositOutput(tbtc, deposit)) +
+              "\t" +
+              mintedTbtc.toString()
           )
         } else {
-          resolve(standardDepositOutput(tbtc, deposit))
+          resolve(await standardDepositOutput(tbtc, deposit))
         }
       } catch (err) {
         reject(err)
