@@ -6,7 +6,7 @@ name: Node.js
 on:
   push:
     branches:
-      - master
+      - main
   pull_request:
   workflow_dispatch:
     inputs:
@@ -20,7 +20,7 @@ on:
       upstream_ref:
         description: 'Git reference to checkout (e.g. branch name)'
         required: false
-        default: 'master'
+        default: 'main'
 
 jobs:
   node-lint:

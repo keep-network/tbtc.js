@@ -180,7 +180,7 @@ and `src/Redemption.js` (until more details are filled in here...).
 
 Handles to the Ethereum `TruffleContract` instances are directly available on
 the `tbtc.Deposit` object. Here is how these map to Solidity files in the
-https://github.com/keep-network/tbtc/tree/master[tBTC repository]:
+https://github.com/keep-network/tbtc/tree/main[tBTC repository]:
 
 * `tbtc.Deposit.system()`: `TBTCSystem.sol`
 * `tbtc.Deposit.depositFactory()`: `DepositFactory.sol`
