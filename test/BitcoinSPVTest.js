@@ -1,11 +1,9 @@
-/*
-const BitcoinSPV = require("../src/BitcoinSPV").BitcoinSPV
-const ElectrumClient = require("../src/ElectrumClient")
-const config = require("../../../src/config/config.json")
+import { BitcoinSPV } from "../src/lib/BitcoinSPV.js"
+import Client from "../src/lib/ElectrumClient.js"
+import { readFileSync } from "fs"
 
-const fs = require("fs")
-const chai = require("chai")
-const assert = chai.assert
+import chai from "chai"
+const { assert } = chai
 
 describe("BitcoinSPV", async () => {
   let tx
@@ -13,17 +11,23 @@ describe("BitcoinSPV", async () => {
   let bitcoinSPV
 
   before(async () => {
-    const txData = fs.readFileSync("./test/data/tx.json", "utf8")
+    const txData = readFileSync("./test/data/tx.json", "utf8")
     tx = JSON.parse(txData)
 
-    electrumClient = new ElectrumClient.Client(config.electrum.testnetPublic)
+    // TODO: Use config from a config file
+    const config = {
+      server: "electrumx-server.test.tbtc.network",
+      port: 8443,
+      protocol: "wss"
+    }
+    electrumClient = new Client(config)
 
     bitcoinSPV = new BitcoinSPV(electrumClient)
-
     await electrumClient.connect()
   })
 
   after(async () => {
+    console.log("Closing")
     await electrumClient.close()
   })
 
@@ -57,4 +61,4 @@ describe("BitcoinSPV", async () => {
 
     assert.isTrue(result)
   })
-})*/
+})
