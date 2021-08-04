@@ -104,7 +104,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         run: |
           echo //registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }} > .npmrc
-          npm publish --access=public
+          npm publish --access=public --tag ${{ github.event.inputs.environment }}
       
       - name: Notify CI about completion of the workflow
         if: github.event_name == 'workflow_dispatch'
