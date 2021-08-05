@@ -27,7 +27,6 @@ describe("BitcoinSPV", async () => {
   })
 
   after(async () => {
-    console.log("Closing")
     await electrumClient.close()
   })
 
