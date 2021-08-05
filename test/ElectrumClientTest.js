@@ -3,7 +3,6 @@ import { readFileSync } from "fs"
 import { assert as _assert } from "chai"
 const assert = _assert
 
-
 describe("ElectrumClient", async () => {
   let client
   let tx
@@ -253,10 +252,7 @@ describe("ElectrumClient", async () => {
         },
         reason => {
           // onRejected
-          assert.include(
-            reason.toString(),
-            "Transaction not found."
-          )
+          assert.include(reason.toString(), "Transaction not found.")
         }
       )
 
@@ -291,4 +287,3 @@ describe("ElectrumClient", async () => {
     })
   })
 })
-
