@@ -50,17 +50,6 @@ describe("ElectrumClient", async () => {
     assert.deepEqual(result, expectedResult)
   })
 
-  // TODO: Uncomment or remove
-  // it("getMerkleProof", async () => {
-  //   const expectedResult = tx.merkleProof
-  //   const expectedPosition = tx.indexInBlock
-  //   const result = await client.getMerkleProofInfo(tx.hash, tx.blockHeight)
-
-  //   assert.equal(result.proof, expectedResult, "unexpected result")
-
-  //   assert.equal(result.position, expectedPosition, "unexpected result")
-  // })
-
   it("getHeadersChain", async () => {
     const confirmations = tx.chainHeadersNumber
     const expectedResult = tx.chainHeaders

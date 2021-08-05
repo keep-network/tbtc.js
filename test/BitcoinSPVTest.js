@@ -60,4 +60,14 @@ describe("BitcoinSPV", async () => {
 
     assert.isTrue(result)
   })
+
+  it("getMerkleProofInfo", async () => {
+    const expectedResult = tx.merkleProof
+    const expectedPosition = tx.indexInBlock
+    const result = await bitcoinSPV.getMerkleProofInfo(tx.hash, tx.blockHeight)
+
+    assert.equal(result.proof, expectedResult, "unexpected result")
+
+    assert.equal(result.position, expectedPosition, "unexpected result")
+  })
 })
