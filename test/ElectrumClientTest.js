@@ -1,4 +1,5 @@
 import Client, { scriptToHash } from "../src/lib/ElectrumClient.js"
+import { electrumConfig } from "./config/network.js"
 import { readFileSync } from "fs"
 import { assert as _assert } from "chai"
 const assert = _assert
@@ -11,14 +12,7 @@ describe("ElectrumClient", async () => {
     const txData = readFileSync("./test/data/tx.json", "utf8")
     tx = JSON.parse(txData)
 
-    // TODO: Use config from a config file
-    const config = {
-      server: "electrumx-server.test.tbtc.network",
-      port: 8443,
-      protocol: "wss"
-    }
-    client = new Client(config)
-
+    client = new Client(electrumConfig["testnet"])
     await client.connect()
   })
 

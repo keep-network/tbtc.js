@@ -1,5 +1,6 @@
 import { BitcoinSPV } from "../src/lib/BitcoinSPV.js"
 import Client from "../src/lib/ElectrumClient.js"
+import { electrumConfig } from "./config/network.js"
 import { readFileSync } from "fs"
 
 import chai from "chai"
@@ -13,15 +14,7 @@ describe("BitcoinSPV", async () => {
   before(async () => {
     const txData = readFileSync("./test/data/tx.json", "utf8")
     tx = JSON.parse(txData)
-
-    // TODO: Use config from a config file
-    const config = {
-      server: "electrumx-server.test.tbtc.network",
-      port: 8443,
-      protocol: "wss"
-    }
-    electrumClient = new Client(config)
-
+    electrumClient = new Client(electrumConfig["testnet"])
     bitcoinSPV = new BitcoinSPV(electrumClient)
     await electrumClient.connect()
   })
