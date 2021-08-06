@@ -1,4 +1,4 @@
-import Client, { scriptToHash } from "../src/lib/ElectrumClient.js"
+import ElectrumClient from "../src/lib/ElectrumClient.js"
 import { electrumConfig } from "./config/network.js"
 import { readFileSync } from "fs"
 import { assert as _assert } from "chai"
@@ -12,7 +12,7 @@ describe("ElectrumClient", async () => {
     const txData = readFileSync("./test/data/tx.json", "utf8")
     tx = JSON.parse(txData)
 
-    client = new Client(electrumConfig["testnet"])
+    client = new ElectrumClient(electrumConfig["testnet"])
     await client.connect()
   })
 
@@ -149,7 +149,7 @@ describe("ElectrumClient", async () => {
       const mockEventEmission = function() {
         client.electrumClient.subscribe.emit(
           "blockchain.scripthash.subscribe",
-          [scriptToHash(script1), expectedStatus]
+          [ElectrumClient.scriptToHash(script1), expectedStatus]
         )
       }
 
@@ -181,12 +181,12 @@ describe("ElectrumClient", async () => {
       const mockEventsEmission = function() {
         client.electrumClient.subscribe.emit(
           "blockchain.scripthash.subscribe",
-          [scriptToHash(script2), unexpectedStatus]
+          [ElectrumClient.scriptToHash(script2), unexpectedStatus]
         )
 
         client.electrumClient.subscribe.emit(
           "blockchain.scripthash.subscribe",
-          [scriptToHash(script1), expectedStatus]
+          [ElectrumClient.scriptToHash(script1), expectedStatus]
         )
       }
 
