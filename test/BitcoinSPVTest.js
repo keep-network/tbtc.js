@@ -1,5 +1,5 @@
 import { BitcoinSPV } from "../src/lib/BitcoinSPV.js"
-import Client from "../src/lib/ElectrumClient.js"
+import ElectrumClient from "../src/lib/ElectrumClient.js"
 import { electrumConfig } from "./config/network.js"
 import { readFileSync } from "fs"
 
@@ -14,7 +14,7 @@ describe("BitcoinSPV", async () => {
   before(async () => {
     const txData = readFileSync("./test/data/tx.json", "utf8")
     tx = JSON.parse(txData)
-    electrumClient = new Client(electrumConfig["testnet"])
+    electrumClient = new ElectrumClient(electrumConfig["testnet"])
     bitcoinSPV = new BitcoinSPV(electrumClient)
     await electrumClient.connect()
   })
