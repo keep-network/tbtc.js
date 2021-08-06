@@ -1,7 +1,6 @@
 import { BitcoinTxParser } from "../src/lib/BitcoinTxParser.js"
-import { assert as _assert } from "chai"
-const assert = _assert
 import { readFileSync } from "fs"
+import { assert } from "chai"
 
 describe("BitcoinTxParser", async () => {
   let tx

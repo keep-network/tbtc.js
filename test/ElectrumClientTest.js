@@ -1,8 +1,7 @@
 import ElectrumClient from "../src/lib/ElectrumClient.js"
 import { electrumConfig } from "./config/network.js"
 import { readFileSync } from "fs"
-import { assert as _assert } from "chai"
-const assert = _assert
+import { assert } from "chai"
 
 describe("ElectrumClient", async () => {
   let client

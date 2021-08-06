@@ -2,9 +2,7 @@ import { BitcoinSPV } from "../src/lib/BitcoinSPV.js"
 import ElectrumClient from "../src/lib/ElectrumClient.js"
 import { electrumConfig } from "./config/network.js"
 import { readFileSync } from "fs"
-
-import chai from "chai"
-const { assert } = chai
+import { assert } from "chai"
 
 describe("BitcoinSPV", async () => {
   let tx
