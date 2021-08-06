@@ -1,4 +1,4 @@
-import BitcoinHelpers from "../src/BitcoinHelpers.js"
+import BitcoinHelpers, { BitcoinNetwork } from "../src/BitcoinHelpers.js"
 import { assert as _assert } from "chai"
 const assert = _assert
 
@@ -11,7 +11,7 @@ describe("BitcoinAddress", async () => {
       "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8"
 
     it("calculates testnet address", async () => {
-      const chainType = "testnet"
+      const chainType = BitcoinNetwork.TESTNET
       const expectedResult = "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx"
 
       const result = BitcoinHelpers.Address.publicKeyToP2WPKHAddress(
@@ -22,7 +22,7 @@ describe("BitcoinAddress", async () => {
     })
 
     it("calculates mainnet address", async () => {
-      const chainType = "main"
+      const chainType = BitcoinNetwork.MAINNET
       const expectedResult = "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"
 
       const result = BitcoinHelpers.Address.publicKeyToP2WPKHAddress(
