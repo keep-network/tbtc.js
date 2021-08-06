@@ -1045,7 +1045,7 @@ export default class Deposit {
             true
           )
         })
-        .catch(this.notifyError)
+        .catch(err => this.notifyError(err))
     }
 
     return this.autoSubmittingState
