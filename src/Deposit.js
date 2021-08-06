@@ -424,6 +424,8 @@ export default class Deposit {
     this.keepContract = keepContract
     this.contract = depositContract
 
+    this.eventEmitter = new EventEmitter()
+
     // Set up state transition promises.
     this.activeStatePromise = this.waitForActiveState()
 
@@ -431,8 +433,6 @@ export default class Deposit {
     this.bitcoinAddress = this.publicKeyPoint.then(point =>
       this.publicKeyPointToBitcoinAddress(point)
     )
-
-    this.eventEmitter = new EventEmitter()
   }
 
   // /------------------------------- Accessors -------------------------------
