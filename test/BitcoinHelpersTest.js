@@ -1,6 +1,5 @@
 import BitcoinHelpers, { BitcoinNetwork } from "../src/BitcoinHelpers.js"
-import { assert as _assert } from "chai"
-const assert = _assert
+import { assert } from "chai"
 
 describe("BitcoinAddress", async () => {
   describe("publicKeyToP2WPKHAddress", async () => {
