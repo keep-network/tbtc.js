@@ -1,11 +1,8 @@
-/*
-const BitcoinSPV = require("../src/BitcoinSPV").BitcoinSPV
-const ElectrumClient = require("../src/ElectrumClient")
-const config = require("../../../src/config/config.json")
-
-const fs = require("fs")
-const chai = require("chai")
-const assert = chai.assert
+import { BitcoinSPV } from "../src/lib/BitcoinSPV.js"
+import ElectrumClient from "../src/lib/ElectrumClient.js"
+import { electrumConfig } from "./config/network.js"
+import { readFileSync } from "fs"
+import { assert } from "chai"
 
 describe("BitcoinSPV", async () => {
   let tx
@@ -13,13 +10,10 @@ describe("BitcoinSPV", async () => {
   let bitcoinSPV
 
   before(async () => {
-    const txData = fs.readFileSync("./test/data/tx.json", "utf8")
+    const txData = readFileSync("./test/data/tx.json", "utf8")
     tx = JSON.parse(txData)
-
-    electrumClient = new ElectrumClient.Client(config.electrum.testnetPublic)
-
+    electrumClient = new ElectrumClient(electrumConfig["testnet"])
     bitcoinSPV = new BitcoinSPV(electrumClient)
-
     await electrumClient.connect()
   })
 
@@ -57,4 +51,14 @@ describe("BitcoinSPV", async () => {
 
     assert.isTrue(result)
   })
-})*/
+
+  it("getMerkleProofInfo", async () => {
+    const expectedResult = tx.merkleProof
+    const expectedPosition = tx.indexInBlock
+    const result = await bitcoinSPV.getMerkleProofInfo(tx.hash, tx.blockHeight)
+
+    assert.equal(result.proof, expectedResult, "unexpected result")
+
+    assert.equal(result.position, expectedPosition, "unexpected result")
+  })
+})
