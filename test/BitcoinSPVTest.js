@@ -37,21 +37,6 @@ describe("BitcoinSPV", async () => {
     assert.deepEqual(result, expectedResult)
   })
 
-  it("verifyMerkleProof", async () => {
-    const proofHex = tx.merkleProof
-    const index = tx.indexInBlock
-    const txHash = tx.hash
-    const blockHeight = tx.blockHeight
-    const result = await bitcoinSPV.verifyMerkleProof(
-      proofHex,
-      txHash,
-      index,
-      blockHeight
-    )
-
-    assert.isTrue(result)
-  })
-
   it("getMerkleProofInfo", async () => {
     const expectedResult = tx.merkleProof
     const expectedPosition = tx.indexInBlock

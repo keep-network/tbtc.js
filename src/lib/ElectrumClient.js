@@ -151,24 +151,6 @@ export default class Client {
    */
 
   /**
-   * Get unspent outputs sent to a script.
-   * @param {string} script ScriptPubKey in a hexadecimal format.
-   * @return {Promise<UnspentOutputData[]>} List of unspent outputs. It includes
-   *         transactions in the mempool.
-   */
-  async getUnspentToScript(script) {
-    const scriptHash = Client.scriptToHash(script)
-
-    const listUnspent = await this.electrumClient
-      .blockchain_scripthash_listunspent(scriptHash)
-      .catch(err => {
-        throw new Error(JSON.stringify(err))
-      })
-
-    return listUnspent
-  }
-
-  /**
    * Get balance of a script.
    *
    * @param {string} script ScriptPubKey in a hexadecimal format.
@@ -351,21 +333,6 @@ export default class Client {
   }
 
   /**
-   * Get merkle root hash for block.
-   * @param {number} blockHeight Block height.
-   * @return {Promise<Buffer>} Merkle root hash.
-   */
-  async getMerkleRoot(blockHeight) {
-    const header = await this.electrumClient
-      .blockchain_block_header(blockHeight)
-      .catch(err => {
-        throw new Error(`failed to get block header: [${err}]`)
-      })
-
-    return Buffer.from(header, "hex").slice(36, 68)
-  }
-
-  /**
    * Get concatenated chunk of block headers built on a starting block.
    * @param {number} blockHeight Starting block height.
    * @param {number} confirmations Number of confirmations (subsequent blocks)
@@ -410,30 +377,6 @@ export default class Client {
       .catch(err => {
         throw new Error(`failed to get transaction merkle: [${err}]`)
       }))
-  }
-
-  /**
-   * Finds index of output in a transaction for a given address.
-   * @param {string} txHash Hash of a transaction.
-   * @param {string} address Bitcoin address for the output.
-   * @return {Promise<number>} Index of output in the transaction (0-indexed).
-   */
-  async findOutputForAddress(txHash, address) {
-    const tx = await this.getTransaction(txHash).catch(err => {
-      throw new Error(`failed to get transaction: [${err}]`)
-    })
-
-    const outputs = tx.vout
-
-    for (let index = 0; index < outputs.length; index++) {
-      for (const a of outputs[index].scriptPubKey.addresses) {
-        if (a == address) {
-          return index
-        }
-      }
-    }
-
-    throw new Error(`output for address ${address} not found`)
   }
 
   /**

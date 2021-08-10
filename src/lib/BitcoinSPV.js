@@ -103,43 +103,4 @@ export class BitcoinSPV {
 
     return { proof: proof.toString("hex"), position: merkle.pos }
   }
-
-  /**
-   * Verifies merkle proof of transaction inclusion in the block. It expects proof
-   * as a concatenation of 32-byte values in a hexadecimal form. The proof should
-   * include the merkle tree branches, with transaction hash merkle tree root omitted.
-   * @param {string} proofHex hexadecimal representation of the proof
-   * @param {string} txHash Transaction hash.
-   * @param {number} index is transaction index in the block (1-indexed)
-   * @param {number} blockHeight Height of the block where transaction was confirmed.
-   * @return {Promise<boolean>} true if verification passed, else false
-   */
-  async verifyMerkleProof(proofHex, txHash, index, blockHeight) {
-    const proof = Buffer.from(proofHex, "hex")
-
-    // Retrieve merkle tree root.
-    const actualRoot = await this.client
-      .getMerkleRoot(blockHeight)
-      .catch(err => {
-        throw new Error(`failed to get merkle root: [${err}]`)
-      })
-
-    // Extract tree branches
-    const branches = []
-    for (let i = 0; i < Math.floor(proof.length / 32); i++) {
-      const branch = proof.slice(i * 32, (i + 1) * 32)
-      branches.push(branch)
-    }
-
-    // Derive expected root from branches and transaction.
-    const txHashBuffer = Buffer.from(txHash, "hex").reverse()
-    const expectedRoot = deriveRoot(Hash256, txHashBuffer, branches, index)
-
-    // Validate if calculated root is equal to the one returned from client.
-    if (actualRoot.equals(expectedRoot)) {
-      return true
-    } else {
-      return false
-    }
-  }
 }
