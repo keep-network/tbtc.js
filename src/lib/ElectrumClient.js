@@ -1,3 +1,4 @@
+import fetch from "node-fetch"
 import ElectrumClient from "electrum-client-js"
 import sha256 from "bcrypto/lib/sha256-browser.js"
 const { digest } = sha256
@@ -63,20 +64,26 @@ export default class Client {
   /**
    * Initializes Electrum Client instance with provided configuration.
    * @param {Config} config Electrum client connection configuration.
+   * @param {string} apiUrl Url to the electrs server
    */
-  constructor(config) {
+  constructor(config, apiUrl) {
+    // TODO: config will be removed once all ported
     this.electrumClient = new ElectrumClient(
       config.server,
       config.port,
       config.protocol,
       config.options
     )
+
+    this.apiUrl = apiUrl
+    // TODO: Check connectivity here
   }
 
   /**
    * Establish connection with the server.
    */
   async connect() {
+    // TODO: Remove when done with electrum client
     console.log("Connecting to electrum server...")
 
     await this.electrumClient.connect("tbtc", "1.4.2").catch(err => {
@@ -88,6 +95,7 @@ export default class Client {
    * Disconnect from the server.
    */
   async close() {
+    // TODO: Remove when done with electrum client
     console.log("Closing connection to electrum server...")
     this.electrumClient.close()
   }
@@ -111,12 +119,54 @@ export default class Client {
    * @param {string} txHash Hash of a transaction.
    * @return {Promise<TransactionData>} Transaction details.
    */
+  // async getTransaction(txHash) {
+  //   const tx = await this.electrumClient
+  //     .blockchain_transaction_get(txHash, true)
+  //     .catch(err => {
+  //       throw new Error(`failed to get transaction ${txHash}: [${err}]`)
+  //     })
+
+  //   return tx
+  // }
+
+  /**
+   * Get details of the transaction.
+   * @param {string} txHash Hash of a transaction.
+   * @return {Promise<TransactionData>} Transaction details.
+   */
   async getTransaction(txHash) {
-    const tx = await this.electrumClient
-      .blockchain_transaction_get(txHash, true)
-      .catch(err => {
-        throw new Error(`failed to get transaction ${txHash}: [${err}]`)
+    const getTxUrl = `${this.apiUrl}/tx/${txHash}`
+    const tx = await fetch(getTxUrl).then(resp => {
+      if (!resp.ok) {
+        throw new Error(`failed to get transaction ${txHash} at ${getTxUrl}`)
+      }
+      return resp.json()
+    })
+
+    // append hex data to transaction
+    const getTxRawUrl = `${this.apiUrl}/tx/${txHash}/hex`
+    tx.hex = await fetch(getTxRawUrl).then(resp => {
+      if (!resp.ok) {
+        throw new Error(
+          `failed to get hex transaction ${txHash} at ${getTxRawUrl}`
+        )
+      }
+      return resp.text()
+    })
+
+    // append confirmations
+    if (tx.status.confirmed) {
+      const heightUrl = `${this.apiUrl}/blocks/tip/height`
+      const height = await fetch(heightUrl).then(resp => {
+        if (!resp.ok) {
+          throw new Error(`failed to get blockchain height at ${heightUrl}`)
+        }
+        return resp.text()
       })
+      tx.confirmations = parseInt(height) - tx.status.block_height + 1
+    } else {
+      tx.confirmations = 0
+    }
 
     return tx
   }

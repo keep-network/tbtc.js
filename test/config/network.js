@@ -15,3 +15,9 @@ export const electrumConfig = {
     protocol: "ws"
   }
 }
+
+export const electrsConfig = {
+  main: "https://blockstream.info/api/",
+  testnet: "https://blockstream.info/testnet/api/",
+  regtest: "" // TODO: Fill
+}

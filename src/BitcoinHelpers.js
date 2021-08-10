@@ -290,7 +290,10 @@ const BitcoinHelpers = {
       throw new Error("Electrum client not configured.")
     }
 
-    const electrumClient = new ElectrumClient(BitcoinHelpers.electrumConfig)
+    const electrumClient = new ElectrumClient(
+      BitcoinHelpers.electrumConfig,
+      BitcoinHelpers.electrsConfig
+    )
 
     await electrumClient.connect()
 

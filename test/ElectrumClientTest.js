@@ -1,5 +1,5 @@
 import ElectrumClient from "../src/lib/ElectrumClient.js"
-import { electrumConfig } from "./config/network.js"
+import { electrumConfig, electrsConfig } from "./config/network.js"
 import { readFileSync } from "fs"
 import { assert } from "chai"
 
@@ -11,7 +11,11 @@ describe("ElectrumClient", async () => {
     const txData = readFileSync("./test/data/tx.json", "utf8")
     tx = JSON.parse(txData)
 
-    client = new ElectrumClient(electrumConfig["testnet"])
+    // TODO: Remove client
+    client = new ElectrumClient(
+      electrumConfig["testnet"],
+      electrsConfig["testnet"]
+    )
     await client.connect()
   })
 
@@ -179,7 +183,10 @@ describe("ElectrumClient", async () => {
         },
         reason => {
           // onRejected
-          assert.include(reason.toString(), "Transaction not found.")
+          assert.include(
+            reason.toString(),
+            "failed to get transaction 02437d2f0fedd7cb11766dc6aefbc1dc8c171ef2daebddb02a32349318cc6289"
+          )
         }
       )
 
