@@ -43,11 +43,21 @@ const {
 } = findAndConsumeArgsValues(flagArgs, "--mnemonic", "--account", "--rpc")
 const engine = new ProviderEngine({ pollingInterval: 1000 })
 
+// PrivateKeyWalletSubprovider accepts the `chainId` argument, which is by default
+// set to `1` (mainnet). We assume that if the `--rpc` flag is provided the chain
+// is likely to be non-mainnet, so we have to get the `chainId`.
+let chainId
+if (rpc) {
+  const web3 = new Web3(rpc)
+  chainId = await web3.eth.getChainId()
+}
+
 engine.addProvider(
   // For address 0x420ae5d973e58bc39822d9457bf8a02f127ed473.
   new Subproviders.PrivateKeyWalletSubprovider(
     mnemonic ||
-      "b6252e08d7a11ab15a4181774fdd58689b9892fe9fb07ab4f026df9791966990"
+      "b6252e08d7a11ab15a4181774fdd58689b9892fe9fb07ab4f026df9791966990",
+    chainId // if `chainId` is undefined the provider will default to mainnet
   )
 )
 engine.addProvider(
