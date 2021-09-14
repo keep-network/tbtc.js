@@ -399,11 +399,16 @@ async function getDeployedContract(artifact, web3, networkId) {
     artifact.networks[networkId].transactionHash
   )
 
+  let deployedAtBlock
+  if (transaction && transaction.blockNumber) {
+    deployedAtBlock = transaction.blockNumber
+  }
+
   return buildContract(
     web3,
     artifact.abi,
     deploymentInfo.address,
-    transaction.blockNumber || undefined
+    deployedAtBlock
   )
 }
 
