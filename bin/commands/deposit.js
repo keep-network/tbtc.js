@@ -360,6 +360,7 @@ async function listDeposits(tbtc, ownerAddress) {
       // Find tokens that were owned by the owner address at any point.
       const ownedDepositTokens = (
         await EthereumHelpers.getExistingEvents(
+          tbtc.Deposit.config.web3,
           tbtc.Deposit.depositToken(),
           "Transfer",
           { to: ownerAddress || "" }

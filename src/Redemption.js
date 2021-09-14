@@ -93,6 +93,7 @@ export default class Redemption {
             `${this.deposit.address}...`
         )
         const signatureEvent = await EthereumHelpers.getEvent(
+          this.deposit.factory.config.web3,
           this.deposit.keepContract,
           "SignatureSubmitted",
           { digest: redemptionDigest }
@@ -266,6 +267,7 @@ export default class Redemption {
 
     const allFees = (
       await EthereumHelpers.getExistingEvents(
+        this.deposit.factory.config.web3,
         this.deposit.factory.system(),
         "RedemptionRequested",
         { _depositContractAddress: this.deposit.address },
