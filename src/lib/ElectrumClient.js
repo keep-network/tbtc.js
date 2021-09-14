@@ -157,7 +157,7 @@ export default class Client {
    *         transactions in the mempool.
    */
   async getUnspentToScript(script) {
-    const scriptHash = scriptToHash(script)
+    const scriptHash = Client.scriptToHash(script)
 
     const listUnspent = await this.electrumClient
       .blockchain_scripthash_listunspent(scriptHash)
@@ -178,7 +178,7 @@ export default class Client {
    *         decimal strings.
    */
   async getBalanceOfScript(script) {
-    const scriptHash = scriptToHash(script)
+    const scriptHash = Client.scriptToHash(script)
 
     const balance = await this.electrumClient
       .blockchain_scripthash_getBalance(scriptHash)
@@ -216,7 +216,7 @@ export default class Client {
    * @return {Promise<T>} Value resolved by the callback.
    */
   async onTransactionToScript(script, callback) {
-    const scriptHash = scriptToHash(script)
+    const scriptHash = Client.scriptToHash(script)
 
     // Check if transaction for script already exists.
     const initialStatus = await this.electrumClient
@@ -442,7 +442,7 @@ export default class Client {
    * @return {Promise<TransactionData[]>} A list of transactions.
    */
   async getTransactionsForScript(script) {
-    const scriptHash = scriptToHash(script)
+    const scriptHash = Client.scriptToHash(script)
     /** @type {{ height: number, tx_hash: string }[]} */
     const history = await this.electrumClient.blockchain_scripthash_getHistory(
       scriptHash
@@ -465,15 +465,15 @@ export default class Client {
 
     return filteredTransactions
   }
-}
 
-/**
- * Converts ScriptPubKey to a script hash specified by the [Electrum Protocol](https://electrumx.readthedocs.io/en/stable/protocol-basics.html#script-hashes).
- * @param {string} script ScriptPubKey in a hexadecimal format.
- * @return {string} Script hash as a hex string.
- */
-function scriptToHash(script) {
-  /** @type {Buffer} */
-  const scriptHash = digest(Buffer.from(script, "hex")).reverse()
-  return scriptHash.toString("hex")
+  /**
+   * Converts ScriptPubKey to a script hash specified by the [Electrum Protocol](https://electrumx.readthedocs.io/en/stable/protocol-basics.html#script-hashes).
+   * @param {string} script ScriptPubKey in a hexadecimal format.
+   * @return {string} Script hash as a hex string.
+   */
+  static scriptToHash(script) {
+    /** @type {Buffer} */
+    const scriptHash = digest(Buffer.from(script, "hex")).reverse()
+    return scriptHash.toString("hex")
+  }
 }

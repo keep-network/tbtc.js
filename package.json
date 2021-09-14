@@ -1,6 +1,6 @@
 {
   "name": "@keep-network/tbtc.js",
-  "version": "0.18.2",
+  "version": "0.19.5-pre",
   "type": "module",
   "description": "tbtc.js provides JS bindings to the tBTC system that establishes a TBTC ERC20 token supply-pegged to BTC.",
   "repository": {
@@ -30,12 +30,12 @@
   "author": "Antonio Salazar Cardozo <antonio@thesis.co>",
   "license": "MIT",
   "dependencies": {
-    "@keep-network/keep-ecdsa": "1.2.1",
-    "@keep-network/tbtc": "1.1.0",
+    "@keep-network/keep-ecdsa": ">1.7.0-pre <1.7.0-rc",
+    "@keep-network/tbtc": ">1.1.2-pre <1.1.2-rc",
     "bcoin": "git+https://github.com/keep-network/bcoin.git#355c21aec91128362668162fe5a309dbc0c59c75",
     "bcrypto": "git+https://github.com/bcoin-org/bcrypto.git#semver:~5.3.0",
     "bufio": "^1.0.6",
-    "electrum-client-js": "git+https://github.com/keep-network/electrum-client-js.git#v0.1.0",
+    "electrum-client-js": "git+https://github.com/keep-network/electrum-client-js.git#v0.1.1",
     "p-wait-for": "^3.1.0",
     "web3-utils": "^1.2.8"
   },
@@ -50,7 +50,7 @@
     "eslint": "^6.8.0",
     "eslint-config-keep": "git+https://github.com/keep-network/eslint-config-keep.git#0.3.0",
     "fs": "0.0.1-security",
-    "mocha": "^6.2.0",
+    "mocha": "^9.0.3",
     "prettier": "^1.19.1",
     "typescript": "3.4.3",
     "web3": "^1.3.6",
