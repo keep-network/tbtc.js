@@ -1,6 +1,6 @@
 {
   "name": "@keep-network/tbtc.js",
-  "version": "0.19.5-pre",
+  "version": "0.19.5-rc",
   "type": "module",
   "description": "tbtc.js provides JS bindings to the tBTC system that establishes a TBTC ERC20 token supply-pegged to BTC.",
   "repository": {
@@ -30,8 +30,8 @@
   "author": "Antonio Salazar Cardozo <antonio@thesis.co>",
   "license": "MIT",
   "dependencies": {
-    "@keep-network/keep-ecdsa": ">1.7.0-pre <1.7.0-rc",
-    "@keep-network/tbtc": ">1.1.2-pre <1.1.2-rc",
+    "@keep-network/keep-ecdsa": "1.7.0",
+    "@keep-network/tbtc": "1.1.0",
     "bcoin": "git+https://github.com/keep-network/bcoin.git#355c21aec91128362668162fe5a309dbc0c59c75",
     "bcrypto": "git+https://github.com/bcoin-org/bcrypto.git#semver:~5.3.0",
     "bufio": "^1.0.6",
