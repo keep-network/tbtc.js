@@ -157,7 +157,7 @@ function getEvent(web3, sourceContract, eventName, filter, fromBlock) {
  * @param {any} [filter] An additional filter to apply to the event being
  *        searched for.
  * @param {number} [fromBlock] Starting block for events search.
- * @param {string|number} [toBlock] Ending block for events search.
+ * @param {any} [toBlock] Ending block for events search.
  *
  * @return {Promise<any[]>} A promise that will be fulfilled by the list of
  *         event objects once they are found.
@@ -193,6 +193,7 @@ async function getExistingEvents(
   }
 
   return new Promise(async (resolve, reject) => {
+    /** @type any[] */
     let resultEvents = []
     try {
       resultEvents = await sourceContract.getPastEvents(eventName, {
