@@ -196,7 +196,7 @@ ${bitcoinCommandHelp
         specified, of the specified address.
     `)
 
-    process.exit(1)
+    return process.exit(1)
   }
 
   return runAction(web3, action)
