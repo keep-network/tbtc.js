@@ -4,6 +4,8 @@
 name: Node.js
 
 on:
+  schedule:
+    - cron: '0 0 * * *'
   push:
     branches:
       - main
@@ -24,7 +26,9 @@ on:
 
 jobs:
   node-lint:
-    if: github.event_name != 'workflow_dispatch'
+    if: | 
+      github.event_name != 'workflow_dispatch'
+        && github.event_name != 'schedule'
     runs-on: ubuntu-latest
     strategy:
       matrix:
