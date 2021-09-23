@@ -461,31 +461,54 @@ const BitcoinHelpers = {
       onReceivedConfirmation
     ) {
       return BitcoinHelpers.withElectrumClient(async electrumClient => {
-        const checkConfirmations = async function() {
-          return BitcoinHelpers.withElectrumClient(async electrumClient => {
-            const { confirmations } = await electrumClient.getTransaction(
-              transactionID
-            )
+        const handleNewBlock = async function() {
+          const confirmations = await BitcoinHelpers.Transaction.checkConfirmations(
+            transactionID,
+            requiredConfirmations
+          )
 
-            if (typeof onReceivedConfirmation === "function" && confirmations) {
-              onReceivedConfirmation({
-                transactionID,
-                confirmations,
-                requiredConfirmations
-              })
-            }
+          if (typeof onReceivedConfirmation === "function" && confirmations) {
+            onReceivedConfirmation({
+              transactionID,
+              confirmations,
+              requiredConfirmations
+            })
+          }
 
-            if (confirmations >= requiredConfirmations) {
-              return confirmations
-            }
-
-            // Return null if required confirmations have not been reached so we
-            // continue to receive notifications.
-            return null
-          })
+          // Returns number of received confirmations or null if required
+          // confirmations have not been reached so we continue to receive notifications.
+          return confirmations
         }
 
-        return electrumClient.onNewBlock(checkConfirmations)
+        return electrumClient.onNewBlock(handleNewBlock)
+      })
+    },
+    /**
+     * Checks the Bitcoin chain if the given `transactionID` has the given
+     * number of `requiredConfirmations`.
+     *
+     * @param {string} transactionID A hex Bitcoin transaction id hash.
+     * @param {number} requiredConfirmations The number of required
+     *        confirmations.
+     *
+     * @return {Promise<number|null>} A promise to the final number of confirmations
+     *         observed that was at least equal to the required confirmations.
+     *         If the required number of confirmations is not met it will return
+     *         `null`.
+     */
+    checkConfirmations: async function(transactionID, requiredConfirmations) {
+      return BitcoinHelpers.withElectrumClient(async electrumClient => {
+        // TODO: Consider using retry backoff to get transaction.
+        const { confirmations } = await electrumClient.getTransaction(
+          transactionID
+        )
+
+        if (confirmations >= requiredConfirmations) {
+          return confirmations
+        }
+
+        // Return null if required confirmations have not been reached.
+        return null
       })
     },
     /**
