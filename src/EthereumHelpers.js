@@ -8,6 +8,8 @@
 import { backoffRetrier } from "./lib/backoff.js"
 import pWaitFor from "p-wait-for"
 
+const GET_PAST_EVENTS_BLOCK_INTERVAL = 2000
+
 /**
  * @typedef {object} DeploymentInfo
  * @property {string} address The address a contract is deployed at on a given
@@ -87,6 +89,7 @@ function readEventFromTransaction(
  * Waits until `source` emits the given `event`, including searching past blocks
  * for such `event`, then returns it.
  *
+ * @param {Web3} web3 Instance of Web3.
  * @param {Contract} sourceContract The web3 Contract that emits the event.
  * @param {string} eventName The name of the event to wait on.
  * @param {any} [filter] An additional filter to apply to the event being
@@ -96,7 +99,7 @@ function readEventFromTransaction(
  * @return {Promise<any>} A promise that will be fulfilled by the event
  *         object once it is received.
  */
-function getEvent(sourceContract, eventName, filter, fromBlock) {
+function getEvent(web3, sourceContract, eventName, filter, fromBlock) {
   return new Promise(async (resolve, reject) => {
     // As a workaround for a problem with MetaMask version 7.1.1 where subscription
     // for events doesn't work correctly we pull past events in a loop until
@@ -109,6 +112,7 @@ function getEvent(sourceContract, eventName, filter, fromBlock) {
         let event
         try {
           event = await getExistingEvent(
+            web3,
             sourceContract,
             eventName,
             filter,
@@ -147,23 +151,100 @@ function getEvent(sourceContract, eventName, filter, fromBlock) {
  * is missing it looks for a contract's defined property `deployedAtBlock`. If the
  * property is missing starts searching from block `0`.
  *
+ * @param {Web3} web3 Instance of Web3.
  * @param {Contract} sourceContract The web3 Contract that emits the event.
  * @param {string} eventName The name of the event to wait on.
  * @param {any} [filter] An additional filter to apply to the event being
  *        searched for.
  * @param {number} [fromBlock] Starting block for events search.
+ * @param {any} [toBlock] Ending block for events search.
  *
  * @return {Promise<any[]>} A promise that will be fulfilled by the list of
  *         event objects once they are found.
  */
-async function getExistingEvents(sourceContract, eventName, filter, fromBlock) {
-  const events = await sourceContract.getPastEvents(eventName, {
-    fromBlock: fromBlock || sourceContract.deployedAtBlock || 0,
-    toBlock: "latest",
-    filter
-  })
+async function getExistingEvents(
+  web3,
+  sourceContract,
+  eventName,
+  filter,
+  fromBlock = 0,
+  toBlock = "latest"
+) {
+  if (!Number.isInteger(fromBlock)) {
+    throw new Error(`FromBlock is not a number`)
+  }
 
-  return events
+  if (fromBlock <= 0) {
+    console.log(
+      `FromBlock is less or equal zero; ` +
+        `setting FromBlock to source contract deployment block`
+    )
+
+    fromBlock = sourceContract.deployedAtBlock || 0
+  }
+
+  if (toBlock !== "latest") {
+    if (!Number.isInteger(toBlock) || toBlock < fromBlock) {
+      throw new Error(
+        `ToBlock should be \'latest'\ or an integer greater ` +
+          `than FromBlock, current value: ${toBlock}`
+      )
+    }
+  }
+
+  return new Promise(async (resolve, reject) => {
+    /** @type any[] */
+    let resultEvents = []
+    try {
+      resultEvents = await sourceContract.getPastEvents(eventName, {
+        fromBlock: fromBlock,
+        toBlock: toBlock,
+        filter
+      })
+    } catch (error) {
+      console.log(
+        `Switching to partial events pulls; ` +
+          `failed to get events in one request for event [${eventName}], ` +
+          `fromBlock: [${fromBlock}], toBlock: [${toBlock}]: [${error.message}]`
+      )
+
+      try {
+        if (toBlock === "latest") {
+          toBlock = await web3.eth.getBlockNumber()
+        }
+
+        let batchStartBlock = fromBlock
+
+        while (batchStartBlock <= toBlock) {
+          let batchEndBlock = batchStartBlock + GET_PAST_EVENTS_BLOCK_INTERVAL
+          if (batchEndBlock > toBlock) {
+            batchEndBlock = toBlock
+          }
+          console.log(
+            `Executing partial events pull for event [${eventName}], ` +
+              `fromBlock: [${batchStartBlock}], toBlock: [${batchEndBlock}]`
+          )
+          const foundEvents = await sourceContract.getPastEvents(eventName, {
+            fromBlock: batchStartBlock,
+            toBlock: batchEndBlock,
+            filter
+          })
+
+          resultEvents = resultEvents.concat(foundEvents)
+          console.log(
+            `Fetched [${foundEvents.length}] events, has ` +
+              `[${resultEvents.length}] total`
+          )
+
+          batchStartBlock = batchEndBlock + 1
+        }
+      } catch (error) {
+        return reject(error)
+      }
+    }
+
+    return resolve(resultEvents)
+  })
 }
 
 /**
@@ -172,6 +253,7 @@ async function getExistingEvents(sourceContract, eventName, filter, fromBlock) {
  * set in the passed `filter` object, if available. Does not wait for any new
  * events.
  *
+ * @param {Web3} web3 Instance of Web3.
  * @param {Contract} sourceContract The web3 Contract that emits the event.
  * @param {string} eventName The name of the event to wait on.
  * @param {any} [filter] An additional filter to apply to the event being
@@ -181,9 +263,15 @@ async function getExistingEvents(sourceContract, eventName, filter, fromBlock) {
  * @return {Promise<any>} A promise that will be fulfilled by the event object
  *         once it is found.
  */
-async function getExistingEvent(sourceContract, eventName, filter, fromBlock) {
+async function getExistingEvent(
+  web3,
+  sourceContract,
+  eventName,
+  filter,
+  fromBlock
+) {
   return (
-    await getExistingEvents(sourceContract, eventName, filter, fromBlock)
+    await getExistingEvents(web3, sourceContract, eventName, filter, fromBlock)
   ).slice(-1)[0]
 }
 

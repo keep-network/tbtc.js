@@ -368,6 +368,7 @@ export default class Deposit {
 
     console.debug(`Looking up Created event for deposit ${depositAddress}...`)
     const createdEvent = await EthereumHelpers.getExistingEvent(
+      factory.config.web3,
       factory.system(),
       "Created",
       { _depositContractAddress: depositAddress }
@@ -971,6 +972,7 @@ export default class Deposit {
     }
 
     const redemptionRequest = await EthereumHelpers.getExistingEvent(
+      this.factory.config.web3,
       this.factory.system(),
       "RedemptionRequested",
       { _depositContractAddress: this.address },
@@ -1164,7 +1166,11 @@ export default class Deposit {
     console.debug(`Waiting for deposit ${this.address} keep public key...`)
 
     // Wait for the Keep to be ready.
-    await EthereumHelpers.getEvent(this.keepContract, "PublicKeyPublished")
+    await EthereumHelpers.getEvent(
+      this.factory.config.web3,
+      this.keepContract,
+      "PublicKeyPublished"
+    )
 
     console.debug(
       `Waiting for deposit ${this.address} to retrieve public key...`
@@ -1210,6 +1216,7 @@ export default class Deposit {
     // FIXME/NOTE: We could be inactive due to being outside of the funding
     // FIXME/NOTE: path, e.g. in liquidation or courtesy call.
     await EthereumHelpers.getEvent(
+      this.factory.config.web3,
       this.factory.system(),
       "Funded",
       {
@@ -1224,6 +1231,7 @@ export default class Deposit {
 
   async readPublishedPubkeyEvent() {
     return EthereumHelpers.getExistingEvent(
+      this.factory.config.web3,
       this.factory.system(),
       "RegisteredPubkey",
       { _depositContractAddress: this.address },
