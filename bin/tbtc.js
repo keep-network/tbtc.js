@@ -41,88 +41,100 @@ const {
   found: { mnemonic, account, rpc },
   remaining: commandArgs
 } = findAndConsumeArgsValues(flagArgs, "--mnemonic", "--account", "--rpc")
-const engine = new ProviderEngine({ pollingInterval: 1000 })
 
-engine.addProvider(
-  // For address 0x420ae5d973e58bc39822d9457bf8a02f127ed473.
-  new Subproviders.PrivateKeyWalletSubprovider(
-    mnemonic ||
-      "b6252e08d7a11ab15a4181774fdd58689b9892fe9fb07ab4f026df9791966990"
+async function run() {
+  const engine = new ProviderEngine({ pollingInterval: 1000 })
+
+  // PrivateKeyWalletSubprovider accepts the `chainId` argument, which is by default
+  // set to `1` (mainnet). We assume that if the `--rpc` flag is provided the chain
+  // is likely to be non-mainnet, so we have to get the `chainId`.
+  let chainId
+  if (rpc) {
+    const web3 = new Web3(rpc)
+    chainId = await web3.eth.getChainId()
+  }
+
+  engine.addProvider(
+    // For address 0x420ae5d973e58bc39822d9457bf8a02f127ed473.
+    new Subproviders.PrivateKeyWalletSubprovider(
+      mnemonic ||
+        "b6252e08d7a11ab15a4181774fdd58689b9892fe9fb07ab4f026df9791966990",
+      chainId // if `chainId` is undefined the provider will default to mainnet
+    )
   )
-)
-engine.addProvider(
-  new WebsocketSubprovider({
-    rpcUrl:
-      rpc || "wss://mainnet.infura.io/ws/v3/414a548bc7434bbfb7a135b694b15aa4",
-    debug,
-    origin: undefined
-  })
-)
+  engine.addProvider(
+    new WebsocketSubprovider({
+      rpcUrl:
+        rpc || "wss://mainnet.infura.io/ws/v3/414a548bc7434bbfb7a135b694b15aa4",
+      debug,
+      origin: undefined
+    })
+  )
 
-// -------------------------------- SETUP --------------------------------------
-// @ts-ignore Web3's provider interface seems to be inaccurate with respect to
-// what actually works, since ProviderEngine works just fine here.
-const web3 = new Web3(engine)
-engine.start()
+  // -------------------------------- SETUP --------------------------------------
+  // @ts-ignore Web3's provider interface seems to be inaccurate with respect to
+  // what actually works, since ProviderEngine works just fine here.
+  const web3 = new Web3(engine)
+  engine.start()
 
-/** @type {CommandAction | null} */
-let action = null
+  /** @type {CommandAction | null} */
+  let action = null
 
-switch (commandArgs[0]) {
-  case "deposit":
-    action = parseDepositCommand(web3, commandArgs.slice(1))
-    break
-  case "bitcoin":
-    action = parseBitcoinCommand(web3, commandArgs.slice(1))
-    break
-  case "lot-sizes":
-    if (commandArgs.length == 1) {
-      action = async tbtc => {
-        return (await tbtc.Deposit.availableSatoshiLotSizes())
-          .map(_ => _.toString())
-          .join("\n")
+  switch (commandArgs[0]) {
+    case "deposit":
+      action = parseDepositCommand(web3, commandArgs.slice(1))
+      break
+    case "bitcoin":
+      action = parseBitcoinCommand(web3, commandArgs.slice(1))
+      break
+    case "lot-sizes":
+      if (commandArgs.length == 1) {
+        action = async tbtc => {
+          return (await tbtc.Deposit.availableSatoshiLotSizes())
+            .map(_ => _.toString())
+            .join("\n")
+        }
       }
-    }
-    break
-  case "supply":
-    if (commandArgs.length == 1) {
-      action = async tbtc => {
-        return await tbtc.depositFactory
-          .vendingMachine()
-          .methods.getMintedSupply()
-          .call()
+      break
+    case "supply":
+      if (commandArgs.length == 1) {
+        action = async tbtc => {
+          return await tbtc.depositFactory
+            .vendingMachine()
+            .methods.getMintedSupply()
+            .call()
+        }
       }
-    }
-    break
-  case "supply-cap":
-    if (commandArgs.length == 1) {
-      action = async tbtc => {
-        return await tbtc.depositFactory
-          .vendingMachine()
-          .methods.getMaxSupply()
-          .call()
+      break
+    case "supply-cap":
+      if (commandArgs.length == 1) {
+        action = async tbtc => {
+          return await tbtc.depositFactory
+            .vendingMachine()
+            .methods.getMaxSupply()
+            .call()
+        }
       }
-    }
-    break
-  case "balance":
-    if (commandArgs.length == 1) {
-      action = async tbtc => {
-        return await tbtc.Deposit.token()
-          .methods.balanceOf(tbtc.config.web3.eth.defaultAccount)
-          .call()
+      break
+    case "balance":
+      if (commandArgs.length == 1) {
+        action = async tbtc => {
+          return await tbtc.Deposit.token()
+            .methods.balanceOf(tbtc.config.web3.eth.defaultAccount)
+            .call()
+        }
+      } else if (commandArgs.length == 2) {
+        action = async tbtc => {
+          return await tbtc.Deposit.token()
+            .methods.balanceOf(commandArgs[1])
+            .call()
+        }
       }
-    } else if (commandArgs.length == 2) {
-      action = async tbtc => {
-        return await tbtc.Deposit.token()
-          .methods.balanceOf(commandArgs[1])
-          .call()
-      }
-    }
-    break
-}
+      break
+  }
 
-if (action === null) {
-  console.log(`
+  if (action === null) {
+    console.log(`
 Unknown command ${commandArgs[0]} or bad parameters.
 
 Supported flags:
@@ -184,14 +196,18 @@ ${bitcoinCommandHelp
         specified, of the specified address.
     `)
 
-  process.exit(1)
+    return process.exit(1)
+  }
+
+  return runAction(web3, action)
 }
 
 /**
+ * @param {Web3} web3
  * @param {CommandAction} action
  * @return {Promise<string>}
  */
-async function runAction(action) {
+async function runAction(web3, action) {
   web3.eth.defaultAccount = account || (await web3.eth.getAccounts())[0]
   const chainId = await web3.eth.getChainId()
   // @ts-ignore TypeScript mad.
@@ -206,7 +222,7 @@ async function runAction(action) {
   return action(tbtc)
 }
 
-runAction(/** @type {CommandAction} */ (action))
+run()
   .then(result => {
     console.log(result)
 

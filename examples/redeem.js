@@ -9,7 +9,8 @@ async function runExample() {
   engine.addProvider(
     // For address 0x420ae5d973e58bc39822d9457bf8a02f127ed473.
     new Subproviders.PrivateKeyWalletSubprovider(
-      "b6252e08d7a11ab15a4181774fdd58689b9892fe9fb07ab4f026df9791966990"
+      "b6252e08d7a11ab15a4181774fdd58689b9892fe9fb07ab4f026df9791966990",
+      3 // chainId; if undefined the provider will assume mainnet
     )
   )
   engine.addProvider(
