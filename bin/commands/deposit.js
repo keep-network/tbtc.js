@@ -80,7 +80,7 @@ export const depositCommandHelp = [
         Attempts to notify the deposit it is undercollateralized and
         should transition into courtesy call.
 
-    liquidate [--for <funding-timeout|undercollateralization|courtesy-timeout|redemption-timeout>]
+    liquidate [--for <setup-timeout|funding-timeout|undercollateralization|courtesy-timeout|redemption-signature-timeout|redemption-proof-timeout>]
         Attempts to liquidate the deposit, reporting back the status of
         the liquidation . By default, looks for any available reason to
         liquidate. When the flow completes, outputs the deposit as a
@@ -88,7 +88,7 @@ export const depositCommandHelp = [
         deposit state, deposit lot size in satoshis, and the liquidation
         status (\`liquidated\`, \`in-auction\`, or \`failed\`).
 
-        --for <funding-timeout|undercollateralization|courtesy-timeout|redemption-timeout>
+        --for <setup-timeout|funding-timeout|undercollateralization|courtesy-timeout|redemption-signature-timeout|redemption-proof-timeout>
             If specified, only triggers liquidation for the specified
             reason. If the reason does not apply, reports \`not-applicable\`
             status.
@@ -216,11 +216,11 @@ const LIQUIDATION_HANDLERS = {
     method: "notifyCourtesyCallExpired"
   },
   "redemption-signature-timeout": {
-    states: [DepositStates.AWAITING_WITHDRAWAL_PROOF],
+    states: [DepositStates.AWAITING_WITHDRAWAL_SIGNATURE],
     method: "notifyRedemptionSignatureTimedOut"
   },
   "redemption-proof-timeout": {
-    states: [DepositStates.AWAITING_WITHDRAWAL_SIGNATURE],
+    states: [DepositStates.AWAITING_WITHDRAWAL_PROOF],
     method: "notifyRedemptionProofTimedOut"
   }
 }
@@ -328,11 +328,11 @@ const commandParsers = {
     const {
       found: { for: liquidationReason },
       remaining
-    } = findAndConsumeArgsValues(args, "for")
+    } = findAndConsumeArgsValues(args, "--for")
 
-    if (liquidationReason && liquidationReason in LIQUIDATION_HANDLERS) {
+    if (liquidationReason && !(liquidationReason in LIQUIDATION_HANDLERS)) {
       console.error(
-        `Invalid liquidation reason; only one of these is allowed:\n` +
+        `Invalid liquidation reason: ${liquidationReason}; only one of these is allowed:\n` +
           `    ${Object.keys(LIQUIDATION_HANDLERS).join(", ")}`
       )
       return null
