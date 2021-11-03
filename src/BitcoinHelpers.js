@@ -290,7 +290,10 @@ const BitcoinHelpers = {
       throw new Error("Electrum client not configured.")
     }
 
-    const electrumClient = new ElectrumClient(BitcoinHelpers.electrumConfig)
+    const electrumClient = new ElectrumClient(
+      BitcoinHelpers.electrumConfig,
+      BitcoinHelpers.electrsConfig
+    )
 
     await electrumClient.connect()
 
@@ -662,26 +665,6 @@ const BitcoinHelpers = {
       return transaction.toRaw().toString("hex")
     },
     /**
-     * Finds all transactions containing unspent outputs received
-     * by the `bitcoinAddress`.
-     *
-     * @param {string} bitcoinAddress Bitcoin address to check.
-     *
-     * @return {Promise<TransactionInBlock[]>} A promise to an array of
-     *         transactions with accompanying information about the output
-     *         position and value pointed at the specified receiver script.
-     *         Resolves with an empty array if no such transactions exist.
-     */
-    findAllUnspent: async function(bitcoinAddress) {
-      return await BitcoinHelpers.withElectrumClient(async electrumClient => {
-        const script = BitcoinHelpers.Address.toScript(bitcoinAddress)
-        return BitcoinHelpers.Transaction.findAllUnspentWithClient(
-          electrumClient,
-          script
-        )
-      })
-    },
-    /**
      * Gets the confirmed balance of the `bitcoinAddress`.
      *
      * @param {string} bitcoinAddress Bitcoin address to check.
@@ -798,35 +781,6 @@ const BitcoinHelpers = {
       })
 
       return transactions.length > 0 ? transactions[0] : null
-    },
-    /**
-     * Finds all transactions to the given `receiverScript` using the
-     * given `electrumClient`.
-     *
-     * @param {ElectrumClient} electrumClient An already-initialized Electrum client.
-     * @param {string} receiverScript A receiver script.
-     *
-     * @return {Promise<TransactionInBlock[]>} A promise to an array of
-     *         transactions with accompanying information about the output
-     *         position and value pointed at the specified receiver script.
-     *         Resolves with an empty array if no such transactions exist.
-     */
-    findAllUnspentWithClient: async function(electrumClient, receiverScript) {
-      const unspentTransactions = await electrumClient.getUnspentToScript(
-        receiverScript
-      )
-
-      const result = []
-
-      for (const tx of unspentTransactions.reverse()) {
-        result.push({
-          transactionID: tx.tx_hash,
-          outputPosition: tx.tx_pos,
-          value: tx.value
-        })
-      }
-
-      return result
     }
   }
 }
