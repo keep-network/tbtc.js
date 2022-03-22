@@ -2,6 +2,9 @@
 
 = `tbtc.js`
 
+https://github.com/keep-network/tbtc.js/actions[image:https://github.com/keep-network/tbtc.js/workflows/Node.js%20CI/badge.svg[CI Build Status]]
+https://discord.gg/4R6RGFf[image:https://img.shields.io/badge/chat-Discord-blueViolet.svg[Chat with us on Discord]]
+
 `tbtc.js` provides JS bindings to the tBTC system. The
 https://tbtc.network[tBTC system] is a bonded, multi-federated peg made up of
 many deposits backed by single-use BTC wallets to enable their value's
@@ -207,7 +210,7 @@ to the `Deposit.sol` file in the tBTC system.
 
 == Got Problems?
 
-We're listening. Hit us up at https://discord.gg/4R6RGFf.
+We're listening. Hit us up in https://discord.gg/4R6RGFf[Discord].
 
 == License
 
