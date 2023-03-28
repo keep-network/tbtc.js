@@ -1,6 +1,13 @@
 :toc: macro
 
+ifdef::env-github[]
+:important-caption: :heavy_exclamation_mark:
+endif::[]
+
 = `tbtc.js`
+
+IMPORTANT: This repository has been archived. tBTC v1 is no longer actively maintained and has been superseded by tBTC v2.
+           tBTC v2 code is available in the link:https://github.com/keep-network/tbtc-v2[keep-network/tbtc-v2] repository.
 
 `tbtc.js` provides JS bindings to the tBTC system. The
 https://tbtc.network[tBTC system] is a bonded, multi-federated peg made up of
